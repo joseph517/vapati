@@ -4,7 +4,6 @@ import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.service.UserService;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,14 +24,11 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private final UserValidationService userValidationService;
 
     public UserController(
-            UserService userService,
-            UserValidationService userValidationService
+            UserService userService
     ) {
         this.userService = userService;
-        this.userValidationService = userValidationService;
     }
 
     @GetMapping("/list")

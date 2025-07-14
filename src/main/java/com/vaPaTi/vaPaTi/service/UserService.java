@@ -54,7 +54,7 @@ public class UserService {
     @Transactional
     public UserDTO createUser(@NotNull UserUserInfoRequestDTO request) {
         CreateUserDTO userDTO = request.getUser();
-        UserInfoDTO userInfoDTO = request.getUserInfo();
+        CreateUserInfoDTO userInfoDTO = request.getUserInfo();
 
         // Validate category limit
         userValidationService.validateCategoryLimit(userDTO.getCategoryIds());

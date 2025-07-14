@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.dtos;
 public class UserUserInfoRequestDTO {
 
     private CreateUserDTO user;
-    private UserInfoDTO userInfo;
+    private CreateUserInfoDTO userInfo;
 
     // Getters y setters
     public CreateUserDTO getUser() {
@@ -14,11 +14,11 @@ public class UserUserInfoRequestDTO {
         this.user = user;
     }
 
-    public UserInfoDTO getUserInfo() {
+    public CreateUserInfoDTO getUserInfo() {
         return userInfo;
     }
 
-    public void setUserInfo(UserInfoDTO userInfo) {
+    public void setUserInfo(CreateUserInfoDTO userInfo) {
         this.userInfo = userInfo;
     }
 }

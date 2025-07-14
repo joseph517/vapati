@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.mapper;
 
+import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
 import com.vaPaTi.vaPaTi.dtos.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import org.springframework.stereotype.Component;
@@ -17,11 +18,28 @@ public class UserInfoMapper {
         dto.setLastName(userInfo.getLastName());
         dto.setEmail(userInfo.getEmail());
         dto.setUserName(userInfo.getUserName());
-        dto.setPassword(userInfo.getPassword());
         dto.setPhone(userInfo.getPhone());
         dto.setDescription(userInfo.getDescription());
         dto.setProfilePicture(userInfo.getProfilePicture());
 
         return dto;
+    }
+
+    public UserInfo fromCreateUserInfoDTO(CreateUserInfoDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+
+        UserInfo userInfo = new UserInfo();
+        userInfo.setFirstName(dto.getFirstName());
+        userInfo.setLastName(dto.getLastName());
+        userInfo.setEmail(dto.getEmail());
+        userInfo.setUserName(dto.getUserName());
+        userInfo.setPassword(dto.getPassword()); // Aquí SÍ tienes acceso al password
+        userInfo.setPhone(dto.getPhone());
+        userInfo.setDescription(dto.getDescription());
+        userInfo.setProfilePicture(dto.getProfilePicture());
+
+        return userInfo;
     }
 }

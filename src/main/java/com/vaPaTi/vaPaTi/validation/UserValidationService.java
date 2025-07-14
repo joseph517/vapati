@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.CreateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
@@ -8,6 +9,7 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserCategory;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserInfoRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -29,18 +31,21 @@ public class UserValidationService {
     private final PasswordEncoder passwordEncoder;
     private final UserInfoRepository userInfoRepository;
     private final UserRepository userRepository;
+    private final UserInfoMapper userInfoMapper;
 
     // Constructor
     public UserValidationService(
             CategoryRepository categoryRepository,
             PasswordEncoder passwordEncoder,
             UserRepository userRepository,
-            UserInfoRepository userInfoRepository
+            UserInfoRepository userInfoRepository,
+            UserInfoMapper userInfoMapper
     ) {
         this.categoryRepository = categoryRepository;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.userInfoRepository = userInfoRepository;
+        this.userInfoMapper = userInfoMapper;
     }
 
     public void validateCategoryLimit(@NotNull List<Long> categoryIds) {
@@ -102,25 +107,20 @@ public class UserValidationService {
         user.setUserCategories(userCategories);
     }
 
-    public @NotNull UserInfo createUserInfo(@NotNull UserInfoDTO dto) {
-        // check email, username, password before creating UserInfo
+    public @NotNull UserInfo createUserInfo(@NotNull CreateUserInfoDTO dto) {
+        // Validaciones
         validateEmail(dto.getEmail(), null);
         validateUserName(dto.getUserName(), null);
         validatePassword(dto.getPassword());
 
-        UserInfo userInfo = new UserInfo();
+        // Usa el mapper para crear UserInfo
+        UserInfo userInfo = userInfoMapper.fromCreateUserInfoDTO(dto);
 
-        userInfo.setFirstName(dto.getFirstName());
-        userInfo.setLastName(dto.getLastName());
-        userInfo.setEmail(dto.getEmail());
-        userInfo.setUserName(dto.getUserName());
-        // encrypt password
+        // Encripta el password DESPUÉS del mapeo
         userInfo.setPassword(passwordEncoder.encode(dto.getPassword()));
-        userInfo.setPhone(dto.getPhone());
-        userInfo.setDescription(dto.getDescription());
-        userInfo.setProfilePicture(dto.getProfilePicture());
         userInfo.setCreatedAt(LocalDateTime.now());
         userInfo.setUpdatedAt(LocalDateTime.now());
+
         return userInfo;
     }
 
