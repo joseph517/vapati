@@ -175,6 +175,9 @@ public class UserValidationService {
                 .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
     }
 
+    public boolean existsById(Long id) {
+        return userRepository.existsById(id);
+    }
     public void updateTimestamp(@NotNull User user) {
         user.setUpdatedAt(LocalDateTime.now());
     }

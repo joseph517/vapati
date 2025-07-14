@@ -6,10 +6,9 @@ import com.vaPaTi.vaPaTi.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bank-accounts")
@@ -29,5 +28,11 @@ public class BankAccountController {
     @Operation(summary = "Create bank account", description = "Create a new bank account for a user")
     public ResponseEntity<BankAccountDTO> createBankAccount(@RequestBody CreateBankAccountDTO dto) {
         return ResponseEntity.ok(bankAccountService.createBankAccount(dto));
+    }
+
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get all user bank accounts", description = "Get all bank accounts by user id")
+    public ResponseEntity<List<BankAccountDTO>> getBankAccountsByUserId(@PathVariable Long userId) {
+        return ResponseEntity.ok(bankAccountService.getBankAccountsByUserId(userId));
     }
 }
