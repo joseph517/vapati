@@ -29,4 +29,13 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long> 
     @Query("SELECT COUNT(ba) > 0 FROM BankAccount ba WHERE ba.user.id = :userId AND ba.accountNumber = :accountNumber")
     boolean existsByUserIdAndAccountNumber(@Param("userId") Long userId, @Param("accountNumber") String accountNumber);
 
+    boolean existsByAccountNumberAndDeletedAtIsNull(String accountNumber);
+
+    boolean existsByUserIdAndAccountNumberAndDeletedAtIsNull(Long userId, String accountNumber);
+
+    @Query(value = "SELECT * FROM bank_accounts WHERE user_id = :userId AND account_number = :accountNumber AND deleted_at IS NOT NULL", nativeQuery = true)
+    Optional<BankAccount> findByUserIdAndAccountNumberAndDeletedAtIsNotNull(@Param("userId") Long userId, @Param("accountNumber") String accountNumber);
+
+    @Query(value = "SELECT * FROM bank_accounts WHERE account_number = :accountNumber", nativeQuery = true)
+    Optional<BankAccount> findByAccountNumberIgnoreDeleted(@Param("accountNumber") String accountNumber);
 }

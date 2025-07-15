@@ -9,6 +9,8 @@ import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class BankAccountValidationService {
 
@@ -50,14 +52,30 @@ public class BankAccountValidationService {
         }
     }
 
-    public void checkIfAccountNumberExists(String accountNumber) {
-        if (bankAccountRepository.existsByAccountNumber(accountNumber)) {
-            throw new MessageException("Account number already exists");
+    public AccountValidationResult validateAccountCreation(String accountNumber, Long userId) {
+        Optional<BankAccount> existingAccount = bankAccountRepository.findByAccountNumberIgnoreDeleted(accountNumber);
+
+        if (existingAccount.isEmpty()) {
+            return AccountValidationResult.CAN_CREATE;
         }
+
+        BankAccount account = existingAccount.get();
+        boolean isActive = account.getDeletedAt() == null;
+        boolean isOwner = account.getUser().getId().equals(userId);
+
+        if (isActive) {
+            return AccountValidationResult.ALREADY_EXISTS;
+        }
+
+        if (!isOwner) {
+            return AccountValidationResult.OWNED_BY_OTHER_USER;
+        }
+
+        return AccountValidationResult.CAN_RESTORE;
     }
 
     public void checkIfUserHasDuplicateAccount(Long userId, String accountNumber) {
-        if (bankAccountRepository.existsByUserIdAndAccountNumber(userId, accountNumber)) {
+        if (bankAccountRepository.existsByUserIdAndAccountNumberAndDeletedAtIsNull(userId, accountNumber)) {
             throw new MessageException("User already has a bank account with this account number");
         }
     }

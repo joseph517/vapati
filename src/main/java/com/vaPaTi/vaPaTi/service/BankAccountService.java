@@ -11,12 +11,13 @@ import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import jakarta.transaction.Transactional;
 import org.jetbrains.annotations.NotNull;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+
+import com.vaPaTi.vaPaTi.validation.AccountValidationResult;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class BankAccountService {
@@ -39,16 +40,45 @@ public class BankAccountService {
         this.bankAccountMapper = bankAccountMapper;
     }
 
-    // Create bank account
     public BankAccountDTO createBankAccount(@NotNull CreateBankAccountDTO dto) {
+
         bankAccountValidationService.validateInput(dto);
         User user = userValidationService.getUserById(dto.getUserId());
         bankAccountValidationService.verifyUserIsVerified(dto.getUserId());
-        bankAccountValidationService.checkIfAccountNumberExists(dto.getAccountNumber());
+
+        // Validate duplicate accounts for the user in active accounts
         bankAccountValidationService.checkIfUserHasDuplicateAccount(dto.getUserId(), dto.getAccountNumber());
-        BankAccount bankAccount = bankAccountValidationService.buildBankAccountEntity(dto, user);
-        BankAccount saved = bankAccountRepository.save(bankAccount);
-        return bankAccountMapper.toDto(saved);
+
+        // Main validation of the account number
+        AccountValidationResult validationResult = bankAccountValidationService
+                .validateAccountCreation(dto.getAccountNumber(), dto.getUserId());
+
+        switch (validationResult) {
+            case CAN_CREATE:
+                // Create new account
+                BankAccount newAccount = bankAccountValidationService.buildBankAccountEntity(dto, user);
+                BankAccount saved = bankAccountRepository.save(newAccount);
+                return bankAccountMapper.toDto(saved);
+
+            case CAN_RESTORE:
+                // Restore deleted account
+                BankAccount accountToRestore = bankAccountRepository
+                        .findByUserIdAndAccountNumberAndDeletedAtIsNotNull(dto.getUserId(), dto.getAccountNumber())
+                        .orElseThrow(() -> new MessageException("Account not found for restoration"));
+
+                accountToRestore.setDeletedAt(null);
+                BankAccount restored = bankAccountRepository.save(accountToRestore);
+                return bankAccountMapper.toDto(restored);
+
+            case ALREADY_EXISTS:
+                throw new MessageException("Account number already exists");
+
+            case OWNED_BY_OTHER_USER:
+                throw new MessageException("Cannot create account with this number");
+
+            default:
+                throw new MessageException("Unexpected validation result");
+        }
     }
 
     public List<BankAccountDTO> getBankAccountsByUserId(Long userId) {
