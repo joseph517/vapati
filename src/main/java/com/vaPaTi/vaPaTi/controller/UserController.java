@@ -52,9 +52,12 @@ public class UserController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete user", description = "Delete user by ID")
     public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id) {
-        return userService.deleteUser(id);
+        userService.deleteUser(id);
+        return ResponseEntity.ok(Map.of(
+                "message", "User deleted successfully",
+                "success", "true"
+        ));
     }
-
     @GetMapping("/{id}")
     @Operation(summary = "Get user by ID", description = "Get user by ID")
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {

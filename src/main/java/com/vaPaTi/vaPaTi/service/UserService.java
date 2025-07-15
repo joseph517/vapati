@@ -103,7 +103,7 @@ public class UserService {
     }
 
     @Transactional
-    public ResponseEntity<Map<String, String>> deleteUser(Long id) {
+    public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
 
@@ -113,11 +113,6 @@ public class UserService {
 
         user.setDeletedAt(LocalDateTime.now());
         userRepository.save(user);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "User deleted successfully",
-                "success", "true"
-        ));
     }
 
     // Restore user TODO: implement

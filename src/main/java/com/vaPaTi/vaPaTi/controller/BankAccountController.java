@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bank-accounts")
@@ -31,8 +32,18 @@ public class BankAccountController {
     }
 
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Get all user bank accounts", description = "Get all bank accounts by user id")
+    @Operation(summary = "Get bank accounts by user ID", description = "Get a list of bank accounts for a specific user")
     public ResponseEntity<List<BankAccountDTO>> getBankAccountsByUserId(@PathVariable Long userId) {
         return ResponseEntity.ok(bankAccountService.getBankAccountsByUserId(userId));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete bank account", description = "Delete bank account by ID")
+    public ResponseEntity<Map<String, String>> deleteBankAccount(@PathVariable Long id) {
+        bankAccountService.deleteBankAccount(id);
+        return ResponseEntity.ok(Map.of(
+                "message", "Bank account deleted successfully",
+                "success", "true"
+        ));
     }
 }

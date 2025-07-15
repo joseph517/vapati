@@ -9,10 +9,14 @@ import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import jakarta.transaction.Transactional;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class BankAccountService {
@@ -61,5 +65,18 @@ public class BankAccountService {
         return bankAccounts.stream()
                 .map(bankAccountMapper::toDto)
                 .toList();
+    }
+
+    @Transactional
+    public void deleteBankAccount(Long id) {
+        BankAccount bankAccount = bankAccountRepository.findById(id)
+                .orElseThrow(() -> new MessageException("Bank account not found with id: " + id));
+
+        if (bankAccount.getDeletedAt() != null) {
+            throw new MessageException("Bank account is already deleted");
+        }
+
+        bankAccount.setDeletedAt(LocalDateTime.now());
+        bankAccountRepository.save(bankAccount);
     }
 }

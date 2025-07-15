@@ -1,11 +1,15 @@
 package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "bank_accounts")
+@SQLDelete(sql = "UPDATE bank_accounts SET deleted_at = now() WHERE id = ?")
+@Where(clause = "deleted_at is null")
 public class BankAccount {
 
     @Id
@@ -36,6 +40,9 @@ public class BankAccount {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
@@ -120,7 +127,13 @@ public class BankAccount {
         this.updatedAt = updatedAt;
     }
 
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
 
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
 
 
 }
