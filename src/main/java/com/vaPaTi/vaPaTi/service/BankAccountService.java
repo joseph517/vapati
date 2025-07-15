@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -109,4 +110,59 @@ public class BankAccountService {
         bankAccount.setDeletedAt(LocalDateTime.now());
         bankAccountRepository.save(bankAccount);
     }
+
+    @Transactional
+    public BankAccountDTO updateBankAccount(Long id, UpdateBankAccountDTO dto) {
+        // Validar input
+        bankAccountValidationService.validateUpdateInput(dto);
+
+        // Buscar la cuenta bancaria
+        BankAccount bankAccount = bankAccountRepository.findById(id)
+                .orElseThrow(() -> new MessageException("Bank account not found with id: " + id));
+
+        // Verificar que la cuenta no esté eliminada
+        if (bankAccount.getDeletedAt() != null) {
+            throw new MessageException("Cannot update deleted bank account");
+        }
+
+        // Validar y actualizar campos solo si se envían y no están vacíos
+        if (dto.getBankName() != null) {
+            if (dto.getBankName().trim().isEmpty()) {
+                throw new MessageException("Bank name cannot be empty");
+            }
+            bankAccount.setBankName(dto.getBankName().trim());
+        }
+
+        if (dto.getAccountNumber() != null) {
+            bankAccountValidationService.validateAccountNumberForUpdate(
+                    dto.getAccountNumber(),
+                    bankAccount.getAccountNumber(),
+                    bankAccount.getUser().getId()
+            );
+            bankAccount.setAccountNumber(dto.getAccountNumber().trim());
+        }
+
+        if (dto.getAccountType() != null) {
+            if (dto.getAccountType().trim().isEmpty()) {
+                throw new MessageException("Account type cannot be empty");
+            }
+            bankAccount.setAccountType(dto.getAccountType().trim());
+        }
+
+        if (dto.getAccountHolder() != null) {
+            if (dto.getAccountHolder().trim().isEmpty()) {
+                throw new MessageException("Account holder cannot be empty");
+            }
+            bankAccount.setAccountHolder(dto.getAccountHolder().trim());
+        }
+
+        // Guardar los cambios
+        BankAccount updated = bankAccountRepository.save(bankAccount);
+
+        // Retornar el DTO actualizado
+        return bankAccountMapper.toDto(updated);
+    }
+
+
+
 }

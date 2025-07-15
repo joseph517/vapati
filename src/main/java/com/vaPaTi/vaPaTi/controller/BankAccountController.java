@@ -2,9 +2,11 @@ package com.vaPaTi.vaPaTi.controller;
 
 import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,4 +48,17 @@ public class BankAccountController {
                 "success", "true"
         ));
     }
+
+
+    // TODO: implement user validation by auth token
+    @PutMapping("{id}")
+    @Operation(summary = "Update bank account", description = "Update bank account by ID")
+    public ResponseEntity<BankAccountDTO> updateBankAccount(
+            @PathVariable Long id,
+            @RequestBody @Valid UpdateBankAccountDTO dto) {
+
+        BankAccountDTO updated = bankAccountService.updateBankAccount(id, dto);
+        return ResponseEntity.ok(updated);
+    }
+
 }
