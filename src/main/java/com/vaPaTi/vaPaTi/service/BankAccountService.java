@@ -113,19 +113,19 @@ public class BankAccountService {
 
     @Transactional
     public BankAccountDTO updateBankAccount(Long id, UpdateBankAccountDTO dto) {
-        // Validar input
+        // Validate input
         bankAccountValidationService.validateUpdateInput(dto);
 
-        // Buscar la cuenta bancaria
+        // Search for the bank account
         BankAccount bankAccount = bankAccountRepository.findById(id)
                 .orElseThrow(() -> new MessageException("Bank account not found with id: " + id));
 
-        // Verificar que la cuenta no esté eliminada
+        // Verify that the account is not deleted
         if (bankAccount.getDeletedAt() != null) {
             throw new MessageException("Cannot update deleted bank account");
         }
 
-        // Validar y actualizar campos solo si se envían y no están vacíos
+        // Validate and update fields only if they are sent and not empty
         if (dto.getBankName() != null) {
             if (dto.getBankName().trim().isEmpty()) {
                 throw new MessageException("Bank name cannot be empty");
@@ -156,13 +156,8 @@ public class BankAccountService {
             bankAccount.setAccountHolder(dto.getAccountHolder().trim());
         }
 
-        // Guardar los cambios
         BankAccount updated = bankAccountRepository.save(bankAccount);
 
-        // Retornar el DTO actualizado
         return bankAccountMapper.toDto(updated);
     }
-
-
-
 }
