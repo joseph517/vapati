@@ -72,6 +72,7 @@ spring.jpa.hibernate.ddl-auto=update
 
 <img width="1552" height="1103" alt="image" src="https://github.com/user-attachments/assets/70fe5911-3726-41f1-b4a8-9ba27de8c06b" />
 
-/home/joseph/desktop/project/python/diagram/er_diagram.png
+<img width="1008" height="419" alt="dfd_nivel1" src="https://github.com/user-attachments/assets/1f279ee9-161c-4de3-94b7-5defbc0992b3" />
 
-/home/joseph/desktop/project/python/diagram/dfd_nivel1.png
+<img width="864" height="960" alt="er_diagram" src="https://github.com/user-attachments/assets/3f5a4b9d-88b2-4576-b982-d70a6e50f413" />
+
