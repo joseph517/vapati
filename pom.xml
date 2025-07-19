@@ -65,14 +65,12 @@
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 
-		<!-- Controlador de base de datos (ejemplo: SQL Server) -->
 		<dependency>
 			<groupId>com.microsoft.sqlserver</groupId>
 			<artifactId>mssql-jdbc</artifactId>
 			<version>12.4.1.jre11</version>
 		</dependency>
 
-		<!-- Nueva versión modular de JJWT -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
@@ -91,7 +89,6 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Spring Boot Security -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
