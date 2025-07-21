@@ -2,7 +2,6 @@ package com.vaPaTi.vaPaTi.controller;
 
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
-import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
