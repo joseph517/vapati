@@ -61,14 +61,7 @@ public class UserController {
     @GetMapping("/{id}")
     @Operation(summary = "Get user by ID", description = "Get user by ID")
     public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
-        UserDTO userDTO = userService.getUserByIdAsDTO(id);
-        return ResponseEntity.ok(userDTO);
-    }
-
-    @GetMapping("/{id}/full-details")
-    @Operation(summary = "Get user by ID with full details", description = "Get user by ID with all related information")
-    public ResponseEntity<UserDTO> getUserByIdWithFullDetails(@PathVariable Long id) {
-        UserDTO userDTO = userService.getUserWithFullDetailsAsDTO(id);
+        UserDTO userDTO = userService.getUserByIdDTO(id);
         return ResponseEntity.ok(userDTO);
     }
 
@@ -87,4 +80,5 @@ public class UserController {
         Pageable pageable = PageRequest.of(page, size, sort);
         return ResponseEntity.ok(userService.listUsersWithPagination(pageable));
     }
+
 }

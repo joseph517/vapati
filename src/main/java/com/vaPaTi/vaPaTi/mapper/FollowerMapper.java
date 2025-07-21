@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Component
 public class FollowerMapper {
@@ -75,7 +74,7 @@ public class FollowerMapper {
         return followers.stream()
                 .map(this::toFollowerUserDto)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -90,7 +89,7 @@ public class FollowerMapper {
         return followings.stream()
                 .map(this::toFollowingUserDto)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**

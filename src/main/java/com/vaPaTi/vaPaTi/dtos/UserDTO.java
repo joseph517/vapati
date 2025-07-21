@@ -10,6 +10,7 @@ public class UserDTO {
     private Boolean isVerified;
     private List<String> categories = new ArrayList<>();
     private UserInfoDTO userInfo;
+    private List<BankAccountDTO> bankAccounts = new ArrayList<>();
 
     // Getters y setters
     public Long getId() {
@@ -45,5 +46,13 @@ public class UserDTO {
 
     public void setVerified(Boolean verified) {
         isVerified = verified;
+    }
+
+    public List<BankAccountDTO> getBankAccounts() {
+        return bankAccounts;
+    }
+
+    public void setBankAccounts(List<BankAccountDTO> bankAccounts) {
+        this.bankAccounts = bankAccounts;
     }
 }

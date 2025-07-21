@@ -3,16 +3,16 @@ package com.vaPaTi.vaPaTi.entity;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "[user]")
 @SQLDelete(sql = "UPDATE [user] SET deleted_at = GETDATE() WHERE id = ?")
-@Where(clause = "deleted_at IS NULL")
+@SQLRestriction("deleted_at IS NULL")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,7 +34,7 @@ public class User {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<UserCategory> userCategories = new ArrayList<>();
+    private Set<UserCategory> userCategories = new HashSet<>();
 
     @OneToOne(
             mappedBy = "user",
@@ -54,7 +54,7 @@ public class User {
     private VerificationRequest verificationRequest;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<BankAccount> bankAccounts = new ArrayList<>();
+    private Set<BankAccount> bankAccounts = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {
@@ -100,11 +100,11 @@ public class User {
         this.updatedAt = updatedAt;
     }
 
-    public List<UserCategory> getUserCategories() {
+    public Set<UserCategory> getUserCategories() {
         return userCategories;
     }
 
-    public void setUserCategories(List<UserCategory> userCategories) {
+    public void setUserCategories(Set<UserCategory> userCategories) {
         this.userCategories = userCategories;
     }
 
@@ -135,11 +135,11 @@ public class User {
         isVerified = verified;
     }
 
-    public List<BankAccount> getBankAccounts() {
+    public Set<BankAccount> getBankAccounts() {
         return bankAccounts;
     }
 
-    public void setBankAccounts(List<BankAccount> bankAccounts) {
+    public void setBankAccounts(Set<BankAccount> bankAccounts) {
         this.bankAccounts = bankAccounts;
     }
 }

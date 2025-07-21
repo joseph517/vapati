@@ -21,7 +21,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @EntityGraph(attributePaths = {
             "userInfo",
             "userCategories",
-            "userCategories.category"
+            "userCategories.category",
+            "bankAccounts",
     })
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdWithFullDetails(@Param("id") Long id);

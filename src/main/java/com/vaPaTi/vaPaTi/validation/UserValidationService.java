@@ -95,7 +95,7 @@ public class UserValidationService {
      * @param categories the categories to create the relations for
      */
     public void createUserCategoryRelations(User user, @NotNull List<Category> categories) {
-        List<UserCategory> userCategories = new ArrayList<>();
+        Set<UserCategory> userCategories = new HashSet<>();
 
         for (Category category : categories) {
             UserCategory userCategory = new UserCategory();

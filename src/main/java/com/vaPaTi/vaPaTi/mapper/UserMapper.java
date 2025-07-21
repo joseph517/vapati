@@ -9,14 +9,17 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Component
 public class UserMapper {
 
     private final UserInfoMapper userInfoMapper;
+    private final BankAccountMapper bankAccountMapper;
 
-    public UserMapper(UserInfoMapper userInfoMapper) {
+    public UserMapper(UserInfoMapper userInfoMapper, BankAccountMapper bankAccountMapper) {
         this.userInfoMapper = userInfoMapper;
+        this.bankAccountMapper = bankAccountMapper;
     }
 
     public UserDTO toUserDTO(User user) {
@@ -30,11 +33,18 @@ public class UserMapper {
         dto.setVerified(user.isVerified());
         dto.setCategories(mapCategories(user.getUserCategories()));
         dto.setUserInfo(userInfoMapper.toUserInfoDTO(user.getUserInfo()));
+        if (user.getBankAccounts() != null && !user.getBankAccounts().isEmpty()) {
+            dto.setBankAccounts(
+                    user.getBankAccounts().stream()
+                            .map(bankAccountMapper::toDto)
+                            .toList()
+            );
+        }
 
         return dto;
     }
 
-    private List<String> mapCategories(List<UserCategory> userCategories) {
+    private List<String> mapCategories(Set<UserCategory> userCategories) {
         if (userCategories == null || userCategories.isEmpty()) {
             return new ArrayList<>();
         }

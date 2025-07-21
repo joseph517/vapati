@@ -130,13 +130,7 @@ public class UserService {
         ));
     }
 
-    public UserDTO getUserByIdAsDTO(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
-        return userMapper.toUserDTO(user);
-    }
-
-    public UserDTO getUserWithFullDetailsAsDTO(Long id) {
+    public UserDTO getUserByIdDTO(Long id) {
         User user = userRepository.findByIdWithFullDetails(id)
                 .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
         return userMapper.toUserDTO(user);

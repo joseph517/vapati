@@ -2,14 +2,14 @@ package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "bank_accounts")
 @SQLDelete(sql = "UPDATE bank_accounts SET deleted_at = now() WHERE id = ?")
-@Where(clause = "deleted_at is null")
+@SQLRestriction("deleted_at is null")
 public class BankAccount {
 
     @Id
