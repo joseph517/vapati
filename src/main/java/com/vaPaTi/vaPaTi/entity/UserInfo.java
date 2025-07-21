@@ -46,6 +46,8 @@ public class UserInfo {
     @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
     private User user;
 
+    // Getters y setters
+
     public Long getId() {
         return id;
     }

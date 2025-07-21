@@ -77,10 +77,4 @@ public class VerificationRequestService {
         return verificationRequestMapper.toStatusDTO(request);
     }
 
-
-
-
-
-
-
 }

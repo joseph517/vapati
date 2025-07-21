@@ -35,7 +35,7 @@ public class UserInfoMapper {
         userInfo.setLastName(dto.getLastName());
         userInfo.setEmail(dto.getEmail());
         userInfo.setUserName(dto.getUserName());
-        userInfo.setPassword(dto.getPassword()); // Aquí SÍ tienes acceso al password
+        userInfo.setPassword(dto.getPassword());
         userInfo.setPhone(dto.getPhone());
         userInfo.setDescription(dto.getDescription());
         userInfo.setProfilePicture(dto.getProfilePicture());

@@ -37,7 +37,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT DISTINCT u FROM User u")
     List<User> findAllWithDetails();
 
-    // Versión con paginación
+    // Version with pagination
     @EntityGraph(
             attributePaths = {
                     "userInfo",
@@ -50,8 +50,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NOT NULL")
     Optional<User> findDeletedById(@Param("id") Long id);
-
-    // Find user by id
-
 
 }

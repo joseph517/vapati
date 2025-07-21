@@ -2,8 +2,6 @@ package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
 
-import java.util.List;
-
 @Entity
 @Table(name = "user_category")
 public class UserCategory {
