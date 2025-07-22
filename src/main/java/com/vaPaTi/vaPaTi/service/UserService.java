@@ -2,10 +2,12 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.*;
 import com.vaPaTi.vaPaTi.entity.Category;
+import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
+import com.vaPaTi.vaPaTi.repository.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import jakarta.transaction.Transactional;
@@ -28,15 +30,18 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserValidationService userValidationService;
     private final UserMapper userMapper;
+    private final RoleRepository roleRepository;
 
     public UserService(
             UserRepository userRepository,
             UserValidationService userValidationService,
-            UserMapper userMapper
+            UserMapper userMapper,
+            RoleRepository roleRepository
     ) {
         this.userRepository = userRepository;
         this.userValidationService = userValidationService;
         this.userMapper = userMapper;
+        this.roleRepository = roleRepository;
     }
 
     public List<UserDTO> listUsers() {
@@ -71,6 +76,10 @@ public class UserService {
         // Set user info
         UserInfo userInfo = userValidationService.createUserInfo(userInfoDTO);
 
+        // Role
+        Role userRole = roleRepository.findByName("USER").orElseThrow(() -> new MessageException("Role not found"));
+
+        user.setRole(userRole);
         user.setUserInfo(userInfo);
         userInfo.setUser(user);
 
