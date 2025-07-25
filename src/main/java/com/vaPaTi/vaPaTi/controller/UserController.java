@@ -37,7 +37,7 @@ public class UserController {
         return ResponseEntity.ok(userService.listUsers());
     }
 
-    @PostMapping
+    @PostMapping("/create")
     @Operation(summary = "Create user", description = "Create a new user")
     public ResponseEntity<UserDTO> createUser(@RequestBody UserUserInfoRequestDTO dto) {
         return ResponseEntity.ok(userService.createUser(dto));
