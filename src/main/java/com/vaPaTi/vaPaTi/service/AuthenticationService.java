@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
+import com.vaPaTi.vaPaTi.dtos.UserTokenData;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -56,7 +57,10 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        return new AuthResponse(accessToken, refreshToken);
+        // Crear la respuesta con información del usuario
+        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
+
+        return new AuthResponse(accessToken, refreshToken, userInfo);
     }
 
     @Transactional
@@ -77,12 +81,42 @@ public class AuthenticationService {
                 String newAccessToken = jwtService.generateToken(user);
                 String newRefreshToken = jwtService.generateRefreshToken(user);
 
-                return new AuthResponse(newAccessToken, newRefreshToken);
+                // También incluir información del usuario en el refresh
+                AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
+
+                return new AuthResponse(newAccessToken, newRefreshToken, userInfo);
             } else {
                 throw new MessageException("Invalid or expired refresh token");
             }
         } catch (Exception e) {
             throw new MessageException("Invalid or expired refresh token");
+        }
+    }
+
+    // Método adicional para obtener información del usuario desde un token
+    public AuthResponse.UserInfo getUserInfoFromToken(String token) {
+        try {
+            UserTokenData tokenData = jwtService.extractUserData(token);
+            return AuthResponse.UserInfo.fromUserTokenData(tokenData);
+        } catch (Exception e) {
+            throw new MessageException("Invalid or expired token");
+        }
+    }
+
+    // Método para validar un token y obtener datos del usuario
+    public UserTokenData validateTokenAndGetUserData(String token) {
+        try {
+            // Extraer email del token
+            String email = jwtService.extractUsername(token);
+
+            // Validar que el token no esté expirado
+            if (jwtService.isTokenValid(token, email)) {
+                return jwtService.extractUserData(token);
+            } else {
+                throw new MessageException("Invalid or expired token");
+            }
+        } catch (Exception e) {
+            throw new MessageException("Invalid or expired token");
         }
     }
 }

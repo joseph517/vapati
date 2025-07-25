@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.service;
 
+import com.vaPaTi.vaPaTi.dtos.UserTokenData;
 import com.vaPaTi.vaPaTi.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -35,13 +36,22 @@ public class JwtService {
 
     public String generateToken(@NotNull User user) {
         Map<String, Object> claims = new HashMap<>();
+        // Agregar datos del usuario al token
         claims.put("role", user.getRole().getName());
-        claims.put("userId", user.getId()); // opcional si te sirve
+        claims.put("userId", user.getId());
+        claims.put("firstName", user.getUserInfo().getFirstName());
+        claims.put("lastName", user.getUserInfo().getLastName());
+        claims.put("userName", user.getUserInfo().getUserName());
+        claims.put("email", user.getUserInfo().getEmail());
+
         return generateToken(claims, user.getUserInfo().getEmail(), jwtExpirationMs);
     }
 
     public String generateRefreshToken(@NotNull User user) {
-        return generateToken(new HashMap<>(), user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
+        // El refresh token solo necesita información mínima
+        Map<String, Object> refreshClaims = new HashMap<>();
+        refreshClaims.put("userId", user.getId());
+        return generateToken(refreshClaims, user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
     }
 
     private String generateToken(Map<String, Object> extraClaims, String subject, long expirationMs) {
@@ -63,6 +73,44 @@ public class JwtService {
 
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    // Métodos para extraer datos específicos del usuario del token
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    public Long extractUserId(String token) {
+        return extractClaim(token, claims -> claims.get("userId", Long.class));
+    }
+
+    public String extractFirstName(String token) {
+        return extractClaim(token, claims -> claims.get("firstName", String.class));
+    }
+
+    public String extractLastName(String token) {
+        return extractClaim(token, claims -> claims.get("lastName", String.class));
+    }
+
+    public String extractUserName(String token) {
+        return extractClaim(token, claims -> claims.get("userName", String.class));
+    }
+
+    public String extractEmail(String token) {
+        return extractClaim(token, claims -> claims.get("email", String.class));
+    }
+
+    // Método para extraer todos los datos del usuario de una vez
+    public UserTokenData extractUserData(String token) {
+        Claims claims = parseToken(token);
+        return UserTokenData.builder()
+                .userId(claims.get("userId", Long.class))
+                .email(claims.getSubject())
+                .role(claims.get("role", String.class))
+                .firstName(claims.get("firstName", String.class))
+                .lastName(claims.get("lastName", String.class))
+                .userName(claims.get("userName", String.class))
+                .build();
     }
 
     public <T> T extractClaim(String token, @NotNull Function<Claims, T> claimsResolver) {
