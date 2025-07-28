@@ -27,7 +27,7 @@ import java.time.LocalDateTime;
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    private static final String userPaterns = "/users/**";
+    private static final String USER_PATERNS = "/users/**";
     private static final String ADMIN = "ADMIN";
     private static final String USER = "USER";
 
@@ -65,10 +65,10 @@ public class SecurityConfig {
                         // Allow public access to the defined URLs
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         // Specific configuration for users
-                        .requestMatchers(HttpMethod.GET, userPaterns).hasAnyRole(USER, ADMIN)
-                        .requestMatchers(HttpMethod.POST, userPaterns).hasRole(ADMIN)
-                        .requestMatchers(HttpMethod.PUT, userPaterns).hasRole(ADMIN)
-                        .requestMatchers(HttpMethod.DELETE, userPaterns).hasRole(ADMIN)
+                        .requestMatchers(HttpMethod.GET, USER_PATERNS).hasAnyRole(USER, ADMIN)
+                        .requestMatchers(HttpMethod.POST, USER_PATERNS).hasRole(ADMIN)
+                        .requestMatchers(HttpMethod.PUT, USER_PATERNS).hasRole(ADMIN)
+                        .requestMatchers(HttpMethod.DELETE, USER_PATERNS).hasRole(ADMIN)
                         // Any other request requires authentication
                         .anyRequest().authenticated()
                 )
