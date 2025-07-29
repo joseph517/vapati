@@ -34,7 +34,7 @@ public class SecurityConfig {
     // URLs públicas que no requieren autenticación
     private static final String[] PUBLIC_URLS = {
             "/auth/**",               // Rutas de autenticación
-            "/api/categories/**",     // Rutas de categorías
+            "/api/categories/list",     // Rutas de categorías
             "/api/users/create",      // Ruta de creación de usuarios
             "/swagger-ui/**",         // Interfaz Swagger
             "/swagger-ui.html",       // Página principal de Swagger
