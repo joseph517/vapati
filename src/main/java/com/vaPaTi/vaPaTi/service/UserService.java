@@ -11,7 +11,6 @@ import com.vaPaTi.vaPaTi.repository.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import jakarta.transaction.Transactional;
-import org.hibernate.Hibernate;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -95,14 +94,18 @@ public class UserService {
 
         // Update user fields
         if (dto.getActive() != null) {
-            user.setIsActive(dto.getActive());
+            user.setActive(dto.getActive());
         }
 
-        // Update user info (only non-null fields)
-        userValidationService.updateUserInfoPartial(user.getUserInfo(), dto);
+        // Update user info with full validations (solo campos enviados)
+        userValidationService.updateUserInfo(user, dto);
 
-        // Update categories (including support for empty list)
+        // Update categories only if explicitly provided
         if (dto.getCategoryIds() != null) {
+            // Validate category limit (minimum 1, maximum 6)
+            userValidationService.validateCategoryLimit(dto.getCategoryIds());
+
+            // Process categories (validate that they exist)
             List<Category> categories = userValidationService.processCategories(dto.getCategoryIds());
             userValidationService.updateUserCategories(user, categories);
         }
