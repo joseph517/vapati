@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.repository.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,27 +22,15 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
-   // Error messages
     private static final String USER_NOT_FOUND = "User not found";
 
     private final UserRepository userRepository;
     private final UserValidationService userValidationService;
     private final UserMapper userMapper;
     private final RoleRepository roleRepository;
-
-    public UserService(
-            UserRepository userRepository,
-            UserValidationService userValidationService,
-            UserMapper userMapper,
-            RoleRepository roleRepository
-    ) {
-        this.userRepository = userRepository;
-        this.userValidationService = userValidationService;
-        this.userMapper = userMapper;
-        this.roleRepository = roleRepository;
-    }
 
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
