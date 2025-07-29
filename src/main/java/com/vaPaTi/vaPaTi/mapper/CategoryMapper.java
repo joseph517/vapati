@@ -32,8 +32,14 @@ public class CategoryMapper {
     public void updateFromDto(CreateCategoryDTO dto, Category entity) {
         if (dto == null || entity == null) return;
 
-        entity.setName(dto.getName());
-        entity.setDescription(dto.getDescription());
+        if (dto.getName() != null) {
+            entity.setName(dto.getName());
+        }
+
+        if (dto.getDescription() != null) {
+            entity.setDescription(dto.getDescription());
+        }
     }
+
 
 }
