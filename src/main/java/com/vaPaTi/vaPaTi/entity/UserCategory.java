@@ -1,9 +1,13 @@
 package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Entity
 @Table(name = "user_category")
+@EqualsAndHashCode(exclude = "user")
+@ToString(exclude = "user")
 public class UserCategory {
 
     @Id

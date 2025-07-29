@@ -2,6 +2,8 @@ package com.vaPaTi.vaPaTi.entity;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.Where;
@@ -12,6 +14,8 @@ import java.time.LocalDateTime;
 @Table(name = "verification_request")
 @SQLDelete(sql = "UPDATE verification_request SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
+@EqualsAndHashCode(exclude = "user")
+@ToString(exclude = "user")
 public class VerificationRequest {
 
     @Id
