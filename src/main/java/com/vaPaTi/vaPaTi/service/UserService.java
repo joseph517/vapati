@@ -34,7 +34,6 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final AuthenticatedUserService authenticatedUserService;
 
-
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
                 .map(userMapper::toUserDTO)

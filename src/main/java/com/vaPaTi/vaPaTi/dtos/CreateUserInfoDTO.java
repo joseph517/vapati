@@ -4,12 +4,11 @@ import lombok.Data;
 
 @Data
 public class CreateUserInfoDTO {
-
     private String firstName;
     private String lastName;
     private String email;
     private String userName;
-    private String password; // CON password
+    private String password;
     private String phone;
     private String description;
     private String profilePicture;

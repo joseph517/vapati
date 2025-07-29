@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.entity;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.hibernate.annotations.SQLDelete;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 @Table(name = "verification_request")
 @SQLDelete(sql = "UPDATE verification_request SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
+@Data
 @EqualsAndHashCode(exclude = "user")
 @ToString(exclude = "user")
 public class VerificationRequest {
@@ -46,79 +48,4 @@ public class VerificationRequest {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
-
-    // Getters y setters
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public String getDniFront() {
-        return dniFront;
-    }
-
-    public void setDniFront(String dniFront) {
-        this.dniFront = dniFront;
-    }
-
-    public String getDniBack() {
-        return dniBack;
-    }
-
-    public void setDniBack(String dniBack) {
-        this.dniBack = dniBack;
-    }
-
-    public String getSelfieUser() {
-        return selfieUser;
-    }
-
-    public void setSelfieUser(String selfieUser) {
-        this.selfieUser = selfieUser;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public LocalDateTime getDeletedAt() {
-        return deletedAt;
-    }
-
-    public void setDeletedAt(LocalDateTime deletedAt) {
-        this.deletedAt = deletedAt;
-    }
-
 }

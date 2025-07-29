@@ -1,20 +1,10 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
 public class RefreshTokenRequest {
-
     private String refreshToken;
-
-
-    public RefreshTokenRequest(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
-
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
-
 }
