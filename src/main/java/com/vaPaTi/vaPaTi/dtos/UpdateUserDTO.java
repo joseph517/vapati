@@ -12,7 +12,7 @@ import java.util.List;
 public class UpdateUserDTO {
     private Boolean active;
     @Nullable
-    private List<Long> categoryIds = new ArrayList<>();
+    private List<Long> categoryIds;
 
     // Campos de UserInfo
     @Nullable
@@ -31,5 +31,4 @@ public class UpdateUserDTO {
     private String description;
     @Nullable
     private String profilePicture;
-
 }
