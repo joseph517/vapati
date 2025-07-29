@@ -22,7 +22,7 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long> 
     boolean existsByAccountNumber(@Param("accountNumber") String accountNumber);
 
     // Check if a user is verified (for validations before creating an account)
-    @Query("SELECT u.isVerified FROM User u WHERE u.id = :userId")
+    @Query("SELECT u.verified  FROM User u WHERE u.id = :userId")
     Optional<Boolean> isUserVerified(@Param("userId") Long userId);
 
     //Checks if a bank account exists with the specified user ID and account number.

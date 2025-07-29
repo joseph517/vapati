@@ -50,7 +50,7 @@ public class AuthenticationService {
                 .findFirst()
                 .orElseThrow(() -> new MessageException("User not found"));
 
-        if (!user.getIsActive()) {
+        if (!user.isActive()) {
             throw new MessageException("User account is disabled");
         }
 
@@ -74,7 +74,7 @@ public class AuthenticationService {
                         .findFirst()
                         .orElseThrow(() -> new MessageException("User not found"));
 
-                if (!user.getIsActive()) {
+                if (!user.isActive()) {
                     throw new MessageException("User account is disabled");
                 }
 

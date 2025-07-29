@@ -3,7 +3,6 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.dtos.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
-import com.vaPaTi.vaPaTi.dtos.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserCategory;
@@ -49,6 +48,10 @@ public class UserValidationService {
     }
 
     public void validateCategoryLimit(@NotNull List<Long> categoryIds) {
+        if (categoryIds.isEmpty()) {
+            throw new IllegalArgumentException("User must have at least 1 category");
+        }
+
         if (categoryIds.size() > MAX_CATEGORIES_PER_USER.intValue()) {
             throw new IllegalArgumentException("User cannot have more than " + MAX_CATEGORIES_PER_USER + " categories");
         }
@@ -76,7 +79,7 @@ public class UserValidationService {
         User user = new User();
 
         // Prevent null to setIsActive
-        user.setIsActive(dto.getActive() == null || dto.getActive());
+        user.setActive(dto.getActive() == null || dto.getActive());
 
         // False to setVerified
         user.setVerified(false);
@@ -150,24 +153,23 @@ public class UserValidationService {
         }
     }
 
-    // TODO: implement password validation
     private static void validatePassword(@NotNull String password) {
         if (password.length() < 5) {
-            throw new IllegalArgumentException("Password must be at least 8 characters long");
+            throw new MessageException("Password must be at least 8 characters long");
         }
 
-//        // Agregar más validaciones de contraseña según sea necesario
-//        if (!password.matches(".*[A-Z].*")) {
-//            throw new IllegalArgumentException("Password must contain at least one uppercase letter");
-//        }
-//
-//        if (!password.matches(".*[a-z].*")) {
-//            throw new IllegalArgumentException("Password must contain at least one lowercase letter");
-//        }
-//
-//        if (!password.matches(".*\\d.*")) {
-//            throw new IllegalArgumentException("Password must contain at least one number");
-//        }
+        // Agregar más validaciones de contraseña según sea necesario
+        if (!password.matches(".*[A-Z].*")) {
+            throw new MessageException("Password must contain at least one uppercase letter");
+        }
+
+        if (!password.matches(".*[a-z].*")) {
+            throw new MessageException("Password must contain at least one lowercase letter");
+        }
+
+        if (!password.matches(".*\\d.*")) {
+            throw new MessageException("Password must contain at least one number");
+        }
     }
 
     public User getUserById(Long id) {

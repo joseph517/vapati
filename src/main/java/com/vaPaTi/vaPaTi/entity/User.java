@@ -2,6 +2,9 @@ package com.vaPaTi.vaPaTi.entity;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -11,6 +14,9 @@ import java.util.Set;
 
 @Entity
 @Table(name = "[user]")
+@Data
+@EqualsAndHashCode(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts"})
+@ToString(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts", "role"})
 @SQLDelete(sql = "UPDATE [user] SET deleted_at = GETDATE() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class User {
@@ -19,13 +25,13 @@ public class User {
     private Long id;
 
     @Column(name = "is_active")
-    private boolean isActive;
+    private boolean active;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
     @Column(name = "is_verified")
-    private boolean isVerified = false;
+    private boolean verified = false;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -70,88 +76,10 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters y setters
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public boolean getIsActive() {
-        return isActive;
-    }
-
-    public void setIsActive(boolean isActive) {
-        this.isActive = isActive;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public Set<UserCategory> getUserCategories() {
-        return userCategories;
-    }
-
-    public void setUserCategories(Set<UserCategory> userCategories) {
-        this.userCategories = userCategories;
-    }
-
-    public UserInfo getUserInfo() {
-        return userInfo;
-    }
-
     public void setUserInfo(UserInfo userInfo) {
         this.userInfo = userInfo;
         if (userInfo != null) {
             userInfo.setUser(this);
         }
-    }
-
-    public LocalDateTime getDeletedAt() {
-        return deletedAt;
-    }
-
-    public void setDeletedAt(LocalDateTime deletedAt) {
-        this.deletedAt = deletedAt;
-    }
-
-    public boolean isVerified() {
-        return isVerified;
-    }
-
-    public void setVerified(boolean verified) {
-        isVerified = verified;
-    }
-
-    public Set<BankAccount> getBankAccounts() {
-        return bankAccounts;
-    }
-
-    public void setBankAccounts(Set<BankAccount> bankAccounts) {
-        this.bankAccounts = bankAccounts;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 }

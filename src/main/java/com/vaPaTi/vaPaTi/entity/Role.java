@@ -1,9 +1,11 @@
 package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
 @Entity
 @Table(name = "roles")
+@Data
 public class Role {
 
     @Id
@@ -12,23 +14,5 @@ public class Role {
 
     @Column(nullable = false, unique = true)
     private String name;
-
-    // Getters y setters
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
 }
 
