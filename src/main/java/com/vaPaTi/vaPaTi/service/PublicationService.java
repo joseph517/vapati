@@ -7,22 +7,18 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class PublicationService {
 
     private final PublicationRepository publicationRepository;
     private final UserRepository userRepository;
     private final PublicationMapper publicationMapper;
-
-    public PublicationService(PublicationRepository publicationRepository, UserRepository userRepository, PublicationMapper publicationMapper) {
-        this.publicationRepository = publicationRepository;
-        this.userRepository = userRepository;
-        this.publicationMapper = publicationMapper;
-    }
 
     public PublicationResponseDTO createPublication(CreatePublicationDTO dto) {
         User user = userRepository.findById(dto.getUserId())

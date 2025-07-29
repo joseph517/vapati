@@ -10,12 +10,14 @@ import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class BankAccountValidationService {
 
     private static final String USER_NOT_FOUND = "User not found";
@@ -23,15 +25,6 @@ public class BankAccountValidationService {
 
     private final BankAccountRepository bankAccountRepository;
     private final BankAccountMapper bankAccountMapper;
-
-    // Constructor
-    public BankAccountValidationService(
-            BankAccountRepository bankAccountRepository,
-            BankAccountMapper bankAccountMapper
-    ) {
-        this.bankAccountRepository = bankAccountRepository;
-        this.bankAccountMapper = bankAccountMapper;
-    }
 
     public void validateInput(@NotNull CreateBankAccountDTO dto) {
         if (dto.getBankName() == null || dto.getBankName().isBlank()) {

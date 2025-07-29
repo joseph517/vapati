@@ -4,7 +4,6 @@ import lombok.Data;
 
 @Data
 public class UserInfoResponseDTO {
-
     private String firstName;
     private String lastName;
     private String email;
@@ -13,5 +12,4 @@ public class UserInfoResponseDTO {
     private String phone;
     private String description;
     private String profilePicture;
-
 }

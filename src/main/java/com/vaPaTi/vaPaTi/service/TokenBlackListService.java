@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.entity.RevokedToken;
 import com.vaPaTi.vaPaTi.repository.RevokedTokenRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
@@ -10,13 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 @Service
+@RequiredArgsConstructor
 public class TokenBlackListService {
 
     private final RevokedTokenRepository revokedTokenRepository;
-
-    public TokenBlackListService(RevokedTokenRepository revokedTokenRepository) {
-        this.revokedTokenRepository = revokedTokenRepository;
-    }
 
     public boolean isTokenRevoked(String token) {
         return revokedTokenRepository.existsByToken(token);

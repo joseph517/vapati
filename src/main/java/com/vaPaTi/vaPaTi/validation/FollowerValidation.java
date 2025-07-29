@@ -4,21 +4,16 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class FollowerValidation {
 
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
-
-    public FollowerValidation(
-            UserRepository userRepository, FollowerRepository followerRepository
-    ) {
-        this.userRepository = userRepository;
-        this.followerRepository = followerRepository;
-    }
 
     /**
      * Check if current user follows another user
@@ -39,7 +34,4 @@ public class FollowerValidation {
 
         return followerRepository.existsByUserAndFollower(otherUser, currentUser);
     }
-
-
-
 }

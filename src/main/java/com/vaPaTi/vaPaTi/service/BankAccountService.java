@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
@@ -21,25 +22,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class BankAccountService {
 
     private final BankAccountRepository bankAccountRepository;
     private final BankAccountValidationService bankAccountValidationService;
     private final UserValidationService userValidationService;
     private final BankAccountMapper bankAccountMapper;
-
-    // Constructor
-    public BankAccountService(
-            BankAccountRepository bankAccountRepository,
-            BankAccountValidationService bankAccountValidationService,
-            UserValidationService userValidationService,
-            BankAccountMapper bankAccountMapper
-    ) {
-        this.bankAccountRepository = bankAccountRepository;
-        this.bankAccountValidationService = bankAccountValidationService;
-        this.userValidationService = userValidationService;
-        this.bankAccountMapper = bankAccountMapper;
-    }
 
     public BankAccountDTO createBankAccount(@NotNull CreateBankAccountDTO dto) {
 

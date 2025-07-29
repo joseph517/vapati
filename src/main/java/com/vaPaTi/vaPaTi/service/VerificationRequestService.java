@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.VerificationRequestMapper;
 import com.vaPaTi.vaPaTi.repository.VerificationRequestRepository;
 import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,21 +19,12 @@ import java.util.Optional;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class VerificationRequestService {
 
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationRequestMapper verificationRequestMapper;
     private final VerificationRequestValitation verificationRequestValitation;
-
-    public VerificationRequestService(
-            VerificationRequestRepository verificationRequestRepository,
-            VerificationRequestMapper verificationRequestMapper,
-            VerificationRequestValitation verificationRequestValitation
-    ) {
-        this.verificationRequestRepository = verificationRequestRepository;
-        this.verificationRequestMapper = verificationRequestMapper;
-        this.verificationRequestValitation = verificationRequestValitation;
-    }
 
     public Long createVerificationRequest(@NotNull CreateVerificationRequestDTO dto) {
         User user = verificationRequestValitation.validateAndGetUser(dto.getUserId());

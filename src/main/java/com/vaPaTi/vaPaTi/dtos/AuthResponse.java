@@ -1,24 +1,17 @@
 package com.vaPaTi.vaPaTi.dtos;
 
 import com.vaPaTi.vaPaTi.entity.User;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class AuthResponse {
     private String accessToken;
     private String refreshToken;
     private UserInfo userInfo;
-
-    // Constructor original (mantener compatibilidad)
-    public AuthResponse(String accessToken, String refreshToken) {
-        this.accessToken = accessToken;
-        this.refreshToken = refreshToken;
-    }
-
-    // Nuevo constructor con información del usuario
-    public AuthResponse(String accessToken, String refreshToken, UserInfo userInfo) {
-        this.accessToken = accessToken;
-        this.refreshToken = refreshToken;
-        this.userInfo = userInfo;
-    }
 
     // Clase interna para encapsular la información del usuario en la respuesta
     public static class UserInfo {
@@ -122,30 +115,5 @@ public class AuthResponse {
         public void setFullName(String fullName) {
             this.fullName = fullName;
         }
-    }
-
-    // Getters y Setters de AuthResponse
-    public String getAccessToken() {
-        return accessToken;
-    }
-
-    public void setAccessToken(String accessToken) {
-        this.accessToken = accessToken;
-    }
-
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
-
-    public UserInfo getUserInfo() {
-        return userInfo;
-    }
-
-    public void setUserInfo(UserInfo userInfo) {
-        this.userInfo = userInfo;
     }
 }

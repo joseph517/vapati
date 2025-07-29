@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class FollowerService {
 
     private final FollowerRepository followerRepository;
@@ -27,16 +29,6 @@ public class FollowerService {
     private final FollowerValidation followerValidation;
 
     private static final String USER_NOT_FOUND = "User not found with ID: ";
-
-    public FollowerService(FollowerRepository followerRepository,
-                           UserRepository userRepository,
-                           FollowerMapper followerMapper,
-                           FollowerValidation followerValidation) {
-        this.followerRepository = followerRepository;
-        this.userRepository = userRepository;
-        this.followerMapper = followerMapper;
-        this.followerValidation = followerValidation;
-    }
 
     /**
      * Follow a user
