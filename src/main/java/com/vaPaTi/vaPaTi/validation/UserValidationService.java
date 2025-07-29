@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserInfoRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class UserValidationService {
 
     private static final Number MAX_CATEGORIES_PER_USER = 6;
@@ -31,21 +33,6 @@ public class UserValidationService {
     private final UserInfoRepository userInfoRepository;
     private final UserRepository userRepository;
     private final UserInfoMapper userInfoMapper;
-
-    // Constructor
-    public UserValidationService(
-            CategoryRepository categoryRepository,
-            PasswordEncoder passwordEncoder,
-            UserRepository userRepository,
-            UserInfoRepository userInfoRepository,
-            UserInfoMapper userInfoMapper
-    ) {
-        this.categoryRepository = categoryRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.userRepository = userRepository;
-        this.userInfoRepository = userInfoRepository;
-        this.userInfoMapper = userInfoMapper;
-    }
 
     public void validateCategoryLimit(@NotNull List<Long> categoryIds) {
         if (categoryIds.isEmpty()) {
@@ -78,8 +65,8 @@ public class UserValidationService {
     public @NotNull User createAndSetupUser(@NotNull CreateUserDTO dto) {
         User user = new User();
 
-        // Prevent null to setIsActive
-        user.setActive(dto.getActive() == null || dto.getActive());
+        // setActive to true
+        user.setActive(true);
 
         // False to setVerified
         user.setVerified(false);
