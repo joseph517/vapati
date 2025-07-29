@@ -6,24 +6,18 @@ import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
-
-    public CategoryService(
-            CategoryRepository repository,
-            CategoryMapper categoryMapper
-    ) {
-        this.categoryRepository = repository;
-        this.categoryMapper = categoryMapper;
-    }
 
     public List<CategoryDTO> listCategories() {
         return categoryRepository.findAll().stream()
@@ -32,7 +26,7 @@ public class CategoryService {
     }
 
     public CategoryDTO createCategory(@NotNull CreateCategoryDTO dto) {
-        if (categoryRepository.existsByName(dto.getName())) {
+        if (Boolean.TRUE.equals(categoryRepository.existsByName(dto.getName()))) {
             throw new MessageException("Category with name '" + dto.getName() + "' already exists");
         }
 
@@ -45,10 +39,13 @@ public class CategoryService {
         Category existingCategory = categoryRepository.findById(id)
                 .orElseThrow(() -> new MessageException("Category not found with id: " + id));
 
-        if (!existingCategory.getName().equals(dto.getName()) &&
-                categoryRepository.existsByName(dto.getName())) {
+        if (dto.getName() != null &&
+                !existingCategory.getName().equals(dto.getName()) &&
+                Boolean.TRUE.equals(categoryRepository.existsByName(dto.getName()))) {
+
             throw new MessageException("Another category already has the name: " + dto.getName());
         }
+
 
         categoryMapper.updateFromDto(dto, existingCategory);
 
