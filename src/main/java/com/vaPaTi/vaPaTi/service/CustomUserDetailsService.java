@@ -30,7 +30,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .findFirst()
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        if (!user.getIsActive()) {
+        if (!user.isActive()) {
             throw new UsernameNotFoundException("User account is disabled");
         }
 
@@ -38,7 +38,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .username(user.getUserInfo().getEmail())
                 .password(user.getUserInfo().getPassword())
                 .authorities(getAuthorities(user))
-                .disabled(!user.getIsActive())
+                .disabled(!user.isActive())
                 .build();
     }
 

@@ -56,7 +56,7 @@ public class FollowerService {
                 .orElseThrow(() -> new EntityNotFoundException("Current user not found with ID: " + currentUserId));
 
         // Validate current user is active
-        if (!currentUser.getIsActive()) {
+        if (!currentUser.isActive()) {
             throw new IllegalStateException("Inactive users cannot follow other users");
         }
 
@@ -65,7 +65,7 @@ public class FollowerService {
                 .orElseThrow(() -> new EntityNotFoundException("User to follow not found with ID: " + userToFollowId));
 
         // Validate user to follow is active
-        if (!userToFollow.getIsActive()) {
+        if (!userToFollow.isActive()) {
             throw new IllegalStateException("Cannot follow inactive users");
         }
 
