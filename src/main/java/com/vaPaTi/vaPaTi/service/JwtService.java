@@ -75,31 +75,6 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    // Métodos para extraer datos específicos del usuario del token
-    public String extractRole(String token) {
-        return extractClaim(token, claims -> claims.get("role", String.class));
-    }
-
-    public Long extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", Long.class));
-    }
-
-    public String extractFirstName(String token) {
-        return extractClaim(token, claims -> claims.get("firstName", String.class));
-    }
-
-    public String extractLastName(String token) {
-        return extractClaim(token, claims -> claims.get("lastName", String.class));
-    }
-
-    public String extractUserName(String token) {
-        return extractClaim(token, claims -> claims.get("userName", String.class));
-    }
-
-    public String extractEmail(String token) {
-        return extractClaim(token, claims -> claims.get("email", String.class));
-    }
-
     // Método para extraer todos los datos del usuario de una vez
     public UserTokenData extractUserData(String token) {
         Claims claims = parseToken(token);

@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
 import com.vaPaTi.vaPaTi.repository.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,8 @@ public class UserService {
     private final UserValidationService userValidationService;
     private final UserMapper userMapper;
     private final RoleRepository roleRepository;
+    private final AuthenticatedUserService authenticatedUserService;
+
 
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
@@ -77,8 +80,10 @@ public class UserService {
     }
 
     @Transactional
-    public UserDTO updateUser(Long id, @NotNull UpdateUserDTO dto) {
-        User user = userValidationService.getUserById(id);
+    public UserDTO updateUser( @NotNull UpdateUserDTO dto) {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+
+        User user = userValidationService.getUserById(userId);
         userValidationService.updateTimestamp(user);
 
         // Update user fields
@@ -86,7 +91,7 @@ public class UserService {
             user.setActive(dto.getActive());
         }
 
-        // Update user info with full validations (solo campos enviados)
+        // Update user info with full validations (only fields sent)
         userValidationService.updateUserInfo(user, dto);
 
         // Update categories only if explicitly provided
