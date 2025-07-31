@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class CategoryController {
         return ResponseEntity.ok(categories);
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/create")
     @Operation(summary = "Create new category", description = "Create a new category")
     public ResponseEntity<CategoryDTO> createCategory(@RequestBody CreateCategoryDTO dto) {
@@ -33,6 +35,7 @@ public class CategoryController {
         return ResponseEntity.ok(newCategory);
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PutMapping("/update/{id}")
     @Operation(summary = "Update category", description = "Update category by ID")
     public ResponseEntity<CategoryDTO> updateCategory(@PathVariable Long id, @RequestBody CreateCategoryDTO dto) {
@@ -40,6 +43,7 @@ public class CategoryController {
         return ResponseEntity.ok(updatedCategory);
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/delete/{id}")
     @Operation(summary = "Delete category", description = "Delete category by ID")
     public ResponseEntity<String> deleteCategory(@PathVariable Long id) {

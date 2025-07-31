@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.service.VerificationRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -39,6 +40,7 @@ public class VerificationRequestController {
         }
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/process")
     @Operation(summary = "Process verification request")
     public ResponseEntity<Map<String, Object>> processVerificationRequest(
