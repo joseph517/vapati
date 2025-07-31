@@ -108,8 +108,9 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteUser(Long id) {
-        User user = userRepository.findById(id)
+    public void deleteUser() {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
 
         if (user.getDeletedAt() != null) {

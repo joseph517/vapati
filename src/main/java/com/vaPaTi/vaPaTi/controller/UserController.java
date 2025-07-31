@@ -51,10 +51,10 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUser(dto));
     }
 
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Delete user", description = "Delete user by ID")
-    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
+    @DeleteMapping("/delete")
+    @Operation(summary = "Delete user", description = "Delete user by token user")
+    public ResponseEntity<Map<String, String>> deleteUser() {
+        userService.deleteUser();
         return ResponseEntity.ok(Map.of(
                 "message", "User deleted successfully",
                 "success", "true"
