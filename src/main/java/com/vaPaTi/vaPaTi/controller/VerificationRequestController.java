@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.service.VerificationRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -16,18 +17,15 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/verifications")
+@RequiredArgsConstructor
 public class VerificationRequestController {
 
     private final VerificationRequestService service;
-
-    public VerificationRequestController(VerificationRequestService service) {
-        this.service = service;
-    }
+    private static final String ERROR = "error";
 
     @PostMapping("/request")
     @Operation(summary = "Create verification request")
-    public ResponseEntity<Map<String, Object>> createVerificationRequest(
-            @Valid @RequestBody CreateVerificationRequestDTO dto) {
+    public ResponseEntity<Map<String, Object>> createVerificationRequest(@Valid @RequestBody CreateVerificationRequestDTO dto) {
         try {
             Long requestId = service.createVerificationRequest(dto);
             return ResponseEntity.ok(Map.of(
@@ -36,15 +34,14 @@ public class VerificationRequestController {
                     "status", "PENDING"
             ));
         } catch (MessageException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(ERROR, e.getMessage()));
         }
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/process")
     @Operation(summary = "Process verification request")
-    public ResponseEntity<Map<String, Object>> processVerificationRequest(
-            @Valid @RequestBody ProcessVerificationRequestDTO dto) {
+    public ResponseEntity<Map<String, Object>> processVerificationRequest(@Valid @RequestBody ProcessVerificationRequestDTO dto) {
         try {
             VerificationRequest request = service.processVerificationRequest(dto);
             return ResponseEntity.ok(Map.of(
@@ -54,18 +51,18 @@ public class VerificationRequestController {
                     "userVerified", request.getUser().isVerified()
             ));
         } catch (MessageException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(ERROR, e.getMessage()));
         }
     }
 
     @GetMapping("/status/{userId}")
     @Operation(summary = "Get verification status")
-    public ResponseEntity<?> getVerificationStatus(@PathVariable Long userId) {
+    public ResponseEntity<Object> getVerificationStatus(@PathVariable Long userId) {
         try {
             VerificationStatusResponseDTO dto = service.getVerificationStatus(userId);
             return ResponseEntity.ok(dto);
         } catch (MessageException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(ERROR, e.getMessage()));
         }
     }
 }

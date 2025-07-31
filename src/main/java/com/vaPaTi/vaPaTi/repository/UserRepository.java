@@ -52,4 +52,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NOT NULL")
     Optional<User> findDeletedById(@Param("id") Long id);
 
+    @Query(value = "SELECT u.* FROM [user] u JOIN user_info ui ON u.id = ui.user_id WHERE ui.email = :email", nativeQuery = true)
+    Optional<User> findByEmailIncludingDeleted(@Param("email") String email);
+
 }
