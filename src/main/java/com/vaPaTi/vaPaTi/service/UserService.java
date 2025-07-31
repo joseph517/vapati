@@ -121,19 +121,17 @@ public class UserService {
         userRepository.save(user);
     }
 
-    // Restore user TODO: implement
     @Transactional
-    public ResponseEntity<Map<String, String>> restoreUser(Long id) {
-        User user = userRepository.findDeletedById(id)
-                .orElseThrow(() -> new MessageException("Deleted user not found"));
+    public void restoreUser(String email) {
+        User user = userRepository.findByEmailIncludingDeleted(email)
+                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
+
+        if (user.getDeletedAt() == null) {
+            return;
+        }
 
         user.setDeletedAt(null);
         userRepository.save(user);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "User restored successfully",
-                "success", "true"
-        ));
     }
 
     public UserDTO getUserByIdDTO(Long id) {

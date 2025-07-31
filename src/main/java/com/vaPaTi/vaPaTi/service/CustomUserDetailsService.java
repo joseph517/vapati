@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,21 +24,49 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findAllWithDetails().stream()
+        // Primero intentar encontrar usuario activo (con la restricción SQL)
+        Optional<User> activeUser = userRepository.findAllWithDetails().stream()
                 .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
-                .findFirst()
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+                .findFirst();
 
-        if (!user.isActive()) {
-            throw new UsernameNotFoundException("User account is disabled");
+        if (activeUser.isPresent()) {
+            User user = activeUser.get();
+            if (!user.isActive()) {
+                throw new UsernameNotFoundException("User account is disabled");
+            }
+
+            return org.springframework.security.core.userdetails.User.builder()
+                    .username(user.getUserInfo().getEmail())
+                    .password(user.getUserInfo().getPassword())
+                    .authorities(getAuthorities(user))
+                    .disabled(!user.isActive())
+                    .build();
         }
 
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUserInfo().getEmail())
-                .password(user.getUserInfo().getPassword())
-                .authorities(getAuthorities(user))
-                .disabled(!user.isActive())
-                .build();
+        // Si no se encuentra usuario activo, buscar si existe uno eliminado
+        Optional<User> deletedUser = userRepository.findByEmailIncludingDeleted(email);
+
+        if (deletedUser.isPresent() && deletedUser.get().getDeletedAt() != null) {
+            // Usuario existe pero está eliminado - restaurar automáticamente
+            User userToRestore = deletedUser.get();
+            userToRestore.setDeletedAt(null);
+            userRepository.save(userToRestore);
+
+            // Verificar que el usuario restaurado esté activo
+            if (!userToRestore.isActive()) {
+                throw new UsernameNotFoundException("User account is disabled");
+            }
+
+            return org.springframework.security.core.userdetails.User.builder()
+                    .username(userToRestore.getUserInfo().getEmail())
+                    .password(userToRestore.getUserInfo().getPassword())
+                    .authorities(getAuthorities(userToRestore))
+                    .disabled(!userToRestore.isActive())
+                    .build();
+        }
+
+        // Usuario no existe en absoluto
+        throw new UsernameNotFoundException("User not found with email: " + email);
     }
 
     private Collection<? extends GrantedAuthority> getAuthorities(User user) {
