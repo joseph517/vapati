@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -27,25 +28,34 @@ public class FollowerService {
     private final UserRepository userRepository;
     private final FollowerMapper followerMapper;
     private final FollowerValidation followerValidation;
+    private final AuthenticatedUserService authenticatedUserService;
 
     private static final String USER_NOT_FOUND = "User not found with ID: ";
 
+
     /**
-     * Follow a user
-     * @param currentUserId ID of the user who wants to follow
-     * @param userToFollowId ID of the user to be followed
-     * @return FollowResponseDto with operation result
+     * Follows a user by creating a new follower relationship.
+     *
+     * This method first validates that the current user is not trying to follow themselves, and that both the current user and the user to follow are active. It then checks if the current user is already following the user to follow, and if so, throws an IllegalStateException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
+     *
+     * @param userToFollowId the ID of the user to follow
+     * @return a FollowResponseDto with the result of the follow operation
+     * @throws IllegalArgumentException if the current user is trying to follow themselves
+     * @throws IllegalStateException if the current user or the user to follow is inactive, or if the current user is already following the user to follow
+     * @throws EntityNotFoundException if the current user or the user to follow is not found
      */
     @Transactional
-    public FollowResponseDto followUser(@NotNull Long currentUserId, Long userToFollowId) {
+    public FollowResponseDto followUser(Long userToFollowId) {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+
         // Validate that user is not trying to follow themselves
-        if (currentUserId.equals(userToFollowId)) {
+        if (userId.equals(userToFollowId)) {
             throw new IllegalArgumentException("Users cannot follow themselves");
         }
 
         // Get current user
-        User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new EntityNotFoundException("Current user not found with ID: " + currentUserId));
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Current user not found with ID: " + userId));
 
         // Validate current user is active
         if (!currentUser.isActive()) {
@@ -80,22 +90,26 @@ public class FollowerService {
         );
     }
 
+
     /**
-     * Unfollow a user
-     * @param currentUserId ID of the user who wants to unfollow
-     * @param userToUnfollowId ID of the user to be unfollowed
-     * @return UnfollowResponseDto with operation result
+     * Unfollows a user. This will remove the follower relationship between the current user and the user to unfollow.
+     * @param userToUnfollowId the ID of the user to unfollow
+     * @return a response DTO with the ID of the unfollowed user and a success message
+     * @throws EntityNotFoundException if the current user or the user to unfollow is not found
+     * @throws IllegalArgumentException if the user is trying to unfollow themselves
      */
     @Transactional
-    public UnfollowResponseDto unfollowUser(@NotNull Long currentUserId, Long userToUnfollowId) {
+    public UnfollowResponseDto unfollowUser(Long userToUnfollowId) {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+
         // Validate that user is not trying to unfollow themselves
-        if (currentUserId.equals(userToUnfollowId)) {
+        if (userId.equals(userToUnfollowId)) {
             throw new IllegalArgumentException("Users cannot unfollow themselves");
         }
 
         // Get current user
-        User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new EntityNotFoundException("Current user not found with ID: " + currentUserId));
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Current user not found with ID: " + userId));
 
         // Get user to unfollow
         User userToUnfollow = userRepository.findById(userToUnfollowId)

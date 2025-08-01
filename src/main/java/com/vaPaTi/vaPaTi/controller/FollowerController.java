@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
 import com.vaPaTi.vaPaTi.service.FollowerService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -24,21 +25,15 @@ public class FollowerController {
 
     @PostMapping("/follow")
     @Operation(summary = "Follow user", description = "Current user follows another user")
-    public ResponseEntity<FollowResponseDto> followUser(
-            @PathVariable Long userId,
-            @Valid @RequestBody FollowRequestDto followRequestDto) {
-
-        FollowResponseDto response = followerService.followUser(userId, followRequestDto.getUserToFollowId());
+    public ResponseEntity<FollowResponseDto> followUser(@Valid @RequestBody @NotNull FollowRequestDto followRequestDto) {
+        FollowResponseDto response = followerService.followUser(followRequestDto.getUserToFollowId());
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/unfollow")
     @Operation(summary = "Unfollow user", description = "Current user unfollows another user")
-    public ResponseEntity<UnfollowResponseDto> unfollowUser(
-            @PathVariable Long userId,
-            @Valid @RequestBody FollowRequestDto followRequestDto) {
-
-        UnfollowResponseDto response = followerService.unfollowUser(userId, followRequestDto.getUserToFollowId());
+    public ResponseEntity<UnfollowResponseDto> unfollowUser(@Valid @RequestBody @NotNull FollowRequestDto followRequestDto) {
+        UnfollowResponseDto response = followerService.unfollowUser(followRequestDto.getUserToFollowId());
         return ResponseEntity.ok(response);
     }
 
@@ -58,10 +53,7 @@ public class FollowerController {
 
     @GetMapping("/is-following/{otherUserId}")
     @Operation(summary = "Check if following", description = "Check if current user follows another user")
-    public ResponseEntity<Boolean> isFollowing(
-            @PathVariable Long userId,
-            @PathVariable Long otherUserId) {
-
+    public ResponseEntity<Boolean> isFollowing(@PathVariable Long userId, @PathVariable Long otherUserId) {
         boolean isFollowing = followerService.isFollowing(userId, otherUserId);
         return ResponseEntity.ok(isFollowing);
     }
