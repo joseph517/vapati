@@ -26,4 +26,8 @@ public class Publication {
     @ManyToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
     private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "campaign_id", nullable = true)
+    private Campaign campaign;
 }
