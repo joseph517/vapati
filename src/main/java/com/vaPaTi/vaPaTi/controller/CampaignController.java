@@ -2,11 +2,11 @@ package com.vaPaTi.vaPaTi.controller;
 
 import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.service.CampaignService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,11 +19,6 @@ import java.util.Map;
 public class CampaignController {
 
     private final CampaignService campaignService;
-
-    @GetMapping("/list")
-    public List<CampaignResponseDTO> getAllCampaigns() {
-        return campaignService.getAllCampaigns();
-    }
 
     @PostMapping("/create")
     @Operation(summary = "Create campaign")
@@ -42,6 +37,55 @@ public class CampaignController {
             ));
         }
     }
+
+
+    @GetMapping("/list")
+    @Operation(summary = "Get all campaigns")
+    public List<CampaignResponseDTO> getAllCampaigns() {
+        return campaignService.getAllCampaigns();
+    }
+
+    @GetMapping("/my-campaigns")
+    @Operation(summary = "Get all campaigns of authenticated user")
+    public ResponseEntity<Map<String, Object>> getMyCampaigns() {
+        try {
+            List<CampaignResponseDTO> campaigns = campaignService.getCampaignsByAuthenticatedUser();
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Campaigns retrieved successfully",
+                    "campaigns", campaigns,
+                    "total", campaigns.size()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @PutMapping("/{campaignId}")
+    public ResponseEntity<CampaignResponseDTO> updateCampaign(
+            @PathVariable Long campaignId,
+            @RequestBody @Valid UpdateCampaignRequestDTO dto) {
+        CampaignResponseDTO responseDTO = campaignService.updateCampaign(campaignId, dto);
+        return ResponseEntity.ok(responseDTO);
+    }
+
+    @DeleteMapping("/{campaignId}")
+    public ResponseEntity<Map<String, Object>> deleteCampaign(@PathVariable Long campaignId) {
+        try {
+            campaignService.deleteCampaign(campaignId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Campaign deleted successfully",
+                    "campaignId", campaignId
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
 
 }
 
