@@ -2,16 +2,21 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
 import lombok.RequiredArgsConstructor;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ public class CampaignService {
     private final CampaignRepository campaignRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final UserRepository userRepository;
+    private final CampaignServiceValidation campaignServiceValidation;
 
     public List<CampaignResponseDTO> getAllCampaigns() {
         List<Campaign> campaigns = campaignRepository.findAll();
@@ -29,26 +35,48 @@ public class CampaignService {
                 .toList();
     }
 
-    public CampaignResponseDTO createCampaign(CreateCampaignRequestDTO dto) {
-        // 1️⃣ Obtener el userId desde el token
+    public List<CampaignResponseDTO> getCampaignsByAuthenticatedUser() {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
-        // 2️⃣ Buscar la entidad User
+        List<Campaign> campaigns = campaignRepository.findByUserId(userId);
+
+        return campaigns.stream()
+                .map(CampaignMapper::toResponseDTO)
+                .toList();
+    }
+
+    public CampaignResponseDTO createCampaign(@NotNull CreateCampaignRequestDTO dto) {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-        // 3️⃣ Ajustar amountRaised si es null
         Double amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : 0;
         dto.setAmountRaised(amountRaised);
 
-        // 4️⃣ Crear Campaign con Goal usando el mapper
         Campaign campaign = CampaignMapper.toEntity(dto, user);
 
-        // 5️⃣ Guardar en la base de datos (CascadeType.ALL guardará también el Goal)
         Campaign savedCampaign = campaignRepository.save(campaign);
 
-        // 6️⃣ Convertir a DTO de respuesta
         return CampaignMapper.toResponseDTO(savedCampaign);
+    }
+
+    public CampaignResponseDTO updateCampaign(Long campaignId, UpdateCampaignRequestDTO dto) {
+        Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+
+        campaignServiceValidation.updateCampaignFields(campaign, dto);
+        campaignServiceValidation.updateGoalFields(campaign.getGoal(), dto);
+
+        Campaign updatedCampaign = campaignRepository.save(campaign);
+
+        return CampaignMapper.toResponseDTO(updatedCampaign);
+    }
+
+    public void deleteCampaign(Long campaignId) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+
+        campaignRepository.delete(campaign);
     }
 
 }
