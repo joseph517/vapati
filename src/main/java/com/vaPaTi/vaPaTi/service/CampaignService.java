@@ -4,7 +4,6 @@ import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
@@ -16,7 +15,6 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

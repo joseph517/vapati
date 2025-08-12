@@ -1,20 +1,19 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
-import com.vaPaTi.vaPaTi.mapper.UserMapper;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+
+import static com.vaPaTi.vaPaTi.utils.ValidationUtils.*;
 
 @Service
 @RequiredArgsConstructor
@@ -27,18 +26,10 @@ public class BankAccountValidationService {
     private final BankAccountMapper bankAccountMapper;
 
     public void validateInput(@NotNull CreateBankAccountDTO dto) {
-        if (dto.getBankName() == null || dto.getBankName().isBlank()) {
-            throw new MessageException("Bank name is required");
-        }
-        if (dto.getAccountHolder() == null || dto.getAccountHolder().isBlank()) {
-            throw new MessageException("Account holder is required");
-        }
-        if (dto.getAccountNumber() == null || dto.getAccountNumber().isBlank()) {
-            throw new MessageException("Account number is required");
-        }
-        if (dto.getAccountType() == null || dto.getAccountType().isBlank()) {
-            throw new MessageException("Account type is required");
-        }
+        validateNotBlank(dto.getBankName(), "Bank name");
+        validateNotBlank(dto.getAccountHolder(), "Account holder");
+        validateNotBlank(dto.getAccountNumber(), "Account number");
+        validateNotBlank(dto.getAccountType(), "Account type");
         if (dto.getUserId() == null) {
             throw new MessageException("User ID is required");
         }
@@ -90,109 +81,22 @@ public class BankAccountValidationService {
         return account;
     }
 
-    public @NotNull BankAccountDTO convertToDTO(@NotNull BankAccount bankAccount) {
-        BankAccountDTO dto = new BankAccountDTO();
-        dto.setId(bankAccount.getId());
-        dto.setUserId(bankAccount.getUser().getId());
-        dto.setBankName(bankAccount.getBankName());
-        dto.setAccountNumber(bankAccount.getAccountNumber());
-        dto.setAccountType(bankAccount.getAccountType());
-        dto.setAccountHolder(bankAccount.getAccountHolder());
-        return dto;
-    }
-
-    @Transactional
-    public BankAccountDTO updateBankAccount(Long id, UpdateBankAccountDTO dto) {
-        // Validar input
-        BankAccount bankAccount = bankAccountRepository.findById(id)
-                .orElseThrow(() -> new MessageException("Bank account not found with id: " + id));
-
-        // Verify that the account is not deleted
-        if (bankAccount.getDeletedAt() != null) {
-            throw new MessageException("Cannot update deleted bank account");
-        }
-
-        // Validate and update fields only if sent and not empty
-        if (dto.getBankName() != null) {
-            if (dto.getBankName().trim().isEmpty()) {
-                throw new MessageException("Bank name cannot be empty");
-            }
-            bankAccount.setBankName(dto.getBankName().trim());
-        }
-
-        if (dto.getAccountNumber() != null) {
-            if (dto.getAccountNumber().trim().isEmpty()) {
-                throw new MessageException("Account number cannot be empty");
-            }
-
-            // Validate that the new account number is not in use by another active account
-            String newAccountNumber = dto.getAccountNumber().trim();
-            if (!newAccountNumber.equals(bankAccount.getAccountNumber())) {
-                // Verificar que no exista otra cuenta activa con este número
-                if (bankAccountRepository.existsByAccountNumberAndDeletedAtIsNull(newAccountNumber)) {
-                    throw new MessageException("Account number already exists");
-                }
-
-                // Verify that it is not owned by another user (including deleted accounts)
-                Optional<BankAccount> existingAccount = bankAccountRepository.findByAccountNumberIgnoreDeleted(newAccountNumber);
-                if (existingAccount.isPresent()) {
-                    BankAccount existing = existingAccount.get();
-                    if (!existing.getUser().getId().equals(bankAccount.getUser().getId())) {
-                        throw new MessageException("Cannot use account number owned by another user");
-                    }
-                }
-            }
-            bankAccount.setAccountNumber(newAccountNumber);
-        }
-
-        if (dto.getAccountType() != null) {
-            if (dto.getAccountType().trim().isEmpty()) {
-                throw new MessageException("Account type cannot be empty");
-            }
-            bankAccount.setAccountType(dto.getAccountType().trim());
-        }
-
-        if (dto.getAccountHolder() != null) {
-            if (dto.getAccountHolder().trim().isEmpty()) {
-                throw new MessageException("Account holder cannot be empty");
-            }
-            bankAccount.setAccountHolder(dto.getAccountHolder().trim());
-        }
-
-        BankAccount updated = bankAccountRepository.save(bankAccount);
-
-        return bankAccountMapper.toDto(updated);
-    }
-
     public void validateUpdateInput(UpdateBankAccountDTO dto) {
         if (dto == null) {
             throw new MessageException("Update data cannot be null");
         }
 
-        // Validar que al menos un campo se esté enviando para actualizar
-        if (dto.getBankName() == null &&
-                dto.getAccountNumber() == null &&
-                dto.getAccountType() == null &&
-                dto.getAccountHolder() == null) {
-            throw new MessageException("At least one field must be provided for update");
-        }
+        validateAtLeastOneFieldPresent(
+                dto.getBankName(),
+                dto.getAccountNumber(),
+                dto.getAccountType(),
+                dto.getAccountHolder()
+        );
 
-        // Validar que los campos enviados no sean solo espacios en blanco
-        if (dto.getBankName() != null && dto.getBankName().trim().isEmpty()) {
-            throw new MessageException("Bank name cannot be empty");
-        }
-
-        if (dto.getAccountNumber() != null && dto.getAccountNumber().trim().isEmpty()) {
-            throw new MessageException("Account number cannot be empty");
-        }
-
-        if (dto.getAccountType() != null && dto.getAccountType().trim().isEmpty()) {
-            throw new MessageException("Account type cannot be empty");
-        }
-
-        if (dto.getAccountHolder() != null && dto.getAccountHolder().trim().isEmpty()) {
-            throw new MessageException("Account holder cannot be empty");
-        }
+        validateIfPresent(dto.getBankName(), "Bank name");
+        validateIfPresent(dto.getAccountNumber(), "Account number");
+        validateIfPresent(dto.getAccountType(), "Account type");
+        validateIfPresent(dto.getAccountHolder(), "Account holder");
     }
 
     public void validateAccountNumberForUpdate(String newAccountNumber, String currentAccountNumber, Long userId) {
@@ -202,17 +106,14 @@ public class BankAccountValidationService {
 
         String trimmedNewAccountNumber = newAccountNumber.trim();
 
-        // Si es el mismo número, no hay problema
         if (trimmedNewAccountNumber.equals(currentAccountNumber)) {
             return;
         }
 
-        // Verificar que no exista otra cuenta activa con este número
         if (bankAccountRepository.existsByAccountNumberAndDeletedAtIsNull(trimmedNewAccountNumber)) {
             throw new MessageException("Account number already exists");
         }
 
-        // Verificar que no sea propiedad de otro usuario (incluyendo eliminadas)
         Optional<BankAccount> existingAccount = bankAccountRepository.findByAccountNumberIgnoreDeleted(trimmedNewAccountNumber);
         if (existingAccount.isPresent()) {
             BankAccount existing = existingAccount.get();

@@ -98,15 +98,14 @@ public class UserValidationService {
     }
 
     public @NotNull UserInfo createUserInfo(@NotNull CreateUserInfoDTO dto) {
-        // Validaciones
+        // Validations
         validateEmail(dto.getEmail(), null);
         validateUserName(dto.getUserName(), null);
         validatePassword(dto.getPassword());
 
-        // Usa el mapper para crear UserInfo
         UserInfo userInfo = userInfoMapper.fromCreateUserInfoDTO(dto);
 
-        // Encripta el password DESPUÉS del mapeo
+        // Encrypt the password AFTER mapping
         userInfo.setPassword(passwordEncoder.encode(dto.getPassword()));
         userInfo.setCreatedAt(LocalDateTime.now());
         userInfo.setUpdatedAt(LocalDateTime.now());
@@ -145,7 +144,6 @@ public class UserValidationService {
             throw new MessageException("Password must be at least 8 characters long");
         }
 
-        // Agregar más validaciones de contraseña según sea necesario
         if (!password.matches(".*[A-Z].*")) {
             throw new MessageException("Password must contain at least one uppercase letter");
         }
@@ -247,7 +245,7 @@ public class UserValidationService {
                 .map(Category::getId)
                 .collect(Collectors.toSet());
 
-        // Eliminar categorías que no están en la nueva lista
+        // Remove categories that are not in the new list
         user.getUserCategories().removeIf(uc -> {
             if (!newCategoryIds.contains(uc.getCategory().getId())) {
                 uc.setUser(null); // Desasociar
@@ -256,7 +254,7 @@ public class UserValidationService {
             return false;
         });
 
-        // Añadir nuevas categorías
+        // Add new categories
         Set<Long> existingIds = user.getUserCategories().stream()
                 .map(uc -> uc.getCategory().getId())
                 .collect(Collectors.toSet());

@@ -4,7 +4,6 @@ import com.vaPaTi.vaPaTi.entity.RevokedToken;
 import com.vaPaTi.vaPaTi.repository.RevokedTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
