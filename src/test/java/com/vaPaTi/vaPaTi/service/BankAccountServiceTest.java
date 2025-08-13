@@ -103,6 +103,27 @@ class BankAccountServiceTest {
     }
 
     @Test
+    void testBankAccountDTO() {
+        BankAccountDTO dto1 = new BankAccountDTO();
+        BankAccountDTO dto2 = new BankAccountDTO(1L, 2L, "Banco", "123", "Ahorro", "Juan");
+        BankAccountDTO dto3 = BankAccountDTO.builder()
+                .id(1L)
+                .userId(2L)
+                .bankName("Bank")
+                .build();
+
+        assertEquals(1L, dto3.getId());
+        assertEquals("Bank", dto3.getBankName());
+
+        dto1.setBankName("New Bank");
+        assertEquals("New Bank", dto1.getBankName());
+
+        assertNotEquals(dto1, dto2);
+        assertNotNull(dto1.toString());
+        assertEquals(dto1.hashCode(), dto1.hashCode());
+    }
+
+    @Test
     @DisplayName("Should create new bank account successfully when validation result is CAN_CREATE")
     void createBankAccount_ShouldCreateNewAccount_WhenValidationResultIsCanCreate() {
         // Arrange
