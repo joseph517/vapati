@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console appender for test output -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File appender for test logs -->
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>target/test-logs/test.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Async appender for better performance -->
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="CONSOLE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <!-- Application specific loggers -->
+    <logger name="com.vaPaTi.vaPaTi" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+
+    <!-- Spring Framework loggers -->
+    <logger name="org.springframework" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="org.springframework.web" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="org.springframework.security" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="org.springframework.test" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <!-- Database and JPA loggers -->
+    <logger name="org.hibernate" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <!-- TestContainers loggers -->
+    <logger name="org.testcontainers" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="com.github.dockerjava" level="WARN" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <logger name="org.testcontainers.containers" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <!-- SQL Server JDBC driver -->
+    <logger name="com.microsoft.sqlserver" level="WARN" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <!-- JWT and Security related -->
+    <logger name="io.jsonwebtoken" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC"/>
+    </logger>
+
+    <!-- Reduce noise from common libraries -->
+    <logger name="org.apache.http" level="WARN"/>
+    <logger name="org.apache.commons" level="WARN"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+
+    <!-- Root logger configuration -->
+    <root level="INFO">
+        <appender-ref ref="ASYNC"/>
+    </root>
+
+    <!-- Profile-specific configurations -->
+    <springProfile name="test">
+        <logger name="com.vaPaTi.vaPaTi" level="DEBUG"/>
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <root level="INFO"/>
+    </springProfile>
+
+    <springProfile name="integration">
+        <logger name="com.vaPaTi.vaPaTi" level="DEBUG"/>
+        <logger name="org.springframework.web" level="INFO"/>
+        <logger name="org.testcontainers" level="INFO"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <root level="INFO"/>
+    </springProfile>
+
+    <springProfile name="e2e">
+        <logger name="com.vaPaTi.vaPaTi" level="INFO"/>
+        <logger name="org.springframework" level="WARN"/>
+        <logger name="org.testcontainers" level="WARN"/>
+        <root level="WARN"/>
+    </springProfile>
+</configuration>
