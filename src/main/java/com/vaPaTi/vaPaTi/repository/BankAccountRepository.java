@@ -3,10 +3,12 @@ import com.vaPaTi.vaPaTi.entity.BankAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface BankAccountRepository extends JpaRepository<BankAccount, Long> {
 
     // Search for bank accounts by user id
@@ -33,9 +35,9 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long> 
 
     boolean existsByUserIdAndAccountNumberAndDeletedAtIsNull(Long userId, String accountNumber);
 
-    @Query(value = "SELECT * FROM bank_accounts WHERE user_id = :userId AND account_number = :accountNumber AND deleted_at IS NOT NULL", nativeQuery = true)
+    @Query(value = "SELECT * FROM bank_account WHERE user_id = :userId AND account_number = :accountNumber AND deleted_at IS NOT NULL", nativeQuery = true)
     Optional<BankAccount> findByUserIdAndAccountNumberAndDeletedAtIsNotNull(@Param("userId") Long userId, @Param("accountNumber") String accountNumber);
 
-    @Query(value = "SELECT * FROM bank_accounts WHERE account_number = :accountNumber", nativeQuery = true)
+    @Query(value = "SELECT * FROM bank_account WHERE account_number = :accountNumber", nativeQuery = true)
     Optional<BankAccount> findByAccountNumberIgnoreDeleted(@Param("accountNumber") String accountNumber);
 }

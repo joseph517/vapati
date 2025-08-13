@@ -1,9 +1,7 @@
 package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -12,6 +10,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "bank_accounts")
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(exclude = "user")
 @ToString(exclude = "user")
 @SQLDelete(sql = "UPDATE bank_accounts SET deleted_at = now() WHERE id = ?")
