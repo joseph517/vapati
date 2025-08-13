@@ -47,6 +47,10 @@ public class UserService {
 
     @Transactional
     public UserDTO createUser(@NotNull UserUserInfoRequestDTO request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+        
         CreateUserDTO userDTO = request.getUser();
         CreateUserInfoDTO userInfoDTO = request.getUserInfo();
 
@@ -79,6 +83,10 @@ public class UserService {
 
     @Transactional
     public UserDTO updateUser( @NotNull UpdateUserDTO dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("DTO cannot be null");
+        }
+        
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
         User user = userValidationService.getUserById(userId);
@@ -122,6 +130,10 @@ public class UserService {
 
     @Transactional
     public void restoreUser(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+        
         User user = userRepository.findByEmailIncludingDeleted(email)
                 .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
 
@@ -134,6 +146,10 @@ public class UserService {
     }
 
     public UserDTO getUserByIdDTO(Long id) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("ID must be a positive number");
+        }
+        
         User user = userRepository.findByIdWithFullDetails(id)
                 .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
         return userMapper.toUserDTO(user);
