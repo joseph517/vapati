@@ -24,6 +24,10 @@ public class AuthenticationService {
 
     @Transactional
     public AuthResponse authenticate(@NotNull AuthRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Authentication request cannot be null");
+        }
+        
         try {
             // Use AuthenticationManager to validate credentials
             authenticationManager.authenticate(
@@ -57,6 +61,10 @@ public class AuthenticationService {
 
     @Transactional
     public AuthResponse refreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            throw new MessageException("Invalid or expired refresh token");
+        }
+        
         try {
             String email = jwtService.extractUsername(refreshToken);
 
@@ -87,6 +95,10 @@ public class AuthenticationService {
 
     // Método adicional para obtener información del usuario desde un token
     public AuthResponse.UserInfo getUserInfoFromToken(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            throw new MessageException("Invalid or expired token");
+        }
+        
         try {
             UserTokenData tokenData = jwtService.extractUserData(token);
             return AuthResponse.UserInfo.fromUserTokenData(tokenData);
@@ -97,6 +109,10 @@ public class AuthenticationService {
 
     // Método para validar un token y obtener datos del usuario
     public UserTokenData validateTokenAndGetUserData(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            throw new MessageException("Invalid or expired token");
+        }
+        
         try {
             // Extraer email del token
             String email = jwtService.extractUsername(token);
