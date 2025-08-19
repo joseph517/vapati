@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.entity;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -16,6 +17,7 @@ import java.util.Set;
 @Entity
 @Table(name = "[user]")
 @Data
+@Builder
 @EqualsAndHashCode(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts"})
 @ToString(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts", "role"})
 @SQLDelete(sql = "UPDATE [user] SET deleted_at = GETDATE() WHERE id = ?")

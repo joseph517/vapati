@@ -63,18 +63,12 @@ public class UserValidationService {
     }
 
     public @NotNull User createAndSetupUser(@NotNull CreateUserDTO dto) {
-        User user = new User();
-
-        // setActive to true
-        user.setActive(true);
-
-        // False to setVerified
-        user.setVerified(false);
-
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-
-        return user;
+        return User.builder()
+                .active(true)
+                .verified(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
     }
 
     /**

@@ -12,7 +12,7 @@ import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+    import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -31,16 +31,12 @@ class BankAccountServiceTest {
 
     @Mock
     private BankAccountRepository bankAccountRepository;
-
     @Mock
     private BankAccountValidationService bankAccountValidationService;
-
     @Mock
     private UserValidationService userValidationService;
-
     @Mock
     private BankAccountMapper bankAccountMapper;
-
     @InjectMocks
     private BankAccountService bankAccountService;
 
@@ -62,7 +58,11 @@ class BankAccountServiceTest {
                 .build();
 
         // Setup User
-        mockUser = new User();
+        mockUser = User.builder()
+                .id(1L)
+                .active(true)
+                .verified(true)
+                .build();
         mockUser.setId(1L);
         mockUser.setActive(true);
         mockUser.setVerified(true);

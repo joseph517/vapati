@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.utils;
 
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import org.jetbrains.annotations.NotNull;
 
 public class ValidationUtils {
 
@@ -18,7 +19,7 @@ public class ValidationUtils {
         }
     }
 
-    public static void validateAtLeastOneFieldPresent(Object... fields) {
+    public static void validateAtLeastOneFieldPresent(Object @NotNull ... fields) {
         for (Object field : fields) {
             if (field != null) {
                 return;

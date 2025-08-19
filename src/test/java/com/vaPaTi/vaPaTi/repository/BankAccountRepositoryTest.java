@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Testcontainers
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class BankAccountRepositoryTest {
+class BankAccountRepositoryTest {
 
     @Container
     static MSSQLServerContainer<?> sqlServerContainer = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
@@ -48,13 +48,14 @@ public class BankAccountRepositoryTest {
     private RoleRepository roleRepository;
 
     @Test
-    public void testFindBankAccountByAccountNumber() {
+    void testFindBankAccountByAccountNumber() {
         // Arrange
         String accountNumber = "1234567890";
 
-        User user = new User();
-        user.setActive(true);
-        user.setVerified(true);
+        User user = User.builder()
+                .active(true)
+                .verified(true)
+                .build();
 
         Role role = new Role();
         role.setName("ROLE_USER");
@@ -92,7 +93,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindBankAccountByAccountNumber_NotFound() {
+    void testFindBankAccountByAccountNumber_NotFound() {
         // Arrange
         String nonExistentAccountNumber = "9999999999";
 
@@ -104,14 +105,14 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindBankAccountByAccountNumber_NullParameter() {
+    void testFindBankAccountByAccountNumber_NullParameter() {
         // Act & Assert
         Optional<BankAccount> foundBankAccount = bankAccountRepository.findByAccountNumber(null);
         assertTrue(foundBankAccount.isEmpty());
     }
 
     @Test
-    public void testFindBankAccountByAccountNumber_EmptyString() {
+    void testFindBankAccountByAccountNumber_EmptyString() {
         // Act
         Optional<BankAccount> foundBankAccount = bankAccountRepository.findByAccountNumber("");
 
@@ -120,7 +121,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindByUserId_UserWithMultipleAccounts() {
+    void testFindByUserId_UserWithMultipleAccounts() {
         // Arrange
         User user = createTestUser("john.doe.multiple", "john.multiple@example.com");
         user = userRepository.save(user);
@@ -156,7 +157,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindByUserId_UserWithSingleAccount() {
+    void testFindByUserId_UserWithSingleAccount() {
         // Arrange
         User user = createTestUser("john.doe.single", "john.single@example.com");
         user = userRepository.save(user);
@@ -181,7 +182,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindByUserId_UserWithNoAccounts() {
+    void testFindByUserId_UserWithNoAccounts() {
         // Arrange
         User user = createTestUser("john.doe.noaccounts", "john.noaccounts@example.com");
         user = userRepository.save(user);
@@ -198,7 +199,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindByUserId_NonExistentUser() {
+    void testFindByUserId_NonExistentUser() {
         // Arrange
         Long nonExistentUserId = 99999L;
 
@@ -212,7 +213,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testFindByUserId_NullUserId() {
+    void testFindByUserId_NullUserId() {
         // Arrange
         Long nullUserId = null;
 
@@ -255,7 +256,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumber_NullAccountNumber() {
+    void testExistsByAccountNumber_NullAccountNumber() {
         // Arrange
         String nullAccountNumber = null;
 
@@ -267,7 +268,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumber_EmptyAccountNumber() {
+    void testExistsByAccountNumber_EmptyAccountNumber() {
         // Arrange
         String emptyAccountNumber = "";
 
@@ -279,7 +280,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumber_WithDeletedAccount() {
+    void testExistsByAccountNumber_WithDeletedAccount() {
         // Arrange
         String accountNumber = "8888888888";
 
@@ -298,7 +299,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testIsUserVerified_UserVerifiedTrue() {
+    void testIsUserVerified_UserVerifiedTrue() {
         // Arrange
         User verifiedUser = createTestUser("verified.user", "verified@example.com");
         verifiedUser.setVerified(true);
@@ -315,7 +316,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testIsUserVerified_UserVerifiedFalse() {
+    void testIsUserVerified_UserVerifiedFalse() {
         // Arrange
         User unverifiedUser = createTestUser("unverified.user", "unverified@example.com");
         unverifiedUser.setVerified(false);
@@ -332,7 +333,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testIsUserVerified_UserDoesNotExist() {
+    void testIsUserVerified_UserDoesNotExist() {
         // Arrange
         Long nonExistentUserId = 99999L;
 
@@ -344,7 +345,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testIsUserVerified_NullUserId() {
+    void testIsUserVerified_NullUserId() {
         // Arrange
         Long nullUserId = null;
 
@@ -356,7 +357,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumber_CombinationExists() {
+    void testExistsByUserIdAndAccountNumber_CombinationExists() {
         // Arrange
         User user = createTestUser("combination.user", "combination@example.com");
         user = userRepository.save(user);
@@ -419,7 +420,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumber_NeitherExists() {
+    void testExistsByUserIdAndAccountNumber_NeitherExists() {
         // Arrange
         Long nonExistentUserId = 99999L;
         String nonExistentAccountNumber = "9999999999";
@@ -432,7 +433,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumber_NullUserId() {
+    void testExistsByUserIdAndAccountNumber_NullUserId() {
         // Arrange
         Long nullUserId = null;
         String accountNumber = "5050505050";
@@ -445,7 +446,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumber_NullAccountNumber() {
+    void testExistsByUserIdAndAccountNumber_NullAccountNumber() {
         // Arrange
         User user = createTestUser("null.account", "null.account@example.com");
         user = userRepository.save(user);
@@ -461,7 +462,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumber_BothParametersNull() {
+    void testExistsByUserIdAndAccountNumber_BothParametersNull() {
         // Arrange
         Long nullUserId = null;
         String nullAccountNumber = null;
@@ -474,7 +475,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumber_WithDeletedAccount() {
+    void testExistsByUserIdAndAccountNumber_WithDeletedAccount() {
         // Arrange
         User user = createTestUser("deleted.combo", "deleted.combo@example.com");
         user = userRepository.save(user);
@@ -494,7 +495,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumberAndDeletedAtIsNull_AccountExistsNotDeleted() {
+    void testExistsByAccountNumberAndDeletedAtIsNull_AccountExistsNotDeleted() {
         // Arrange
         String accountNumber = "7070707070";
 
@@ -513,7 +514,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumberAndDeletedAtIsNull_AccountExistsButDeleted() {
+    void testExistsByAccountNumberAndDeletedAtIsNull_AccountExistsButDeleted() {
         // Arrange
         String accountNumber = "8080808080";
 
@@ -533,7 +534,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumberAndDeletedAtIsNull_AccountDoesNotExist() {
+    void testExistsByAccountNumberAndDeletedAtIsNull_AccountDoesNotExist() {
         // Arrange
         String nonExistentAccountNumber = "9090909090";
 
@@ -545,7 +546,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumberAndDeletedAtIsNull_NullAccountNumber() {
+    void testExistsByAccountNumberAndDeletedAtIsNull_NullAccountNumber() {
         // Arrange
         String nullAccountNumber = null;
 
@@ -557,7 +558,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByAccountNumberAndDeletedAtIsNull_EmptyAccountNumber() {
+    void testExistsByAccountNumberAndDeletedAtIsNull_EmptyAccountNumber() {
         // Arrange
         String emptyAccountNumber = "";
 
@@ -596,7 +597,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_CombinationExistsNotDeleted() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_CombinationExistsNotDeleted() {
         // Arrange
         User user = createTestUser("combo.active", "combo.active@example.com");
         user = userRepository.save(user);
@@ -615,7 +616,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_CombinationExistsButDeleted() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_CombinationExistsButDeleted() {
         // Arrange
         User user = createTestUser("combo.deleted", "combo.deleted@example.com");
         user = userRepository.save(user);
@@ -635,7 +636,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_UserExistsAccountDoesNot() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_UserExistsAccountDoesNot() {
         // Arrange
         User user = createTestUser("user.no.account", "user.no.account@example.com");
         user = userRepository.save(user);
@@ -651,7 +652,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_AccountExistsDifferentUser() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_AccountExistsDifferentUser() {
         // Arrange
         User user1 = createTestUser("owner.user", "owner.user@example.com");
         user1 = userRepository.save(user1);
@@ -674,7 +675,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_BothNull() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_BothNull() {
         // Arrange
         Long nullUserId = null;
         String nullAccountNumber = null;
@@ -687,7 +688,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_NullUserIdValidAccount() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_NullUserIdValidAccount() {
         // Arrange
         Long nullUserId = null;
         String accountNumber = "4455667788";
@@ -700,7 +701,7 @@ public class BankAccountRepositoryTest {
     }
 
     @Test
-    public void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_ValidUserIdNullAccount() {
+    void testExistsByUserIdAndAccountNumberAndDeletedAtIsNull_ValidUserIdNullAccount() {
         // Arrange
         User user = createTestUser("valid.user.null.account", "valid.null@example.com");
         user = userRepository.save(user);
@@ -724,10 +725,11 @@ public class BankAccountRepositoryTest {
                     return roleRepository.save(newRole);
                 });
 
-        User user = new User();
-        user.setActive(true);
-        user.setVerified(true);
-        user.setRole(role);
+        User user = User.builder()
+                .active(true)
+                .verified(true)
+                .role(role)
+                .build();
 
         UserInfo userInfo = new UserInfo();
         userInfo.setFirstName("John");
