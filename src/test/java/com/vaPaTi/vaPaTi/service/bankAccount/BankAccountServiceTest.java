@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.bankAccount;
 
 import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
+import com.vaPaTi.vaPaTi.service.BankAccountService;
 import com.vaPaTi.vaPaTi.validation.AccountValidationResult;
 import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
