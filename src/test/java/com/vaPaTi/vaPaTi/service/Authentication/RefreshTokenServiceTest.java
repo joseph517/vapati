@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RefreshToken Service Tests")
-public class RefreshTokenServiceTest {
+class RefreshTokenServiceTest {
 
     @Mock
     private JwtService jwtService;

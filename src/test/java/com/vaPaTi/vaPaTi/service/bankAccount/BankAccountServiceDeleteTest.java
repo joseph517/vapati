@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BankAccountService - deleteBankAccount Tests")
-public class BankAccountServiceDeleteTest {
+class BankAccountServiceDeleteTest {
 
     @Mock
     private BankAccountRepository bankAccountRepository;
