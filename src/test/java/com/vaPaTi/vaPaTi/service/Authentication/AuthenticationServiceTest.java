@@ -123,11 +123,11 @@ class AuthenticationServiceTest {
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(null))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("must not be null");
-
+                .hasMessage("Authentication request cannot be null");
         // Verify no interactions with dependencies
         verifyNoInteractions(authenticationManager, userRepository, jwtService);
     }
+
     @Test
     @DisplayName("Should throw MessageException when credentials are invalid")
     void authenticate_WithInvalidCredentials_ShouldThrowMessageException() {

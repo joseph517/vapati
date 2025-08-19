@@ -30,16 +30,15 @@ public class UserInfoMapper {
             return null;
         }
 
-        UserInfo userInfo = new UserInfo();
-        userInfo.setFirstName(dto.getFirstName());
-        userInfo.setLastName(dto.getLastName());
-        userInfo.setEmail(dto.getEmail());
-        userInfo.setUserName(dto.getUserName());
-        userInfo.setPassword(dto.getPassword());
-        userInfo.setPhone(dto.getPhone());
-        userInfo.setDescription(dto.getDescription());
-        userInfo.setProfilePicture(dto.getProfilePicture());
-
-        return userInfo;
+        return UserInfo.builder()
+                .firstName(dto.getFirstName())
+                .lastName(dto.getLastName())
+                .email(dto.getEmail())
+                .userName(dto.getUserName())
+                .password(dto.getPassword())
+                .phone(dto.getPhone())
+                .description(dto.getDescription())
+                .profilePicture(dto.getProfilePicture())
+                .build();
     }
 }

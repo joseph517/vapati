@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "user_info")
 @Data
+@Builder
 @EqualsAndHashCode(exclude = "user")
 @ToString(exclude = "user")
 public class UserInfo {

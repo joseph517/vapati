@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.dtos.UserTokenData;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import io.jsonwebtoken.JwtException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -63,7 +64,7 @@ public class AuthenticationService {
         if (refreshToken == null || refreshToken.trim().isEmpty()) {
             throw new MessageException("Invalid or expired refresh token");
         }
-        
+
         try {
             String email = jwtService.extractUsername(refreshToken);
 
@@ -80,17 +81,19 @@ public class AuthenticationService {
                 String newAccessToken = jwtService.generateToken(user);
                 String newRefreshToken = jwtService.generateRefreshToken(user);
 
-                // También incluir información del usuario en el refresh
                 AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
 
                 return new AuthResponse(newAccessToken, newRefreshToken, userInfo);
             } else {
                 throw new MessageException("Invalid or expired refresh token");
             }
-        } catch (Exception e) {
+        } catch (MessageException e) {
+            throw e;
+        } catch (RuntimeException e) {
             throw new MessageException("Invalid or expired refresh token");
         }
     }
+
 
     // Método adicional para obtener información del usuario desde un token
     public AuthResponse.UserInfo getUserInfoFromToken(String token) {

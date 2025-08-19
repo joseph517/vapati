@@ -63,15 +63,15 @@ class BankAccountRepositoryTest {
         role = roleRepository.save(role);
         user.setRole(role);
 
-        UserInfo userInfo = new UserInfo();
-        userInfo.setFirstName("John");
-        userInfo.setLastName("Doe");
-        userInfo.setEmail("ZV4aD@example.com");
-        userInfo.setUserName("john.doe");
-        userInfo.setPassword("securePassword123");
-        userInfo.setPhone("1234567890");
-        userInfo.setDescription("Test user");
-        user.setUserInfo(userInfo);
+        user.setUserInfo(UserInfo.builder()
+                .firstName("John")
+                .lastName("Doe")
+                .email("ZV4aD@example.com")
+                .userName("john.doe")
+                .password("securePassword123")
+                .phone("1234567890")
+                .description("Test user")
+                .build());
 
         user = userRepository.save(user);
 
@@ -405,7 +405,6 @@ class BankAccountRepositoryTest {
         User user2 = createTestUser("user.two", "user.two@example.com");
         user2 = userRepository.save(user2);
 
-        final Long user1Id = user1.getId();
         final Long user2Id = user2.getId();
         String accountNumber = "4040404040";
 
@@ -661,7 +660,6 @@ class BankAccountRepositoryTest {
         User user2 = createTestUser("other.user", "other.user@example.com");
         user2 = userRepository.save(user2);
 
-        final Long user1Id = user1.getId();
         final Long user2Id = user2.getId();
         String accountNumber = "3344556677";
 
@@ -718,13 +716,10 @@ class BankAccountRepositoryTest {
     }
 
     private @NotNull User createTestUser(String username, String email) {
-        // Try to find existing role first, create if not exists
         Role role = roleRepository.findByName("ROLE_USER")
-                .orElseGet(() -> {
-                    return Role.builder()
-                            .name("ROLE_USER")
-                            .build();
-                });
+                .orElseGet(() -> roleRepository.save(Role.builder()
+                        .name("ROLE_USER")
+                        .build()));
 
         User user = User.builder()
                 .active(true)
@@ -732,17 +727,17 @@ class BankAccountRepositoryTest {
                 .role(role)
                 .build();
 
-        UserInfo userInfo = new UserInfo();
-        userInfo.setFirstName("John");
-        userInfo.setLastName("Doe");
-        userInfo.setEmail(email);
-        userInfo.setUserName(username);
-        userInfo.setPassword("securePassword123" + UUID.randomUUID());
-        userInfo.setPhone("12345" + UUID.randomUUID().toString().substring(0, 5));
-        userInfo.setDescription("Test user");
-        user.setUserInfo(userInfo);
+        user.setUserInfo(UserInfo.builder()
+                .firstName("John")
+                .lastName("Doe")
+                .email(email)
+                .userName(username)
+                .password("securePassword123" + UUID.randomUUID())
+                .phone("12345" + UUID.randomUUID().toString().substring(0, 5))
+                .description("Test user")
+                .build());
 
-        return user;
+        return userRepository.save(user);
     }
     private @NotNull BankAccount createTestBankAccount(User user, String accountNumber, String accountType) {
         BankAccount bankAccount = new BankAccount();
