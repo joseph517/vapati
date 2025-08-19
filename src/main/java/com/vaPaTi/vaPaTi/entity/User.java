@@ -2,10 +2,7 @@ package com.vaPaTi.vaPaTi.entity;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
+import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -17,6 +14,8 @@ import java.util.Set;
 @Entity
 @Table(name = "[user]")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 @EqualsAndHashCode(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts"})
 @ToString(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts", "role"})

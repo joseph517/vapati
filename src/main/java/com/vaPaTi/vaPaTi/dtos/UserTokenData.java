@@ -1,11 +1,15 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserTokenData {
     @NotNull
     private Long userId;
