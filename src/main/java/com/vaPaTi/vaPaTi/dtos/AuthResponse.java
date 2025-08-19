@@ -14,13 +14,13 @@ public class AuthResponse {
     private UserInfo userInfo;
 
     public static class UserInfo {
-        private Long userId;
-        private String email;
-        private String role;
-        private String firstName;
-        private String lastName;
-        private String userName;
-        private String fullName;
+        public Long userId;
+        public String email;
+        public String role;
+        public String firstName;
+        public String lastName;
+        public String userName;
+        public String fullName;
 
         public UserInfo() {
         }

@@ -1,11 +1,13 @@
 package com.vaPaTi.vaPaTi.entity;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Data;
 
 @Entity
 @Table(name = "roles")
 @Data
+@Builder
 public class Role {
 
     @Id

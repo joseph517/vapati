@@ -57,8 +57,9 @@ class BankAccountRepositoryTest {
                 .verified(true)
                 .build();
 
-        Role role = new Role();
-        role.setName("ROLE_USER");
+        Role role = Role.builder()
+                .name("ROLE_USER")
+                .build();
         role = roleRepository.save(role);
         user.setRole(role);
 
@@ -720,9 +721,9 @@ class BankAccountRepositoryTest {
         // Try to find existing role first, create if not exists
         Role role = roleRepository.findByName("ROLE_USER")
                 .orElseGet(() -> {
-                    Role newRole = new Role();
-                    newRole.setName("ROLE_USER");
-                    return roleRepository.save(newRole);
+                    return Role.builder()
+                            .name("ROLE_USER")
+                            .build();
                 });
 
         User user = User.builder()

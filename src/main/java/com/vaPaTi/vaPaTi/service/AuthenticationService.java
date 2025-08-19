@@ -53,7 +53,6 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        // Crear la respuesta con información del usuario
         AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
 
         return new AuthResponse(accessToken, refreshToken, userInfo);
