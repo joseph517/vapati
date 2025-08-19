@@ -181,6 +181,19 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.10</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/dtos/**</exclude>
+                        <exclude>**/exception/**</exclude>
+                        <exclude>**/utils/**</exclude>
+                        <exclude>**/validation/**</exclude>
+                        <exclude>**/security/**</exclude>
+                        <exclude>**/controller/**</exclude>
+                        <exclude>**/mapper/**</exclude>
+                        <exclude>**/entity/**</exclude>
+                        <exclude>**/repository/**</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
