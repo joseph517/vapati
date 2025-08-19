@@ -94,39 +94,4 @@ public class AuthenticationService {
         }
     }
 
-
-    // Método adicional para obtener información del usuario desde un token
-    public AuthResponse.UserInfo getUserInfoFromToken(String token) {
-        if (token == null || token.trim().isEmpty()) {
-            throw new MessageException("Invalid or expired token");
-        }
-        
-        try {
-            UserTokenData tokenData = jwtService.extractUserData(token);
-            return AuthResponse.UserInfo.fromUserTokenData(tokenData);
-        } catch (Exception e) {
-            throw new MessageException("Invalid or expired token");
-        }
-    }
-
-    // Método para validar un token y obtener datos del usuario
-    public UserTokenData validateTokenAndGetUserData(String token) {
-        if (token == null || token.trim().isEmpty()) {
-            throw new MessageException("Invalid or expired token");
-        }
-        
-        try {
-            // Extraer email del token
-            String email = jwtService.extractUsername(token);
-
-            // Validar que el token no esté expirado
-            if (jwtService.isTokenValid(token, email)) {
-                return jwtService.extractUserData(token);
-            } else {
-                throw new MessageException("Invalid or expired token");
-            }
-        } catch (Exception e) {
-            throw new MessageException("Invalid or expired token");
-        }
-    }
 }
