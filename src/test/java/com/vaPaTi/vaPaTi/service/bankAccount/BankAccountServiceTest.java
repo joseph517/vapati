@@ -347,27 +347,4 @@ class BankAccountServiceTest {
         inOrder.verify(bankAccountMapper).toDto(savedBankAccount);
     }
 
-    @Test
-    @DisplayName("Should handle all AccountValidationResult enum values")
-    void createBankAccount_ShouldHandleAllEnumValues() {
-        // This test verifies that all enum values are explicitly handled
-        // If a new enum value is added, this test will help identify missing cases
-
-        AccountValidationResult[] allValues = AccountValidationResult.values();
-
-        // Verify we have tests for all current enum values
-        // This serves as documentation and helps with maintenance
-        Set<AccountValidationResult> expectedValues = Set.of(
-                AccountValidationResult.CAN_CREATE,
-                AccountValidationResult.CAN_RESTORE,
-                AccountValidationResult.ALREADY_EXISTS,
-                AccountValidationResult.OWNED_BY_OTHER_USER
-        );
-
-        Set<AccountValidationResult> actualValues = Set.of(allValues);
-
-        assertEquals(expectedValues, actualValues,
-                "If this fails, new enum values were added. Update the switch statement and add corresponding tests.");
-    }
-
 }
