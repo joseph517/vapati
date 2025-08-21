@@ -145,7 +145,7 @@ public class UserService {
         userRepository.save(user);
     }
 
-    public UserDTO getUserByIdDTO(Long id) {
+    public UserDTO getUserById(Long id) {
         if (id == null || id <= 0) {
             throw new IllegalArgumentException("ID must be a positive number");
         }
