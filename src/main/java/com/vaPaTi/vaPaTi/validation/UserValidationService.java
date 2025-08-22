@@ -263,20 +263,4 @@ public class UserValidationService {
                 });
     }
 
-    public void updateUserInfoPartial(UserInfo userInfo, @NotNull UpdateUserDTO dto) {
-        if (dto.getFirstName() != null) userInfo.setFirstName(dto.getFirstName());
-        if (dto.getLastName() != null) userInfo.setLastName(dto.getLastName());
-        if (dto.getEmail() != null) userInfo.setEmail(dto.getEmail());
-        if (dto.getUserName() != null) userInfo.setUserName(dto.getUserName());
-        if (dto.getPassword() != null) userInfo.setPassword(passwordEncoder.encode(dto.getPassword()));
-        if (dto.getPhone() != null) userInfo.setPhone(dto.getPhone());
-        if (dto.getDescription() != null) userInfo.setDescription(dto.getDescription());
-        if (dto.getProfilePicture() != null) userInfo.setProfilePicture(dto.getProfilePicture());
-    }
-
-    public User getUserWithFullDetails(Long id) {
-        return userRepository.findByIdWithFullDetails(id)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
-    }
-
 }

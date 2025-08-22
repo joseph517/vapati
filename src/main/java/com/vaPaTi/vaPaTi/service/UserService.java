@@ -47,9 +47,6 @@ public class UserService {
 
     @Transactional
     public UserDTO createUser(@NotNull UserUserInfoRequestDTO request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
-        }
         
         CreateUserDTO userDTO = request.getUser();
         CreateUserInfoDTO userInfoDTO = request.getUserInfo();
@@ -125,23 +122,6 @@ public class UserService {
         }
 
         user.setDeletedAt(LocalDateTime.now());
-        userRepository.save(user);
-    }
-
-    @Transactional
-    public void restoreUser(String email) {
-        if (email == null || email.trim().isEmpty()) {
-            throw new IllegalArgumentException("Email cannot be null or empty");
-        }
-        
-        User user = userRepository.findByEmailIncludingDeleted(email)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
-
-        if (user.getDeletedAt() == null) {
-            return;
-        }
-
-        user.setDeletedAt(null);
         userRepository.save(user);
     }
 
