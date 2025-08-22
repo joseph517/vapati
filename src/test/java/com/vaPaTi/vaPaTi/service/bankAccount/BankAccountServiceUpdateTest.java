@@ -442,9 +442,9 @@ class BankAccountServiceUpdateTest {
         inOrder.verify(bankAccountValidationService).validateUpdateInput(updateDto);
         inOrder.verify(bankAccountRepository).findById(accountId);
         inOrder.verify(bankAccountValidationService).validateAccountNumberForUpdate(
-                eq("1111111111"),
-                eq("0000000000"),
-                eq(1L));
+                "1111111111",
+                "0000000000",
+                1L);
         inOrder.verify(bankAccountRepository).save(any(BankAccount.class));
         inOrder.verify(bankAccountMapper).toDto(updatedBankAccount);
     }
