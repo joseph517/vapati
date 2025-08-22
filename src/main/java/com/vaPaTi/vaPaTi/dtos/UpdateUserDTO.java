@@ -2,18 +2,23 @@ package com.vaPaTi.vaPaTi.dtos;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.annotation.Nullable;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class UpdateUserDTO {
     private Boolean active;
     @Nullable
     private List<Long> categoryIds;
 
-    // Campos de UserInfo
     @Nullable
     private String firstName;
     @Nullable
