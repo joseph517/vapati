@@ -81,7 +81,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDTO updateUser( @NotNull UpdateUserDTO dto) {
+    public UserDTO updateUser( UpdateUserDTO dto) {
         if (dto == null) {
             throw new IllegalArgumentException("DTO cannot be null");
         }
