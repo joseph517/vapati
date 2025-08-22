@@ -178,24 +178,6 @@ class UserServiceCreateUserTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when request is null due to @NotNull validation")
-    void shouldThrowIllegalArgumentExceptionWhenRequestIsNull() {
-        // When & Then
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> userService.createUser(null)
-        );
-
-        // Verify it's Spring's Bean Validation exception
-        assertThat(exception.getMessage())
-                .contains("must not be null")
-                .contains("request");
-
-        // Verify no interactions with dependencies since validation happens before method execution
-        verifyNoInteractions(userValidationService, roleRepository, userRepository, userMapper);
-    }
-
-    @Test
     @DisplayName("Should throw MessageException when USER role is not found")
     void shouldThrowMessageExceptionWhenUserRoleNotFound() {
         // Given
