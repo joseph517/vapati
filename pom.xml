@@ -195,15 +195,14 @@
                 <version>0.8.10</version>
                 <configuration>
                     <excludes>
-                        <exclude>com/vaPaTi/vaPaTi/dtos/**</exclude>
-                        <exclude>com/vaPaTi/vaPaTi/exception/**</exclude>
-                        <exclude>com/vaPaTi/vaPaTi/utils/**</exclude>
-                        <exclude>com/vaPaTi/vaPaTi/validation/**</exclude>
-                        <exclude>com/vaPaTi/vaPaTi/security/**</exclude>
                         <exclude>com/vaPaTi/vaPaTi/controller/**</exclude>
-                        <exclude>com/vaPaTi/vaPaTi/mapper/**</exclude>
+                        <exclude>com/vaPaTi/vaPaTi/dtos/**</exclude>
                         <exclude>com/vaPaTi/vaPaTi/entity/**</exclude>
+                        <exclude>com/vaPaTi/vaPaTi/exception/**</exclude>
+                        <exclude>com/vaPaTi/vaPaTi/mapper/**</exclude>
                         <exclude>com/vaPaTi/vaPaTi/repository/**</exclude>
+                        <exclude>com/vaPaTi/vaPaTi/security/**</exclude>
+                        <exclude>com/vaPaTi/vaPaTi/utils/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
