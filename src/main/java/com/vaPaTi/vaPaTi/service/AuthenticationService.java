@@ -22,7 +22,10 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
 
     @Transactional
-    public AuthResponse authenticate(@NotNull AuthRequest request) {
+    public AuthResponse authenticate(AuthRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Authentication request cannot be null");
+        }
         
         try {
             // Use AuthenticationManager to validate credentials
