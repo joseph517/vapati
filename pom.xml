@@ -43,15 +43,14 @@
 
         <!-- Exclusiones de SonarQube -->
         <sonar.exclusions>
-            src/main/java/com/vaPaTi/vaPaTi/dtos/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/exception/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/utils/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/validation/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/security/**/*,
             src/main/java/com/vaPaTi/vaPaTi/controller/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/mapper/**/*,
+            src/main/java/com/vaPaTi/vaPaTi/dtos/**/*,
             src/main/java/com/vaPaTi/vaPaTi/entity/**/*,
+            src/main/java/com/vaPaTi/vaPaTi/exception/**/*,
+            src/main/java/com/vaPaTi/vaPaTi/mapper/**/*,
             src/main/java/com/vaPaTi/vaPaTi/repository/**/*
+            src/main/java/com/vaPaTi/vaPaTi/security/**/*,
+            src/main/java/com/vaPaTi/vaPaTi/utils/**/*,
         </sonar.exclusions>
     </properties>
 
