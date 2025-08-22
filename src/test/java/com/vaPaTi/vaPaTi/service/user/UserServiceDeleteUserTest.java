@@ -128,7 +128,7 @@ class UserServiceDeleteUserTest {
         inOrder.verify(userRepository).findById(authenticatedUserId);
 
         verify(userRepository, never()).save(any(User.class));
-        assertEquals(alreadyDeletedUser.getDeletedAt(), alreadyDeletedUser.getDeletedAt()); // Verify deletedAt wasn't modified
+        assertEquals(alreadyDeletedUser.getDeletedAt(), alreadyDeletedUser.getDeletedAt());
     }
 
     @Test
@@ -145,8 +145,8 @@ class UserServiceDeleteUserTest {
         // Then
         InOrder inOrder = inOrder(authenticatedUserService, userRepository);
         inOrder.verify(authenticatedUserService, times(1)).getAuthenticatedUserId();
-        inOrder.verify(userRepository, times(1)).findById(eq(authenticatedUserId));
-        inOrder.verify(userRepository, times(1)).save(eq(activeUser));
+        inOrder.verify(userRepository, times(1)).findById(authenticatedUserId);
+        inOrder.verify(userRepository, times(1)).save(activeUser);
         inOrder.verifyNoMoreInteractions();
     }
 

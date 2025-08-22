@@ -29,10 +29,8 @@ class BankAccountServiceListTest {
 
     @Mock
     private UserValidationService userValidationService;
-
     @Mock
     private BankAccountRepository bankAccountRepository;
-
     @Mock
     private BankAccountMapper bankAccountMapper;
 
@@ -48,7 +46,6 @@ class BankAccountServiceListTest {
     private BankAccountDTO bankAccountDTO1;
     private BankAccountDTO bankAccountDTO2;
     private List<BankAccount> bankAccountsList;
-    private List<BankAccountDTO> expectedDTOsList;
 
     @BeforeEach
     void setUp() {
@@ -96,9 +93,7 @@ class BankAccountServiceListTest {
                 .accountHolder("Juan Pérez")
                 .build();
 
-        bankAccountsList = Arrays.asList(bankAccount1, bankAccount2);
-        expectedDTOsList = Arrays.asList(bankAccountDTO1, bankAccountDTO2);
-    }
+        bankAccountsList = Arrays.asList(bankAccount1, bankAccount2);}
 
     @Test
     @DisplayName("Should return list of bank accounts when user exists and has bank accounts")

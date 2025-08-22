@@ -3,7 +3,6 @@ package com.vaPaTi.vaPaTi.service.user;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -156,7 +155,7 @@ class UserServiceCreateUserTest {
         assertNotNull(result);
         assertEquals(expectedUserDTO.getId(), result.getId());
         assertEquals(expectedUserDTO.getActive(), result.getActive());
-        assertEquals(expectedUserDTO.getVerified(), result.getVerified());;
+        assertEquals(expectedUserDTO.getVerified(), result.getVerified());
 
         // Verify interaction order and calls
         InOrder inOrder = inOrder(userValidationService, roleRepository, userRepository, userMapper);
@@ -374,7 +373,7 @@ class UserServiceCreateUserTest {
         // Verify that empty list was passed to validation
         verify(userValidationService).validateCategoryLimit(Collections.emptyList());
         verify(userValidationService).processCategories(Collections.emptyList());
-        verify(userValidationService).createUserCategoryRelations(eq(mockUser), eq(Collections.emptyList()));
+        verify(userValidationService).createUserCategoryRelations(mockUser, Collections.emptyList());
     }
 
     @Test

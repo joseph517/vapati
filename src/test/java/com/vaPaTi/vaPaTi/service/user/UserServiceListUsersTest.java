@@ -41,7 +41,6 @@ class UserServiceListUsersTest {
     private UserDTO userDTO1;
     private UserDTO userDTO2;
     private List<User> users;
-    private List<UserDTO> expectedUserDTOs;
 
     @BeforeEach
     void setUp() {
@@ -102,7 +101,6 @@ class UserServiceListUsersTest {
         userDTO2.setBankAccounts(new ArrayList<>());
 
         users = List.of(user1, user2);
-        expectedUserDTOs = List.of(userDTO1, userDTO2);
     }
 
     @Test
@@ -248,7 +246,6 @@ class UserServiceListUsersTest {
     void listUsers_ShouldMaintainOrderFromRepository() {
         // Given - reverse order to test ordering is preserved
         List<User> orderedUsers = List.of(user2, user1); // Note: user2 first
-        List<UserDTO> expectedOrderedDTOs = List.of(userDTO2, userDTO1);
 
         when(userRepository.findAllWithDetails()).thenReturn(orderedUsers);
         when(userMapper.toUserDTO(user2)).thenReturn(userDTO2);

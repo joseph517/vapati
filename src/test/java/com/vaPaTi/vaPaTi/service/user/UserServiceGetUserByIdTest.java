@@ -28,7 +28,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -279,8 +278,8 @@ class UserServiceGetUserByIdTest {
 
         // Then
         InOrder inOrder = inOrder(userRepository, userMapper);
-        inOrder.verify(userRepository, times(1)).findByIdWithFullDetails(eq(validUserId));
-        inOrder.verify(userMapper, times(1)).toUserDTO(eq(existingUser));
+        inOrder.verify(userRepository, times(1)).findByIdWithFullDetails(validUserId);
+        inOrder.verify(userMapper, times(1)).toUserDTO(existingUser);
         inOrder.verifyNoMoreInteractions();
 
         assertSame(expectedUserDTO, result);
