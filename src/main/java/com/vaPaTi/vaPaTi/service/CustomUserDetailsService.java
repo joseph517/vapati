@@ -24,7 +24,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // Primero intentar encontrar usuario activo (con la restricción SQL)
+        // First try to find an active user (with the SQL restriction)
         Optional<User> activeUser = userRepository.findAllWithDetails().stream()
                 .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
                 .findFirst();
@@ -43,16 +43,16 @@ public class CustomUserDetailsService implements UserDetailsService {
                     .build();
         }
 
-        // Si no se encuentra usuario activo, buscar si existe uno eliminado
+        // If no active user is found, search for a deleted one
         Optional<User> deletedUser = userRepository.findByEmailIncludingDeleted(email);
 
         if (deletedUser.isPresent() && deletedUser.get().getDeletedAt() != null) {
-            // Usuario existe pero está eliminado - restaurar automáticamente
+            // User exists but is deleted - restore automatically
             User userToRestore = deletedUser.get();
             userToRestore.setDeletedAt(null);
             userRepository.save(userToRestore);
 
-            // Verificar que el usuario restaurado esté activo
+            // Verify that the restored user is active
             if (!userToRestore.isActive()) {
                 throw new UsernameNotFoundException("User account is disabled");
             }
@@ -65,7 +65,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                     .build();
         }
 
-        // Usuario no existe en absoluto
+        // User does not exist at all
         throw new UsernameNotFoundException("User not found with email: " + email);
     }
 

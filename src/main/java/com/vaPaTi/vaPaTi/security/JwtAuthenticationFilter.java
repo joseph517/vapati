@@ -40,10 +40,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        // If the token is invalid, returns 401 Unauthorized
         try {
             final String jwt = authHeader.substring(7);
 
-            // Verificar si el token está en la lista negra
+            // Check if the token is in the blacklist
             if (tokenBlackListService.isTokenRevoked(jwt)) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token is revoked");
                 return;
@@ -66,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            // Log del error sin exponer detalles
+            // Log the error without exposing details
             System.err.println("Cannot set user authentication: " + e.getMessage());
         }
 
