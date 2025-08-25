@@ -34,13 +34,13 @@ public class UserValidationService {
     private final UserRepository userRepository;
     private final UserInfoMapper userInfoMapper;
 
-    public void validateCategoryLimit(@NotNull List<Long> categoryIds) {
+    public void validateCategoryLimit( List<Long> categoryIds) {
         if (categoryIds.isEmpty()) {
-            throw new IllegalArgumentException("User must have at least 1 category");
+            throw new MessageException("User must have at least 1 category");
         }
 
         if (categoryIds.size() > MAX_CATEGORIES_PER_USER.intValue()) {
-            throw new IllegalArgumentException("User cannot have more than " + MAX_CATEGORIES_PER_USER + " categories");
+            throw new MessageException("User cannot have more than " + MAX_CATEGORIES_PER_USER + " categories");
         }
     }
 
@@ -159,6 +159,7 @@ public class UserValidationService {
     public boolean existsById(Long id) {
         return userRepository.existsById(id);
     }
+
     public void updateTimestamp(@NotNull User user) {
         user.setUpdatedAt(LocalDateTime.now());
     }
