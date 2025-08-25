@@ -427,7 +427,7 @@ class BankAccountServiceUpdateTest {
 
     @Test
     @DisplayName("Should execute operations in correct order for successful update")
-    void shouldExecuteOperationsInCorrectOrderForSuccessfulUpdate() {
+    void shouldExecuteOperationsInCorrectOrderForSuccessfulUpdate() W{
         // Given
         when(bankAccountRepository.findById(accountId)).thenReturn(Optional.of(existingBankAccount));
         when(bankAccountRepository.save(any(BankAccount.class))).thenReturn(updatedBankAccount);
