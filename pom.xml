@@ -51,6 +51,7 @@
             src/main/java/com/vaPaTi/vaPaTi/repository/**/*
             src/main/java/com/vaPaTi/vaPaTi/security/**/*,
             src/main/java/com/vaPaTi/vaPaTi/utils/**/*,
+            src/main/java/com/vaPaTi/vaPaTi/VaPaTiApplication.java,
         </sonar.exclusions>
     </properties>
 
@@ -203,6 +204,7 @@
                         <exclude>com/vaPaTi/vaPaTi/repository/**</exclude>
                         <exclude>com/vaPaTi/vaPaTi/security/**</exclude>
                         <exclude>com/vaPaTi/vaPaTi/utils/**</exclude>
+                        <exclude>com/vaPaTi/vaPaTi/VaPaTiApplication.java</exclude>
                     </excludes>
                 </configuration>
                 <executions>
