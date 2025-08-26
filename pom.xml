@@ -48,10 +48,10 @@
             src/main/java/com/vaPaTi/vaPaTi/entity/**/*,
             src/main/java/com/vaPaTi/vaPaTi/exception/**/*,
             src/main/java/com/vaPaTi/vaPaTi/mapper/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/repository/**/*
+            src/main/java/com/vaPaTi/vaPaTi/repository/**/*,
             src/main/java/com/vaPaTi/vaPaTi/security/**/*,
             src/main/java/com/vaPaTi/vaPaTi/utils/**/*,
-            src/main/java/com/vaPaTi/vaPaTi/VaPaTiApplication.java,
+            src/main/java/com/vaPaTi/vaPaTi/VaPaTiApplication.java
         </sonar.exclusions>
     </properties>
 
