@@ -181,15 +181,32 @@ public class UserValidationService {
         return userRepository.existsById(id);
     }
 
-    public void updateTimestamp(@NotNull User user) {
+    public void updateTimestamp(User user) {
+        if (user == null) {
+            throw new MessageException("User must not be null");
+        }
+
         user.setUpdatedAt(LocalDateTime.now());
     }
 
-    public void updateUserInfoTimestamp(@NotNull UserInfo userInfo) {
+    public void updateUserInfoTimestamp(UserInfo userInfo) {
+        if (userInfo == null) {
+            throw new MessageException("UserInfo must not be null");
+        }
+
         userInfo.setUpdatedAt(LocalDateTime.now());
     }
 
-    public void updateUserInfo(@NotNull User user, @NotNull UpdateUserDTO dto) {
+    public void updateUserInfo( User user, UpdateUserDTO dto) {
+
+        if (dto == null) {
+            throw new MessageException("DTO must not be null");
+        }
+
+        if (user == null) {
+            throw new MessageException("User must not be null");
+        }
+
         UserInfo userInfo = getUserInfoOrThrow(user);
         updateNameFields(dto, userInfo);
         updateEmail(dto, userInfo, user.getId());
@@ -199,7 +216,11 @@ public class UserValidationService {
         updateUserInfoTimestamp(userInfo);
     }
 
-    private UserInfo getUserInfoOrThrow(@NotNull User user) {
+    private UserInfo getUserInfoOrThrow(User user) {
+        if (user == null) {
+            throw new MessageException("User must not be null");
+        }
+
         return Optional.ofNullable(user.getUserInfo())
                 .orElseThrow(() -> new MessageException("UserInfo not found for user with id: " + user.getId()));
     }
