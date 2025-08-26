@@ -62,7 +62,11 @@ public class UserValidationService {
         return categories;
     }
 
-    public @NotNull User createAndSetupUser(@NotNull CreateUserDTO dto) {
+    public User createAndSetupUser(CreateUserDTO dto) {
+        if (dto == null) {
+            throw new MessageException("DTO must not be null");
+        }
+
         return User.builder()
                 .active(true)
                 .verified(false)
@@ -91,13 +95,22 @@ public class UserValidationService {
         user.setUserCategories(userCategories);
     }
 
-    public @NotNull UserInfo createUserInfo(@NotNull CreateUserInfoDTO dto) {
+    public UserInfo createUserInfo(CreateUserInfoDTO dto) {
+
+        if (dto == null) {
+            throw new MessageException("DTO must not be null");
+        }
+
         // Validations
         validateEmail(dto.getEmail(), null);
         validateUserName(dto.getUserName(), null);
         validatePassword(dto.getPassword());
 
         UserInfo userInfo = userInfoMapper.fromCreateUserInfoDTO(dto);
+
+        if (userInfo == null) {
+            throw new NullPointerException("Mapped UserInfo is null");
+        }
 
         // Encrypt the password AFTER mapping
         userInfo.setPassword(passwordEncoder.encode(dto.getPassword()));
