@@ -122,33 +122,41 @@ public class UserValidationService {
 
     private void validateEmail(@NotNull String email, Long currentUserId) {
         if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
-            throw new IllegalArgumentException("Invalid email format");
+            throw new MessageException("Invalid email format");
         }
 
         Long userIdToExclude = (currentUserId != null) ? currentUserId : -1L;
 
         // check if email already exists (excluding the current user)
         if (userInfoRepository.existsByEmailAndUserIdNot(email, userIdToExclude)) {
-            throw new IllegalArgumentException("Email already exists");
+            throw new MessageException("Email already exists");
         }
     }
 
     private void validateUserName(@NotNull String userName, Long currentUserId) {
+        if (!userName.matches("^[a-zA-Z0-9._-]+$")) {
+            throw new MessageException("Username can only contain letters, numbers, '.', '_', and '-'");
+        }
+
         if (userName.length() < 3 || userName.length() > 50) {
-            throw new IllegalArgumentException("Username must be between 3 and 50 characters");
+            throw new MessageException("Username must be between 3 and 50 characters");
         }
 
         Long userIdToExclude = (currentUserId != null) ? currentUserId : -1L;
 
         // check if username already exists (excluding the current user)
         if (userInfoRepository.existsByUserNameAndUserIdNot(userName, userIdToExclude)) {
-            throw new IllegalArgumentException("Username already exists");
+            throw new MessageException("Username already exists");
         }
     }
 
     private static void validatePassword(@NotNull String password) {
-        if (password.length() < 5) {
+        if (password.length() < 8) {
             throw new MessageException("Password must be at least 8 characters long");
+        }
+
+        if (!password.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) {
+            throw new MessageException("Password must contain at least one special character");
         }
 
         if (!password.matches(".*[A-Z].*")) {
