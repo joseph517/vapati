@@ -1,34 +1,53 @@
 package com.vaPaTi.vaPaTi.service.user;
 
+import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 
+import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.repository.UserInfoRepository;
+import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.times;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Timestamp Update Service Tests")
 class UserValidationServiceUserUpdateTest {
 
+    @Mock
+    private UserInfoRepository userInfoRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private UserValidationService timestampUpdateService;
+
+    @InjectMocks
+    private UserValidationService userValidationService;
 
     private User testUser;
     private UserInfo testUserInfo;
     private LocalDateTime fixedDateTime;
+    private UpdateUserDTO updateUserDTO;
 
     @BeforeEach
     void setUp() {
@@ -55,6 +74,18 @@ class UserValidationServiceUserUpdateTest {
                 .updatedAt(LocalDateTime.of(2024, 1, 10, 15, 30, 0))
                 .user(testUser)
                 .build();
+
+        updateUserDTO = UpdateUserDTO.builder()
+                .firstName("Jane")
+                .lastName("Smith")
+                .email("jane.smith@example.com")
+                .userName("janesmith")
+                .password("NewPassword123!")
+                .phone("+9876543210")
+                .description("Updated description")
+                .profilePicture("new-profile.jpg")
+                .build();
+
     }
 
     @Test
@@ -79,14 +110,14 @@ class UserValidationServiceUserUpdateTest {
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException when UserInfo is null")
-    void updateUserInfoTimestamp_WithNullUserInfo_ShouldThrowNullPointerException() {
+    @DisplayName("Should throw IllegalArgumentException when UserInfo is null")
+    void updateUserInfoTimestamp_WithNullUserInfo_ShouldThrowIllegalArgumentException() {
         // Given
         UserInfo nullUserInfo = null;
 
         // When & Then
         assertThatThrownBy(() -> timestampUpdateService.updateUserInfoTimestamp(nullUserInfo))
-                .isInstanceOf(NullPointerException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Verify LocalDateTime.now() was never called due to early validation failure
         try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
@@ -123,7 +154,7 @@ class UserValidationServiceUserUpdateTest {
 
         // When & Then
         assertThatThrownBy(() -> timestampUpdateService.updateTimestamp(nullUser))
-                .isInstanceOf(NullPointerException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Verify LocalDateTime.now() was never called due to early validation failure
         try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
@@ -272,4 +303,266 @@ class UserValidationServiceUserUpdateTest {
             assertThat(testUser.getDeletedAt()).isEqualTo(originalDeletedAt);
         }
     }
+
+    @Test
+    @DisplayName("Should successfully update all user info fields when all data is provided")
+    void shouldSuccessfullyUpdateAllUserInfoFields_WhenAllDataProvided() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+
+        when(userInfoRepository.existsByEmailAndUserIdNot("jane.smith@example.com", 1L)).thenReturn(false);
+        when(userInfoRepository.existsByUserNameAndUserIdNot("janesmith", 1L)).thenReturn(false);
+        when(passwordEncoder.encode("NewPassword123!")).thenReturn("encodedNewPassword123!");
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, updateUserDTO));
+
+        // Assert
+        assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
+        assertThat(testUserInfo.getLastName()).isEqualTo("Smith");
+        assertThat(testUserInfo.getEmail()).isEqualTo("jane.smith@example.com");
+        assertThat(testUserInfo.getUserName()).isEqualTo("janesmith");
+        assertThat(testUserInfo.getPassword()).isEqualTo("encodedNewPassword123!");
+        assertThat(testUserInfo.getPhone()).isEqualTo("+9876543210");
+        assertThat(testUserInfo.getDescription()).isEqualTo("Updated description");
+        assertThat(testUserInfo.getProfilePicture()).isEqualTo("new-profile.jpg");
+        assertThat(testUserInfo.getUpdatedAt()).isNotNull();
+
+        verify(userInfoRepository).existsByEmailAndUserIdNot("jane.smith@example.com", 1L);
+        verify(userInfoRepository).existsByUserNameAndUserIdNot("janesmith", 1L);
+        verify(passwordEncoder).encode("NewPassword123!");
+    }
+
+    @Test
+    @DisplayName("Should handle partial update when only some fields are provided")
+    void shouldHandlePartialUpdate_WhenOnlySomeFieldsProvided() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+        UpdateUserDTO partialDTO = UpdateUserDTO.builder()
+                .firstName("Jane")
+                .email("jane.smith@example.com")
+                .build();
+
+        String originalLastName = testUserInfo.getLastName();
+        String originalUserName = testUserInfo.getUserName();
+        String originalPassword = testUserInfo.getPassword();
+        String originalPhone = testUserInfo.getPhone();
+        String originalDescription = testUserInfo.getDescription();
+        String originalProfilePicture = testUserInfo.getProfilePicture();
+
+        when(userInfoRepository.existsByEmailAndUserIdNot("jane.smith@example.com", 1L)).thenReturn(false);
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, partialDTO));
+
+        // Assert
+        assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
+        assertThat(testUserInfo.getEmail()).isEqualTo("jane.smith@example.com");
+        assertThat(testUserInfo.getUpdatedAt()).isNotNull();
+
+        // Verify unchanged fields
+        assertThat(testUserInfo.getLastName()).isEqualTo(originalLastName);
+        assertThat(testUserInfo.getUserName()).isEqualTo(originalUserName);
+        assertThat(testUserInfo.getPassword()).isEqualTo(originalPassword);
+        assertThat(testUserInfo.getPhone()).isEqualTo(originalPhone);
+        assertThat(testUserInfo.getDescription()).isEqualTo(originalDescription);
+        assertThat(testUserInfo.getProfilePicture()).isEqualTo(originalProfilePicture);
+
+        verify(userInfoRepository).existsByEmailAndUserIdNot("jane.smith@example.com", 1L);
+        verify(userInfoRepository, never()).existsByUserNameAndUserIdNot(anyString(), anyLong());
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("Should handle empty DTO without changing any fields except timestamp")
+    void shouldHandleEmptyDTO_WithoutChangingAnyFieldsExceptTimestamp() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+        UpdateUserDTO emptyDTO = UpdateUserDTO.builder().build();
+
+        String originalFirstName = testUserInfo.getFirstName();
+        String originalLastName = testUserInfo.getLastName();
+        String originalEmail = testUserInfo.getEmail();
+        String originalUserName = testUserInfo.getUserName();
+        String originalPassword = testUserInfo.getPassword();
+        String originalPhone = testUserInfo.getPhone();
+        String originalDescription = testUserInfo.getDescription();
+        String originalProfilePicture = testUserInfo.getProfilePicture();
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, emptyDTO));
+
+        // Assert - All original fields should remain unchanged
+        assertThat(testUserInfo.getFirstName()).isEqualTo(originalFirstName);
+        assertThat(testUserInfo.getLastName()).isEqualTo(originalLastName);
+        assertThat(testUserInfo.getEmail()).isEqualTo(originalEmail);
+        assertThat(testUserInfo.getUserName()).isEqualTo(originalUserName);
+        assertThat(testUserInfo.getPassword()).isEqualTo(originalPassword);
+        assertThat(testUserInfo.getPhone()).isEqualTo(originalPhone);
+        assertThat(testUserInfo.getDescription()).isEqualTo(originalDescription);
+        assertThat(testUserInfo.getProfilePicture()).isEqualTo(originalProfilePicture);
+
+        // Only timestamp should be updated
+        assertThat(testUserInfo.getUpdatedAt()).isNotNull();
+
+        // Verify no external validations were called
+        verify(userInfoRepository, never()).existsByEmailAndUserIdNot(anyString(), anyLong());
+        verify(userInfoRepository, never()).existsByUserNameAndUserIdNot(anyString(), anyLong());
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when user is null")
+    void shouldThrowException_WhenUserIsNull() {
+        // Act & Assert
+        assertThatThrownBy(() -> userValidationService.updateUserInfo(null, updateUserDTO))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(userInfoRepository, passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when DTO is null")
+    void shouldThrowException_WhenDTOIsNull() {
+        // Act & Assert
+        assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verifyNoInteractions(userInfoRepository, passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("Should throw MessageException when user has no UserInfo")
+    void shouldThrowMessageException_WhenUserHasNoUserInfo() {
+        // Arrange
+        User userWithoutInfo = User.builder()
+                .id(2L)
+                .active(true)
+                .verified(false)
+                .build();
+
+        // Act & Assert
+        assertThatThrownBy(() -> userValidationService.updateUserInfo(userWithoutInfo, updateUserDTO))
+                .isInstanceOf(MessageException.class)
+                .hasMessageContaining("UserInfo not found");
+
+        verifyNoInteractions(userInfoRepository, passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("Should throw MessageException when username already exists for another user")
+    void shouldThrowMessageException_WhenUsernameAlreadyExistsForAnotherUser() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+
+        when(userInfoRepository.existsByEmailAndUserIdNot("jane.smith@example.com", 1L)).thenReturn(false);
+        when(userInfoRepository.existsByUserNameAndUserIdNot("janesmith", 1L)).thenReturn(true);
+
+        // Act & Assert
+        assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, updateUserDTO))
+                .isInstanceOf(MessageException.class)
+                .hasMessageContaining("Username already exists");
+
+        verify(userInfoRepository).existsByEmailAndUserIdNot("jane.smith@example.com", 1L);
+        verify(userInfoRepository).existsByUserNameAndUserIdNot("janesmith", 1L);
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("Should allow same email when user keeps their own email")
+    void shouldAllowSameEmail_WhenUserKeepsTheirOwnEmail() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+        UpdateUserDTO sameEmailDTO = UpdateUserDTO.builder()
+                .email("john.doe@example.com") // Same email as current
+                .firstName("Jane")
+                .build();
+
+        when(userInfoRepository.existsByEmailAndUserIdNot("john.doe@example.com", 1L)).thenReturn(false);
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, sameEmailDTO));
+
+        // Assert
+        assertThat(testUserInfo.getEmail()).isEqualTo("john.doe@example.com");
+        assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
+
+        verify(userInfoRepository).existsByEmailAndUserIdNot("john.doe@example.com", 1L);
+    }
+
+    @Test
+    @DisplayName("Should allow same username when user keeps their own username")
+    void shouldAllowSameUsername_WhenUserKeepsTheirOwnUsername() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+        UpdateUserDTO sameUsernameDTO = UpdateUserDTO.builder()
+                .userName("johndoe") // Same username as current
+                .firstName("Jane")
+                .build();
+
+        when(userInfoRepository.existsByUserNameAndUserIdNot("johndoe", 1L)).thenReturn(false);
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, sameUsernameDTO));
+
+        // Assert
+        assertThat(testUserInfo.getUserName()).isEqualTo("johndoe");
+        assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
+
+        verify(userInfoRepository).existsByUserNameAndUserIdNot("johndoe", 1L);
+    }
+
+    @Test
+    @DisplayName("Should update only name fields when only names are provided")
+    void shouldUpdateOnlyNameFields_WhenOnlyNamesAreProvided() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+        UpdateUserDTO namesOnlyDTO = UpdateUserDTO.builder()
+                .firstName("Jane")
+                .lastName("Smith")
+                .build();
+
+        String originalEmail = testUserInfo.getEmail();
+        String originalUserName = testUserInfo.getUserName();
+        String originalPassword = testUserInfo.getPassword();
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, namesOnlyDTO));
+
+        // Assert
+        assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
+        assertThat(testUserInfo.getLastName()).isEqualTo("Smith");
+        assertThat(testUserInfo.getEmail()).isEqualTo(originalEmail);
+        assertThat(testUserInfo.getUserName()).isEqualTo(originalUserName);
+        assertThat(testUserInfo.getPassword()).isEqualTo(originalPassword);
+
+        verifyNoInteractions(userInfoRepository, passwordEncoder);
+    }
+
+    @Test
+    @DisplayName("Should update only password when only password is provided")
+    void shouldUpdateOnlyPassword_WhenOnlyPasswordIsProvided() {
+        // Arrange
+        testUser.setUserInfo(testUserInfo);
+        UpdateUserDTO passwordOnlyDTO = UpdateUserDTO.builder()
+                .password("newSecretPassword1!")
+                .build();
+
+        String originalFirstName = testUserInfo.getFirstName();
+        String originalEmail = testUserInfo.getEmail();
+
+        when(passwordEncoder.encode("newSecretPassword1!")).thenReturn("encodedNewSecretPassword");
+
+        // Act
+        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, passwordOnlyDTO));
+
+        // Assert
+        assertThat(testUserInfo.getPassword()).isEqualTo("encodedNewSecretPassword");
+        assertThat(testUserInfo.getFirstName()).isEqualTo(originalFirstName);
+        assertThat(testUserInfo.getEmail()).isEqualTo(originalEmail);
+
+        verify(passwordEncoder).encode("newSecretPassword1!");
+        verifyNoInteractions(userInfoRepository);
+    }
+
 }
