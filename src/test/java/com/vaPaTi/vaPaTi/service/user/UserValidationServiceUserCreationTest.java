@@ -58,7 +58,7 @@ class UserValidationServiceUserCreationTest {
                 .lastName("Doe")
                 .email("john.doe@example.com")
                 .userName("johndoe123")
-                .password("Password123")
+                .password("Password123!")
                 .phone("+1234567890")
                 .description("Test user description")
                 .profilePicture("profile.jpg")
@@ -178,9 +178,7 @@ class UserValidationServiceUserCreationTest {
 
             inOrder.verify(userInfoRepository).existsByUserNameAndUserIdNot("johndoe123", -1L);
             inOrder.verify(userInfoMapper).fromCreateUserInfoDTO(createUserInfoDTO);
-            inOrder.verify(passwordEncoder).encode("Password123");
-
-
+            inOrder.verify(passwordEncoder).encode("Password123!");
         }
 
         @Test
@@ -197,28 +195,29 @@ class UserValidationServiceUserCreationTest {
         class EmailValidationTests {
 
             @Test
-            @DisplayName("Should throw IllegalArgumentException when email format is invalid")
-            void shouldThrowIllegalArgumentException_WhenEmailFormatInvalid() {
+            @DisplayName("Should throw MessageException when email format is invalid")
+            void shouldThrowMessageException_WhenEmailFormatInvalid() {
                 // Given
                 createUserInfoDTO.setEmail("invalid-email");
 
                 // When & Then
-                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                MessageException exception = assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Invalid email format", exception.getMessage());
                 verify(userInfoRepository, never()).existsByEmailAndUserIdNot(anyString(), anyLong());
             }
 
+
             @Test
-            @DisplayName("Should throw IllegalArgumentException when email already exists")
-            void shouldThrowIllegalArgumentException_WhenEmailAlreadyExists() {
+            @DisplayName("Should throw MessageException when email already exists")
+            void shouldThrowMessageException_WhenEmailAlreadyExists() {
                 // Given
                 when(userInfoRepository.existsByEmailAndUserIdNot("john.doe@example.com", -1L))
                         .thenReturn(true);
 
                 // When & Then
-                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                MessageException exception = assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Email already exists", exception.getMessage());
@@ -237,6 +236,9 @@ class UserValidationServiceUserCreationTest {
                         "user123@test-domain.com",
                         "a@b.co"
                 };
+
+                createUserInfoDTO.setPassword("Valid@123");
+                createUserInfoDTO.setUserName("testuser");
 
                 // When & Then
                 for (String email : validEmails) {
@@ -264,7 +266,7 @@ class UserValidationServiceUserCreationTest {
                 // When & Then
                 for (String email : invalidEmails) {
                     createUserInfoDTO.setEmail(email);
-                    IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                    MessageException exception = assertThrows(MessageException.class,
                             () -> userValidationService.createUserInfo(createUserInfoDTO),
                             "Should reject invalid email: " + email);
                     assertEquals("Invalid email format", exception.getMessage());
@@ -277,41 +279,41 @@ class UserValidationServiceUserCreationTest {
         class UsernameValidationTests {
 
             @Test
-            @DisplayName("Should throw IllegalArgumentException when username is too short")
-            void shouldThrowIllegalArgumentException_WhenUsernameTooShort() {
+            @DisplayName("Should throw MessageException when username is too short")
+            void shouldThrowMessageException_WhenUsernameTooShort() {
                 // Given
                 createUserInfoDTO.setUserName("ab");
 
                 // When & Then
-                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                MessageException exception = assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Username must be between 3 and 50 characters", exception.getMessage());
             }
 
             @Test
-            @DisplayName("Should throw IllegalArgumentException when username is too long")
-            void shouldThrowIllegalArgumentException_WhenUsernameTooLong() {
+            @DisplayName("Should throw MessageException when username is too long")
+            void shouldThrowMessageException_WhenUsernameTooLong() {
                 // Given
                 String longUsername = "a".repeat(51);
                 createUserInfoDTO.setUserName(longUsername);
 
                 // When & Then
-                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                MessageException exception = assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Username must be between 3 and 50 characters", exception.getMessage());
             }
 
             @Test
-            @DisplayName("Should throw IllegalArgumentException when username already exists")
-            void shouldThrowIllegalArgumentException_WhenUsernameAlreadyExists() {
+            @DisplayName("Should throw MessageException when username already exists")
+            void shouldThrowMessageException_WhenUsernameAlreadyExists() {
                 // Given
                 when(userInfoRepository.existsByUserNameAndUserIdNot("johndoe123", -1L))
                         .thenReturn(true);
 
                 // When & Then
-                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                MessageException exception = assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Username already exists", exception.getMessage());
@@ -323,6 +325,8 @@ class UserValidationServiceUserCreationTest {
             void shouldAcceptUsername_WithMinimumValidLength() {
                 // Given
                 createUserInfoDTO.setUserName("abc");
+                createUserInfoDTO.setPassword("Password123!");
+                createUserInfoDTO.setEmail("user@example.com");
 
                 // When & Then
                 assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
@@ -361,7 +365,7 @@ class UserValidationServiceUserCreationTest {
             @DisplayName("Should throw MessageException when password lacks uppercase letter")
             void shouldThrowMessageException_WhenPasswordLacksUppercase() {
                 // Given
-                createUserInfoDTO.setPassword("password123");
+                createUserInfoDTO.setPassword("password1234!");
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
@@ -374,7 +378,7 @@ class UserValidationServiceUserCreationTest {
             @DisplayName("Should throw MessageException when password lacks lowercase letter")
             void shouldThrowMessageException_WhenPasswordLacksLowercase() {
                 // Given
-                createUserInfoDTO.setPassword("PASSWORD123");
+                createUserInfoDTO.setPassword("PASSWORD123!");
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
@@ -387,7 +391,7 @@ class UserValidationServiceUserCreationTest {
             @DisplayName("Should throw MessageException when password lacks number")
             void shouldThrowMessageException_WhenPasswordLacksNumber() {
                 // Given
-                createUserInfoDTO.setPassword("Password");
+                createUserInfoDTO.setPassword("Password!");
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
@@ -401,10 +405,10 @@ class UserValidationServiceUserCreationTest {
             void shouldAcceptPassword_WithAllRequiredCriteria() {
                 // Given
                 String[] validPasswords = {
-                        "Password123",
-                        "MySecure1Pass",
-                        "Test123Password",
-                        "Valid1Password"
+                        "Password123!",
+                        "MySecure1Pass!",
+                        "Test123Password!",
+                        "Valid1Password!"
                 };
 
                 // When & Then
@@ -453,7 +457,7 @@ class UserValidationServiceUserCreationTest {
                 createUserInfoDTO.setEmail("invalid-email");
 
                 // When & Then
-                assertThrows(IllegalArgumentException.class,
+                assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper, never()).fromCreateUserInfoDTO(any());
@@ -467,7 +471,7 @@ class UserValidationServiceUserCreationTest {
                 createUserInfoDTO.setUserName("ab");
 
                 // When & Then
-                assertThrows(IllegalArgumentException.class,
+                assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper, never()).fromCreateUserInfoDTO(any());
@@ -497,7 +501,7 @@ class UserValidationServiceUserCreationTest {
                 // Then
                 InOrder inOrder = inOrder(userInfoMapper, passwordEncoder);
                 inOrder.verify(userInfoMapper).fromCreateUserInfoDTO(createUserInfoDTO);
-                inOrder.verify(passwordEncoder).encode("Password123");
+                inOrder.verify(passwordEncoder).encode("Password123!");
 
                 assertEquals(encodedPassword, result.getPassword());
             }
@@ -518,6 +522,4 @@ class UserValidationServiceUserCreationTest {
             }
         }
     }
-
-
 }
