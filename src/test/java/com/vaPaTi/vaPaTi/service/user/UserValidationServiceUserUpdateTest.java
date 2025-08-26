@@ -110,14 +110,14 @@ class UserValidationServiceUserUpdateTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when UserInfo is null")
-    void updateUserInfoTimestamp_WithNullUserInfo_ShouldThrowIllegalArgumentException() {
+    @DisplayName("Should throw MessageException when UserInfo is null")
+    void updateUserInfoTimestamp_WithNullUserInfo_ShouldThrowMessageException() {
         // Given
         UserInfo nullUserInfo = null;
 
         // When & Then
         assertThatThrownBy(() -> timestampUpdateService.updateUserInfoTimestamp(nullUserInfo))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(MessageException.class);
 
         // Verify LocalDateTime.now() was never called due to early validation failure
         try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
@@ -154,7 +154,7 @@ class UserValidationServiceUserUpdateTest {
 
         // When & Then
         assertThatThrownBy(() -> timestampUpdateService.updateTimestamp(nullUser))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(MessageException.class);
 
         // Verify LocalDateTime.now() was never called due to early validation failure
         try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
@@ -416,7 +416,7 @@ class UserValidationServiceUserUpdateTest {
     void shouldThrowException_WhenUserIsNull() {
         // Act & Assert
         assertThatThrownBy(() -> userValidationService.updateUserInfo(null, updateUserDTO))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(MessageException.class);
 
         verifyNoInteractions(userInfoRepository, passwordEncoder);
     }
@@ -426,7 +426,7 @@ class UserValidationServiceUserUpdateTest {
     void shouldThrowException_WhenDTOIsNull() {
         // Act & Assert
         assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(MessageException.class);
 
         verifyNoInteractions(userInfoRepository, passwordEncoder);
     }
