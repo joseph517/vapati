@@ -59,6 +59,4 @@ public class VerificationRequestValitation {
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
     }
-
-
 }
