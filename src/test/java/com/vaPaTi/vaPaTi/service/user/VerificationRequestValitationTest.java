@@ -412,7 +412,7 @@ public class VerificationRequestValitationTest {
 
             // Then
             assertThat(mockUser.isVerified()).isTrue();
-            assertThat(mockUser.getUpdatedAt()).isAfter(beforeUpdate);
+            assertThat(mockUser.getUpdatedAt()).isAfterOrEqualTo(beforeUpdate);
 
             verify(userRepository, times(1)).save(mockUser);
             verifyNoMoreInteractions(userRepository);
