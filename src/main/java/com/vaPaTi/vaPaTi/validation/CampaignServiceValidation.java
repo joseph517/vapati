@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.Goal;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +19,7 @@ public class CampaignServiceValidation {
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
         return campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+                .orElseThrow(() -> new MessageException("Campaign not found"));
     }
 
     public void updateCampaignFields(@NotNull Campaign campaign, @NotNull UpdateCampaignRequestDTO dto) {
@@ -32,5 +33,4 @@ public class CampaignServiceValidation {
         Optional.ofNullable(dto.getAmountGoal()).ifPresent(goal::setAmountGoal);
         Optional.ofNullable(dto.getAmountRaised()).ifPresent(goal::setAmountRaised);
     }
-
 }
