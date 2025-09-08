@@ -35,7 +35,10 @@ public class JwtService {
         this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateToken(@NotNull User user) {
+    public String generateToken( User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
         Map<String, Object> claims = new HashMap<>();
         // Agregar datos del usuario al token
         claims.put("role", user.getRole().getName());
@@ -48,7 +51,10 @@ public class JwtService {
         return generateToken(claims, user.getUserInfo().getEmail(), jwtExpirationMs);
     }
 
-    public String generateRefreshToken(@NotNull User user) {
+    public String generateRefreshToken( User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
         Map<String, Object> refreshClaims = new HashMap<>();
         refreshClaims.put("userId", user.getId());
         return generateToken(refreshClaims, user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
@@ -90,7 +96,10 @@ public class JwtService {
                 .build();
     }
 
-    public <T> T extractClaim(String token, @NotNull Function<Claims, T> claimsResolver) {
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        if (token == null) {
+            throw new IllegalArgumentException("Token cannot be null");
+        }
         final Claims claims = parseToken(token);
         return claimsResolver.apply(claims);
     }
