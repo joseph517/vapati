@@ -100,6 +100,9 @@ public class JwtService {
         if (token == null) {
             throw new IllegalArgumentException("Token cannot be null");
         }
+        if (claimsResolver == null) {
+            throw new IllegalArgumentException("Claims resolver cannot be null");
+        }
         final Claims claims = parseToken(token);
         return claimsResolver.apply(claims);
     }
