@@ -27,7 +27,7 @@ public class TokenBlackListService {
     }
 
     @Transactional
-    @Scheduled(cron = "0 0 2 * * ?") // Ejecuta todos los días a las 2 AM
+    @Scheduled(cron = "0 0 2 * * ?")
     public void cleanupExpiredTokens() {
         revokedTokenRepository.deleteExpiredTokens(LocalDateTime.now());
     }
