@@ -39,10 +39,11 @@ public class PublicationService {
     }
 
     public void deletePublication(Long publicationId, Long userId) {
+
         Publication publication = publicationRepository.findById(publicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Publication not found with ID: " + publicationId));
 
-        if (!publication.getUser().getId().equals(userId)) {
+        if (publication.getUser().getId() == null || !publication.getUser().getId().equals(userId)) {
             throw new IllegalStateException("You don't have permission to delete this publication");
         }
 
