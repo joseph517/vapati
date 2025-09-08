@@ -13,6 +13,7 @@ import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Service
@@ -48,7 +49,6 @@ public class JwtService {
     }
 
     public String generateRefreshToken(@NotNull User user) {
-        // El refresh token solo necesita información mínima
         Map<String, Object> refreshClaims = new HashMap<>();
         refreshClaims.put("userId", user.getId());
         return generateToken(refreshClaims, user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
@@ -57,6 +57,8 @@ public class JwtService {
     private String generateToken(Map<String, Object> extraClaims, String subject, long expirationMs) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationMs);
+
+        extraClaims.put("jti", UUID.randomUUID().toString()); // Asegura que el token sea único
 
         return Jwts.builder()
                 .setClaims(extraClaims)
@@ -102,8 +104,14 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, String userEmail) {
-        final String username = extractUsername(token);
-        return (username.equals(userEmail) && !isTokenExpired(token));
+        try {
+            final String username = extractUsername(token);
+            return (username.equals(userEmail) && !isTokenExpired(token));
+        } catch (ExpiredJwtException e) {
+            return false;
+        } catch (JwtException e) {
+            return false;
+        }
     }
 
     private boolean isTokenExpired(String token) {
