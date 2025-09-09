@@ -5,7 +5,6 @@ import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
-import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -21,9 +20,7 @@ public class BankAccountValidationService {
 
     private static final String USER_NOT_FOUND = "User not found";
     private static final String USER_NOT_VERIFIED = "User is not verified";
-
     private final BankAccountRepository bankAccountRepository;
-    private final BankAccountMapper bankAccountMapper;
 
     public void validateInput(@NotNull CreateBankAccountDTO dto) {
         validateNotBlank(dto.getBankName(), "Bank name");
@@ -33,6 +30,24 @@ public class BankAccountValidationService {
         if (dto.getUserId() == null) {
             throw new MessageException("User ID is required");
         }
+    }
+
+    public void validateUpdateInput(UpdateBankAccountDTO dto) {
+        if (dto == null) {
+            throw new MessageException("Update data cannot be null");
+        }
+
+        validateAtLeastOneFieldPresent(
+                dto.getBankName(),
+                dto.getAccountNumber(),
+                dto.getAccountType(),
+                dto.getAccountHolder()
+        );
+
+        validateIfPresent(dto.getBankName(), "Bank name");
+        validateIfPresent(dto.getAccountNumber(), "Account number");
+        validateIfPresent(dto.getAccountType(), "Account type");
+        validateIfPresent(dto.getAccountHolder(), "Account holder");
     }
 
     public void verifyUserIsVerified(Long userId) {
@@ -71,34 +86,6 @@ public class BankAccountValidationService {
         }
     }
 
-    public @NotNull BankAccount buildBankAccountEntity(@NotNull CreateBankAccountDTO dto, User user) {
-        BankAccount account = new BankAccount();
-        account.setUser(user);
-        account.setBankName(dto.getBankName());
-        account.setAccountNumber(dto.getAccountNumber());
-        account.setAccountType(dto.getAccountType());
-        account.setAccountHolder(dto.getAccountHolder());
-        return account;
-    }
-
-    public void validateUpdateInput(UpdateBankAccountDTO dto) {
-        if (dto == null) {
-            throw new MessageException("Update data cannot be null");
-        }
-
-        validateAtLeastOneFieldPresent(
-                dto.getBankName(),
-                dto.getAccountNumber(),
-                dto.getAccountType(),
-                dto.getAccountHolder()
-        );
-
-        validateIfPresent(dto.getBankName(), "Bank name");
-        validateIfPresent(dto.getAccountNumber(), "Account number");
-        validateIfPresent(dto.getAccountType(), "Account type");
-        validateIfPresent(dto.getAccountHolder(), "Account holder");
-    }
-
     public void validateAccountNumberForUpdate(String newAccountNumber, String currentAccountNumber, Long userId) {
         if (newAccountNumber == null || newAccountNumber.trim().isEmpty()) {
             throw new MessageException("Account number cannot be empty");
@@ -121,6 +108,16 @@ public class BankAccountValidationService {
                 throw new MessageException("Cannot use account number owned by another user");
             }
         }
+    }
+
+    public @NotNull BankAccount buildBankAccountEntity(@NotNull CreateBankAccountDTO dto, User user) {
+        BankAccount account = new BankAccount();
+        account.setUser(user);
+        account.setBankName(dto.getBankName());
+        account.setAccountNumber(dto.getAccountNumber());
+        account.setAccountType(dto.getAccountType());
+        account.setAccountHolder(dto.getAccountHolder());
+        return account;
     }
 
 }
