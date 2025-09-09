@@ -1,9 +1,15 @@
 package com.vaPaTi.vaPaTi.dtos;
 
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UpdateBankAccountDTO {
 
     @Size(max = 100, message = "Bank name cannot exceed 100 characters")
