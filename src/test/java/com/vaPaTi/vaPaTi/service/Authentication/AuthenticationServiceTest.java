@@ -23,6 +23,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -285,6 +286,178 @@ class AuthenticationServiceTest {
         verify(jwtService).generateRefreshToken(targetUser);
         verify(jwtService, never()).generateToken(otherUser);
         verify(jwtService, never()).generateRefreshToken(otherUser);
+    }
+
+    @Test
+    @DisplayName("Should throw MessageException when user is banned with custom reason")
+    void authenticate_WithBannedUserWithReason_ShouldThrowMessageException() {
+        // Given
+        User mockUser = mock(User.class);
+        UserInfo mockUserInfo = mock(UserInfo.class);
+        Authentication mockAuth = mock(Authentication.class);
+
+        when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getBanned()).thenReturn(true);
+        when(mockUser.getBannedReason()).thenReturn("Custom ban reason");
+        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
+        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
+
+        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mockAuth);
+        when(userRepository.findAllWithDetails())
+                .thenReturn(List.of(mockUser));
+
+        // When & Then
+        assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("Your account has been banned. Reason: Custom ban reason");
+
+        // Verify interactions
+        verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository).findAllWithDetails();
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    @DisplayName("Should throw MessageException when user is banned without reason")
+    void authenticate_WithBannedUserWithoutReason_ShouldThrowMessageException() {
+        // Given
+        User mockUser = mock(User.class);
+        UserInfo mockUserInfo = mock(UserInfo.class);
+        Authentication mockAuth = mock(Authentication.class);
+
+        when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getBanned()).thenReturn(true);
+        when(mockUser.getBannedReason()).thenReturn(null);
+        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
+        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
+
+        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mockAuth);
+        when(userRepository.findAllWithDetails())
+                .thenReturn(List.of(mockUser));
+
+        // When & Then
+        assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("Your account has been banned. Reason: Violation of terms");
+
+        // Verify interactions
+        verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository).findAllWithDetails();
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    @DisplayName("Should throw MessageException when user is suspended with custom reason")
+    void authenticate_WithSuspendedUserWithReason_ShouldThrowMessageException() {
+        // Given
+        User mockUser = mock(User.class);
+        UserInfo mockUserInfo = mock(UserInfo.class);
+        Authentication mockAuth = mock(Authentication.class);
+        LocalDateTime suspensionEnd = LocalDateTime.now().plusDays(7);
+
+        when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getBanned()).thenReturn(null);
+        when(mockUser.getSuspendedUntil()).thenReturn(suspensionEnd);
+        when(mockUser.getBannedReason()).thenReturn("Custom suspension reason");
+        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
+        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
+
+        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mockAuth);
+        when(userRepository.findAllWithDetails())
+                .thenReturn(List.of(mockUser));
+
+        // When & Then
+        assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                .isInstanceOf(MessageException.class)
+                .hasMessageContaining("Your account is suspended until " + suspensionEnd)
+                .hasMessageContaining("Custom suspension reason");
+
+        // Verify interactions
+        verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository).findAllWithDetails();
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    @DisplayName("Should throw MessageException when user is suspended without reason")
+    void authenticate_WithSuspendedUserWithoutReason_ShouldThrowMessageException() {
+        // Given
+        User mockUser = mock(User.class);
+        UserInfo mockUserInfo = mock(UserInfo.class);
+        Authentication mockAuth = mock(Authentication.class);
+        LocalDateTime suspensionEnd = LocalDateTime.now().plusDays(7);
+
+        when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getBanned()).thenReturn(null);
+        when(mockUser.getSuspendedUntil()).thenReturn(suspensionEnd);
+        when(mockUser.getBannedReason()).thenReturn(null);
+        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
+        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
+
+        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mockAuth);
+        when(userRepository.findAllWithDetails())
+                .thenReturn(List.of(mockUser));
+
+        // When & Then
+        assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                .isInstanceOf(MessageException.class)
+                .hasMessageContaining("Your account is suspended until " + suspensionEnd)
+                .hasMessageContaining("Violation of terms");
+
+        // Verify interactions
+        verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository).findAllWithDetails();
+        verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    @DisplayName("Should authenticate successfully when suspension has expired")
+    void authenticate_WithExpiredSuspension_ShouldAuthenticateSuccessfully() {
+        // Given
+        User mockUser = mock(User.class);
+        UserInfo mockUserInfo = mock(UserInfo.class);
+        Role mockRole = mock(Role.class);
+        Authentication mockAuth = mock(Authentication.class);
+        LocalDateTime expiredSuspension = LocalDateTime.now().minusDays(1);
+
+        when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getBanned()).thenReturn(null);
+        when(mockUser.getSuspendedUntil()).thenReturn(expiredSuspension);
+        when(mockUser.getId()).thenReturn(1L);
+        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
+        when(mockUser.getRole()).thenReturn(mockRole);
+        when(mockRole.getName()).thenReturn("USER");
+        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
+        when(mockUserInfo.getFirstName()).thenReturn("John");
+        when(mockUserInfo.getLastName()).thenReturn("Doe");
+        when(mockUserInfo.getUserName()).thenReturn("johndoe");
+
+        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mockAuth);
+        when(userRepository.findAllWithDetails())
+                .thenReturn(List.of(mockUser));
+        when(jwtService.generateToken(mockUser))
+                .thenReturn(expectedAccessToken);
+        when(jwtService.generateRefreshToken(mockUser))
+                .thenReturn(expectedRefreshToken);
+
+        // When
+        AuthResponse result = authenticationService.authenticate(validAuthRequest);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getAccessToken()).isEqualTo(expectedAccessToken);
+        assertThat(result.getRefreshToken()).isEqualTo(expectedRefreshToken);
+
+        // Verify interactions
+        verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository).findAllWithDetails();
+        verify(jwtService).generateToken(mockUser);
+        verify(jwtService).generateRefreshToken(mockUser);
     }
 
 }
