@@ -12,6 +12,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -48,6 +50,18 @@ public class AuthenticationService {
             throw new MessageException("User account is disabled");
         }
 
+        // Check if user is banned
+        if (user.getBanned() != null && user.getBanned()) {
+            throw new MessageException("Your account has been banned. Reason: " +
+                (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
+        }
+
+        // Check if user is suspended
+        if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
+            throw new MessageException("Your account is suspended until " + user.getSuspendedUntil() +
+                ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
+        }
+
         String accessToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
@@ -73,6 +87,18 @@ public class AuthenticationService {
 
                 if (!user.isActive()) {
                     throw new MessageException("User account is disabled");
+                }
+
+                // Check if user is banned
+                if (user.getBanned() != null && user.getBanned()) {
+                    throw new MessageException("Your account has been banned. Reason: " +
+                        (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
+                }
+
+                // Check if user is suspended
+                if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
+                    throw new MessageException("Your account is suspended until " + user.getSuspendedUntil() +
+                        ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
                 }
 
                 String newAccessToken = jwtService.generateToken(user);
