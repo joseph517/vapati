@@ -1,0 +1,68 @@
+# Docker Compose for Development with Hot Reload
+# Use: docker-compose -f docker-compose.dev.yml up
+
+services:
+  sqlserver:
+    container_name: apivapati_java_db_dev
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "TuContrasenaSegura!"
+    volumes:
+      - sql_data_apivapati_java:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'TuContrasenaSegura!' -Q 'SELECT 1' -C || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - vapati-network-dev
+
+  app-dev:
+    container_name: apivapati_java_app_dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"  # Application port
+      # - "5005:5005"  # Remote debug port (optional)
+      # - "35729:35729"  # LiveReload port
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      SPRING_DEVTOOLS_LIVERELOAD_ENABLED: "true"
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:rw
+      - ./pom.xml:/app/pom.xml:ro
+      # Mount target directory for compiled classes
+      - ./target:/app/target
+      # Cache Maven dependencies
+      - maven-cache-dev:/root/.m2
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - vapati-network-dev
+    restart: unless-stopped
+    # Increase startup timeout for first-time dependency download
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+volumes:
+  sql_data_apivapati_java:
+    external: true
+    name: sql_data_apivapati_java
+  maven-cache-dev:
+    driver: local
+
+networks:
+  vapati-network-dev:
+    driver: bridge

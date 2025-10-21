@@ -1,0 +1,54 @@
+# Maven build output
+# For production build (Dockerfile), exclude target but keep JARs
+# For development build (Dockerfile.dev), target/ is mounted as volume
+target/
+!target/*.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker files
+Dockerfile
+Dockerfile.dev
+docker-compose.yml
+docker-compose.dev.yml
+.dockerignore
+DOCKER-INSTRUCTIONS.md
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*.class
+
+# Maven wrapper (we copy it explicitly in Dockerfile)
+# .mvn/
+
+# Documentation
+README.md
+CLAUDE.md
+*.md
+
+# Other
+node_modules/
+*.tmp
+*.bak
+*.swp
+*~

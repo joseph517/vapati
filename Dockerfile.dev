@@ -1,0 +1,29 @@
+# Dockerfile for Development with Hot Reload
+# Uses Maven to run the application in watch mode
+FROM maven:3.9-eclipse-temurin-21
+
+WORKDIR /app
+
+# Copy Maven wrapper and pom.xml for dependency caching
+COPY .mvn .mvn
+COPY mvnw .
+COPY mvnw.cmd .
+COPY pom.xml .
+
+# Download dependencies (cached layer)
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code (will be overridden by volume mount)
+COPY src ./src
+
+# Expose application port and LiveReload port
+EXPOSE 8080
+EXPOSE 35729
+
+# Set environment variables for development
+ENV SPRING_PROFILES_ACTIVE=docker
+ENV MAVEN_OPTS="-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+
+# Run the application with spring-boot-devtools hot reload
+# The -Dspring-boot.run.fork=false ensures DevTools works properly
+CMD ["./mvnw", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"]
