@@ -4,16 +4,11 @@ import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,23 +17,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@Testcontainers
 @DataJpaTest
+@ActiveProfiles("docker")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class BankAccountRepositoryTest {
-
-    @Container
-    static MSSQLServerContainer<?> sqlServerContainer = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
-            .acceptLicense()
-            .withPassword("yourStrong(!)Password");
-
-    @DynamicPropertySource
-    static void overrideProperties(@NotNull DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", sqlServerContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", sqlServerContainer::getUsername);
-        registry.add("spring.datasource.password", sqlServerContainer::getPassword);
-        registry.add("spring.datasource.driver-class-name", () -> "com.microsoft.sqlserver.jdbc.SQLServerDriver");
-    }
 
     @Autowired
     private BankAccountRepository bankAccountRepository;
@@ -715,7 +697,7 @@ class BankAccountRepositoryTest {
         assertFalse(exists);
     }
 
-    private @NotNull User createTestUser(String username, String email) {
+    private User createTestUser(String username, String email) {
         Role role = roleRepository.findByName("ROLE_USER")
                 .orElseGet(() -> roleRepository.save(Role.builder()
                         .name("ROLE_USER")
@@ -739,7 +721,7 @@ class BankAccountRepositoryTest {
 
         return userRepository.save(user);
     }
-    private @NotNull BankAccount createTestBankAccount(User user, String accountNumber, String accountType) {
+    private BankAccount createTestBankAccount(User user, String accountNumber, String accountType) {
         BankAccount bankAccount = new BankAccount();
         bankAccount.setUser(user);
         bankAccount.setBankName("Banco de Prueba");
