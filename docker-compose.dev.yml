@@ -34,6 +34,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
       SPRING_DEVTOOLS_LIVERELOAD_ENABLED: "true"
+      # TestContainers configuration
+      DOCKER_HOST: unix:///var/run/docker.sock
+      TESTCONTAINERS_RYUK_DISABLED: "false"
     volumes:
       # Mount source code for hot reload
       - ./src:/app/src:rw
@@ -42,6 +45,8 @@ services:
       - ./target:/app/target
       # Cache Maven dependencies
       - maven-cache-dev:/root/.m2
+      # Mount Docker socket for TestContainers support
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       sqlserver:
         condition: service_healthy
@@ -56,11 +61,59 @@ services:
         reservations:
           memory: 1G
 
+  postgres-sonar:
+    profiles: ["sonar"]
+    container_name: apivapati_sonar_db
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonarqube
+    volumes:
+      - postgres_sonar_data:/var/lib/postgresql/data
+    networks:
+      - vapati-network-dev
+    restart: unless-stopped
+
+  sonarqube:
+    profiles: ["sonar"]
+    container_name: apivapati_sonarqube
+    image: sonarqube:10.4-community
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres-sonar:5432/sonarqube
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    depends_on:
+      - postgres-sonar
+    networks:
+      - vapati-network-dev
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
 volumes:
   sql_data_apivapati_java:
     external: true
     name: sql_data_apivapati_java
   maven-cache-dev:
+    driver: local
+  postgres_sonar_data:
+    driver: local
+  sonarqube_data:
+    driver: local
+  sonarqube_extensions:
+    driver: local
+  sonarqube_logs:
     driver: local
 
 networks:
