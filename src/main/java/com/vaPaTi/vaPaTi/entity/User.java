@@ -35,6 +35,18 @@ public class User {
     @Column(name = "is_verified")
     private boolean verified = false;
 
+    @Column(name = "banned")
+    private Boolean banned = false;
+
+    @Column(name = "banned_at")
+    private LocalDateTime bannedAt;
+
+    @Column(name = "suspended_until")
+    private LocalDateTime suspendedUntil;
+
+    @Column(name = "banned_reason", length = 500)
+    private String bannedReason;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
