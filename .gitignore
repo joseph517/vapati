@@ -31,6 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### SonarQube Analysis Scripts ###
+# These scripts may contain sensitive tokens
+run-sonar-analysis.sh
+run-sonar-analysis.bat
 .kiro
 
 CLAUDE.md
