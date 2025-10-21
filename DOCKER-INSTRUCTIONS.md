@@ -5,10 +5,12 @@ Este documento explica cómo ejecutar la aplicación VaPaTi usando Docker con Ja
 ## 📋 Tabla de Contenidos
 
 1. [Requisitos Previos](#requisitos-previos)
-2. [Modo Desarrollo vs Modo Producción](#modo-desarrollo-vs-modo-producción)
-3. [Comandos Modo Desarrollo (Hot Reload)](#comandos-modo-desarrollo-hot-reload)
-4. [Comandos Modo Producción](#comandos-modo-producción)
-5. [Troubleshooting](#troubleshooting)
+2. [Modos de Ejecución con Perfiles](#modos-de-ejecución-con-perfiles)
+3. [Modo Desarrollo vs Modo Producción](#modo-desarrollo-vs-modo-producción)
+4. [Comandos Modo Desarrollo (Hot Reload)](#comandos-modo-desarrollo-hot-reload)
+5. [Comandos Modo Producción](#comandos-modo-producción)
+6. [SonarQube Analysis (Opcional)](#sonarqube-analysis-opcional---solo-modo-desarrollo)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -16,7 +18,8 @@ Este documento explica cómo ejecutar la aplicación VaPaTi usando Docker con Ja
 
 - Docker Desktop instalado y en ejecución
 - El volumen `sql_data_apivapati_java` debe existir (si ya lo tienes, perfecto; si no, se creará automáticamente)
-- Al menos 8 GB de RAM (recomendado para modo desarrollo)
+- Al menos 4 GB de RAM para desarrollo normal
+- Al menos 8 GB de RAM si usas SonarQube
 
 ### Verificar que el volumen existe
 
@@ -29,6 +32,41 @@ Si no existe, créalo:
 ```bash
 docker volume create sql_data_apivapati_java
 ```
+
+---
+
+## Modos de Ejecución con Perfiles
+
+VaPaTi tiene **3 modos** de ejecución en Docker:
+
+| Modo | Comando | RAM | Servicios | Uso |
+|------|---------|-----|-----------|-----|
+| **Producción** | `docker-compose up` | ~1GB | SQL + App (optimizado) | Testing, Deploy |
+| **Desarrollo** | `docker-compose -f docker-compose.dev.yml up` | ~2GB | SQL + App (hot reload) | Desarrollo diario |
+| **Dev + SonarQube** | `docker-compose -f docker-compose.dev.yml --profile sonar up` | ~4GB | Todo | Análisis de código |
+
+### ¿Cuándo usar cada modo?
+
+**Modo Desarrollo (sin SonarQube)** - Uso diario ⭐ Recomendado
+- ✅ Consume solo ~2GB RAM
+- ✅ Inicia en 30-60 segundos
+- ✅ Hot reload habilitado
+- ✅ Perfecto para desarrollo del día a día
+- ❌ Sin análisis de código
+
+**Modo Desarrollo + SonarQube** - Cuando necesites analizar código
+- ✅ Análisis completo de calidad
+- ✅ Hot reload habilitado
+- ✅ Cobertura de tests con JaCoCo
+- ❌ Consume ~4GB RAM
+- ❌ Inicia en 2-3 minutos (SonarQube tarda)
+
+**Modo Producción** - Testing final
+- ✅ Imagen optimizada
+- ✅ Solo ~1GB RAM
+- ✅ Inicio rápido
+- ❌ Sin hot reload (debes rebuild al cambiar código)
+- ❌ Sin SonarQube
 
 ---
 
@@ -57,8 +95,16 @@ VaPaTi tiene **dos configuraciones de Docker**:
 
 ### 1. Iniciar en Modo Desarrollo (Primera vez)
 
+**SIN SonarQube (recomendado para desarrollo diario - 2GB RAM):**
+
 ```bash
 docker-compose -f docker-compose.dev.yml up --build
+```
+
+**CON SonarQube (para análisis de código - 4GB RAM):**
+
+```bash
+docker-compose -f docker-compose.dev.yml --profile sonar up --build
 ```
 
 Este comando:
@@ -67,6 +113,7 @@ Este comando:
 - Inicia la aplicación Spring Boot en el puerto 8080
 - Habilita hot reload y debug en puerto 5005
 - Monta tu código fuente como volumen
+- **(Con --profile sonar)** Inicia PostgreSQL y SonarQube en puerto 9000
 - Espera a que SQL Server esté listo antes de iniciar la app
 
 ### 2. Iniciar la aplicación (después de la primera vez)
@@ -389,3 +436,240 @@ docker-compose -f docker-compose.dev.yml up
 - **Docker**: Usa `docker-compose up` con `application-docker.properties`
 
 Puedes tener ambos entornos configurados simultáneamente sin conflictos.
+
+---
+
+## SonarQube Analysis (Opcional - Solo Modo Desarrollo)
+
+⚠️ **Importante**: SonarQube es OPCIONAL. Solo inícialo cuando necesites analizar el código.
+
+El modo desarrollo puede incluir **SonarQube Server** para análisis de calidad de código usando perfiles.
+
+### Activar SonarQube
+
+Para usar SonarQube, debes iniciar el modo desarrollo con el perfil `sonar`:
+
+```bash
+# Detener contenedores actuales (si están corriendo)
+docker-compose -f docker-compose.dev.yml down
+
+# Iniciar CON SonarQube
+docker-compose -f docker-compose.dev.yml --profile sonar up
+```
+
+### Servicios Incluidos
+
+**Sin perfil sonar** (`docker-compose -f docker-compose.dev.yml up`):
+1. **SQL Server** (puerto 1433) - Base de datos de la aplicación
+2. **Spring Boot App** (puerto 8080) - Tu aplicación
+
+**Con perfil sonar** (`docker-compose -f docker-compose.dev.yml --profile sonar up`):
+1. **SQL Server** (puerto 1433) - Base de datos de la aplicación
+2. **Spring Boot App** (puerto 8080) - Tu aplicación
+3. **PostgreSQL** (interno) - Base de datos para SonarQube
+4. **SonarQube Server** (puerto 9000) - Servidor de análisis de código
+
+### Primera Configuración de SonarQube
+
+**1. Espera a que SonarQube esté listo (1-2 minutos):**
+
+```bash
+# Verifica los logs
+docker logs apivapati_sonarqube -f
+```
+
+Espera a ver: `SonarQube is operational`
+
+**2. Accede a SonarQube:**
+
+Abre http://localhost:9000 en tu navegador
+
+**Credenciales por defecto:**
+- Usuario: `admin`
+- Contraseña: `admin`
+
+**3. Cambiar contraseña (obligatorio en primer login):**
+
+SonarQube te pedirá cambiar la contraseña al primer inicio.
+
+**4. Generar token (opcional - ya hay uno configurado):**
+
+Si necesitas generar un nuevo token:
+- Ir a: **Account → Security → Generate Tokens**
+- Nombre: `vapati-analysis`
+- Tipo: `Global Analysis Token`
+- Copiar el token generado y actualizar el script `run-sonar-analysis.bat`
+
+### Ejecutar Análisis de Código
+
+**Opción 1: Usando script (Recomendado):**
+
+```bash
+# Windows
+./run-sonar-analysis.bat
+
+# Linux/Mac
+chmod +x run-sonar-analysis.sh
+./run-sonar-analysis.sh
+```
+
+**Opción 2: Comando directo:**
+
+```bash
+docker exec -it apivapati_java_app_dev ./mvnw clean verify sonar:sonar -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=sqp_329dd373dc96eea2d6e421fe9746cc6c0eab69db
+```
+
+**Opción 3: Desde dentro del contenedor:**
+
+```bash
+# Entrar al contenedor
+docker exec -it apivapati_java_app_dev bash
+
+# Ejecutar análisis
+./mvnw clean verify sonar:sonar -Dsonar.host.url=http://sonarqube:9000 -Dsonar.token=sqp_329dd373dc96eea2d6e421fe9746cc6c0eab69db
+```
+
+### Ver Resultados del Análisis
+
+1. Espera a que el análisis termine (puede tardar 2-5 minutos)
+2. Abre http://localhost:9000
+3. Verás el proyecto **"vaPaTi"** con las estadísticas de código
+
+### Qué se Analiza
+
+- ✅ **Cobertura de código**: Usando JaCoCo
+- ✅ **Code Smells**: Problemas de mantenibilidad
+- ✅ **Bugs**: Posibles errores en el código
+- ✅ **Vulnerabilidades**: Problemas de seguridad
+- ✅ **Duplicación**: Código duplicado
+
+### Exclusiones Configuradas
+
+Las siguientes carpetas están excluidas del análisis (configurado en `pom.xml`):
+
+- `controller/` - Controladores REST
+- `dtos/` - DTOs
+- `entity/` - Entidades JPA
+- `exception/` - Excepciones custom
+- `mapper/` - Mappers
+- `repository/` - Repositorios JPA
+- `security/` - Configuración de seguridad
+- `utils/` - Utilidades
+- `VaPaTiApplication.java` - Clase principal
+
+**Solo se analiza**: Services y Validation (lógica de negocio)
+
+### Detener SonarQube
+
+SonarQube se detiene automáticamente cuando bajas el stack de desarrollo:
+
+```bash
+docker-compose -f docker-compose.dev.yml down
+```
+
+### Reiniciar Solo SonarQube
+
+```bash
+docker restart apivapati_sonarqube
+```
+
+### Ver Logs de SonarQube
+
+```bash
+docker logs apivapati_sonarqube -f
+```
+
+### Recursos Utilizados
+
+**RAM total del stack completo (modo desarrollo con SonarQube):**
+- SQL Server: ~512 MB
+- Spring Boot App (dev): ~1-2 GB
+- PostgreSQL: ~128 MB
+- SonarQube: ~2 GB
+- **Total: ~4 GB RAM**
+
+**Espacio en disco:**
+- Imágenes Docker: ~1 GB
+- Volúmenes (datos): ~1-2 GB
+
+### Troubleshooting SonarQube
+
+**Error: "SonarQube server [http://sonarqube:9000] can not be reached"**
+
+1. Verifica que SonarQube esté corriendo:
+```bash
+docker ps | grep sonarqube
+```
+
+2. Verifica los logs:
+```bash
+docker logs apivapati_sonarqube
+```
+
+3. Espera a que SonarQube esté completamente iniciado (1-2 minutos)
+
+**Error: "Insufficient privileges"**
+
+El token puede haber expirado. Genera uno nuevo en SonarQube:
+- http://localhost:9000 → Account → Security → Generate Tokens
+- Actualiza el token en `run-sonar-analysis.bat` y `run-sonar-analysis.sh`
+
+**SonarQube no inicia:**
+
+```bash
+# Ver logs detallados
+docker logs apivapati_sonarqube -f
+
+# Reiniciar SonarQube
+docker restart apivapati_sonarqube
+
+# Si persiste, eliminar volúmenes y empezar de cero
+docker-compose -f docker-compose.dev.yml down -v
+docker-compose -f docker-compose.dev.yml up
+```
+
+**Puerto 9000 ya en uso:**
+
+Si tienes otro SonarQube local corriendo, detenlo primero:
+- Cierra `StartSonar.bat` si lo tienes abierto
+- O cambia el puerto en `docker-compose.dev.yml`:
+  ```yaml
+  sonarqube:
+    ports:
+      - "9001:9000"  # Cambia a otro puerto
+  ```
+
+### TestContainers no funciona en Docker
+
+Si ves errores como `"Could not find a valid Docker environment"` al ejecutar tests:
+
+**Causa:** TestContainers necesita acceso al Docker daemon para crear contenedores temporales durante los tests.
+
+**Solución:**
+
+1. Verifica que el socket de Docker esté montado en `docker-compose.dev.yml`:
+```yaml
+app-dev:
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+```
+
+2. Verifica que Docker Desktop esté corriendo en Windows
+
+3. Reinicia los contenedores:
+```bash
+docker-compose -f docker-compose.dev.yml down
+docker-compose -f docker-compose.dev.yml --profile sonar up
+```
+
+**Qué hace TestContainers:**
+- Crea contenedores SQL Server temporales durante los tests
+- Los contenedores se eliminan automáticamente al terminar
+- Necesario para tests de repositorios (`BankAccountRepositoryTest`, etc.)
+
+**Nota de seguridad:**
+- El socket de Docker da acceso completo al daemon
+- Solo usar en desarrollo local
+- NO exponer en producción
+
+---
