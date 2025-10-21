@@ -28,6 +28,8 @@ public class UserValidationService {
 
     private static final Number MAX_CATEGORIES_PER_USER = 6;
     private static final String USER_NOT_FOUND = "User not found";
+    private static final String DTO_NULL_ERROR = "DTO must not be null";
+    private static final String USER_NULL_ERROR = "User must not be null";
     private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserInfoRepository userInfoRepository;
@@ -64,7 +66,7 @@ public class UserValidationService {
 
     public User createAndSetupUser(CreateUserDTO dto) {
         if (dto == null) {
-            throw new MessageException("DTO must not be null");
+            throw new MessageException(DTO_NULL_ERROR);
         }
 
         return User.builder()
@@ -98,7 +100,7 @@ public class UserValidationService {
     public UserInfo createUserInfo(CreateUserInfoDTO dto) {
 
         if (dto == null) {
-            throw new MessageException("DTO must not be null");
+            throw new MessageException(DTO_NULL_ERROR);
         }
 
         // Validations
@@ -183,7 +185,7 @@ public class UserValidationService {
 
     public void updateTimestamp(User user) {
         if (user == null) {
-            throw new MessageException("User must not be null");
+            throw new MessageException(USER_NULL_ERROR);
         }
 
         user.setUpdatedAt(LocalDateTime.now());
@@ -200,11 +202,11 @@ public class UserValidationService {
     public void updateUserInfo( User user, UpdateUserDTO dto) {
 
         if (dto == null) {
-            throw new MessageException("DTO must not be null");
+            throw new MessageException(DTO_NULL_ERROR);
         }
 
         if (user == null) {
-            throw new MessageException("User must not be null");
+            throw new MessageException(USER_NULL_ERROR);
         }
 
         UserInfo userInfo = getUserInfoOrThrow(user);
@@ -218,7 +220,7 @@ public class UserValidationService {
 
     private UserInfo getUserInfoOrThrow(User user) {
         if (user == null) {
-            throw new MessageException("User must not be null");
+            throw new MessageException(USER_NULL_ERROR);
         }
 
         return Optional.ofNullable(user.getUserInfo())

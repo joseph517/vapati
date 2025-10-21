@@ -5,7 +5,6 @@ import com.vaPaTi.vaPaTi.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +17,8 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
+
+    private static final String USER_ID_CLAIM = "userId";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -42,7 +43,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         // Agregar datos del usuario al token
         claims.put("role", user.getRole().getName());
-        claims.put("userId", user.getId());
+        claims.put(USER_ID_CLAIM, user.getId());
         claims.put("firstName", user.getUserInfo().getFirstName());
         claims.put("lastName", user.getUserInfo().getLastName());
         claims.put("userName", user.getUserInfo().getUserName());
@@ -56,7 +57,7 @@ public class JwtService {
             throw new IllegalArgumentException("User cannot be null");
         }
         Map<String, Object> refreshClaims = new HashMap<>();
-        refreshClaims.put("userId", user.getId());
+        refreshClaims.put(USER_ID_CLAIM, user.getId());
         return generateToken(refreshClaims, user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
     }
 
@@ -87,7 +88,7 @@ public class JwtService {
     public UserTokenData extractUserData(String token) {
         Claims claims = parseToken(token);
         return UserTokenData.builder()
-                .userId(claims.get("userId", Long.class))
+                .userId(claims.get(USER_ID_CLAIM, Long.class))
                 .email(claims.getSubject())
                 .role(claims.get("role", String.class))
                 .firstName(claims.get("firstName", String.class))

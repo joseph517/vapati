@@ -18,6 +18,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthenticationService {
 
+    private static final String DEFAULT_VIOLATION_REASON = "Violation of terms";
+    private static final String INVALID_REFRESH_TOKEN_MSG = "Invalid or expired refresh token";
+
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -46,75 +49,67 @@ public class AuthenticationService {
                 .findFirst()
                 .orElseThrow(() -> new MessageException("User not found"));
 
-        if (!user.isActive()) {
-            throw new MessageException("User account is disabled");
-        }
+        validateUserStatus(user);
 
-        // Check if user is banned
-        if (user.getBanned() != null && user.getBanned()) {
-            throw new MessageException("Your account has been banned. Reason: " +
-                (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
-        }
-
-        // Check if user is suspended
-        if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
-            throw new MessageException("Your account is suspended until " + user.getSuspendedUntil() +
-                ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
-        }
-
-        String accessToken = jwtService.generateToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-
-        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
-
-        return new AuthResponse(accessToken, refreshToken, userInfo);
+        return generateAuthResponse(user);
     }
 
     @Transactional
     public AuthResponse refreshToken(String refreshToken) {
-        if (refreshToken == null || refreshToken.trim().isEmpty()) {
-            throw new MessageException("Invalid or expired refresh token");
-        }
+        validateRefreshToken(refreshToken);
 
         try {
             String email = jwtService.extractUsername(refreshToken);
 
-            if (jwtService.isTokenValid(refreshToken, email)) {
-                User user = userRepository.findAllWithDetails().stream()
-                        .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
-                        .findFirst()
-                        .orElseThrow(() -> new MessageException("User not found"));
-
-                if (!user.isActive()) {
-                    throw new MessageException("User account is disabled");
-                }
-
-                // Check if user is banned
-                if (user.getBanned() != null && user.getBanned()) {
-                    throw new MessageException("Your account has been banned. Reason: " +
-                        (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
-                }
-
-                // Check if user is suspended
-                if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
-                    throw new MessageException("Your account is suspended until " + user.getSuspendedUntil() +
-                        ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : "Violation of terms"));
-                }
-
-                String newAccessToken = jwtService.generateToken(user);
-                String newRefreshToken = jwtService.generateRefreshToken(user);
-
-                AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
-
-                return new AuthResponse(newAccessToken, newRefreshToken, userInfo);
-            } else {
-                throw new MessageException("Invalid or expired refresh token");
+            if (!jwtService.isTokenValid(refreshToken, email)) {
+                throw new MessageException(INVALID_REFRESH_TOKEN_MSG);
             }
+
+            User user = findUserByEmail(email);
+            validateUserStatus(user);
+
+            return generateAuthResponse(user);
         } catch (MessageException e) {
             throw e;
         } catch (RuntimeException e) {
-            throw new MessageException("Invalid or expired refresh token");
+            throw new MessageException(INVALID_REFRESH_TOKEN_MSG);
         }
+    }
+
+    private void validateRefreshToken(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            throw new MessageException(INVALID_REFRESH_TOKEN_MSG);
+        }
+    }
+
+    private User findUserByEmail(String email) {
+        return userRepository.findAllWithDetails().stream()
+                .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
+                .findFirst()
+                .orElseThrow(() -> new MessageException("User not found"));
+    }
+
+    private void validateUserStatus(User user) {
+        if (!user.isActive()) {
+            throw new MessageException("User account is disabled");
+        }
+
+        if (user.getBanned() != null && user.getBanned()) {
+            throw new MessageException("Your account has been banned. Reason: " +
+                (user.getBannedReason() != null ? user.getBannedReason() : DEFAULT_VIOLATION_REASON));
+        }
+
+        if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
+            throw new MessageException("Your account is suspended until " + user.getSuspendedUntil() +
+                ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : DEFAULT_VIOLATION_REASON));
+        }
+    }
+
+    private AuthResponse generateAuthResponse(User user) {
+        String accessToken = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.fromUser(user);
+        return new AuthResponse(accessToken, refreshToken, userInfo);
     }
 
 }
