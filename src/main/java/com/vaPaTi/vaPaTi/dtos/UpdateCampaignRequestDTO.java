@@ -12,6 +12,5 @@ public class UpdateCampaignRequestDTO {
     private String name;
     private String description;
     private Double amountGoal;
-    private Double amountRaised;
 }
 

@@ -2,11 +2,12 @@
 -- This script creates all necessary tables and initial data for integration tests
 
 -- Drop tables if they exist (in reverse dependency order)
+IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
 IF OBJECT_ID('user_categories', 'U') IS NOT NULL DROP TABLE user_categories;
 IF OBJECT_ID('follower', 'U') IS NOT NULL DROP TABLE follower;
 IF OBJECT_ID('publication', 'U') IS NOT NULL DROP TABLE publication;
-IF OBJECT_ID('goal', 'U') IS NOT NULL DROP TABLE goal;
 IF OBJECT_ID('campaign', 'U') IS NOT NULL DROP TABLE campaign;
+IF OBJECT_ID('goal', 'U') IS NOT NULL DROP TABLE goal;
 IF OBJECT_ID('bank_account', 'U') IS NOT NULL DROP TABLE bank_account;
 IF OBJECT_ID('verification_request', 'U') IS NOT NULL DROP TABLE verification_request;
 IF OBJECT_ID('revoked_token', 'U') IS NOT NULL DROP TABLE revoked_token;
@@ -97,29 +98,31 @@ CREATE TABLE bank_account (
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
 );
 
+-- Create goal table
+CREATE TABLE goal (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    amount_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
+    amount_raised DECIMAL(15,2) NOT NULL DEFAULT 0,
+    active BIT NOT NULL DEFAULT 1,
+    target_date DATETIME2,
+    deleted_at DATETIME2 NULL,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE()
+);
+
 -- Create campaign table
 CREATE TABLE campaign (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id BIGINT NOT NULL,
+    goal_id BIGINT UNIQUE,
     name VARCHAR(200) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'ACTIVE',
     deleted_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
-);
-
--- Create goal table
-CREATE TABLE goal (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    campaign_id BIGINT NOT NULL UNIQUE,
-    amount_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
-    amount_raised DECIMAL(15,2) NOT NULL DEFAULT 0,
-    target_date DATETIME2,
-    created_at DATETIME2 DEFAULT GETDATE(),
-    updated_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    FOREIGN KEY (goal_id) REFERENCES goal(id) ON DELETE CASCADE
 );
 
 -- Create publication table
@@ -145,6 +148,21 @@ CREATE TABLE follower (
     FOREIGN KEY (followed_user_id) REFERENCES [user](id) ON DELETE NO ACTION,
     UNIQUE(follower_user_id, followed_user_id),
     CHECK (follower_user_id != followed_user_id)
+);
+
+-- Create donation table
+CREATE TABLE donation (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    donor_user_id BIGINT NOT NULL,
+    campaign_id BIGINT NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    transaction_id VARCHAR(100) UNIQUE,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (donor_user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE CASCADE,
+    CHECK (amount > 0)
 );
 
 -- Create revoked_token table for JWT token blacklist
@@ -176,7 +194,15 @@ CREATE INDEX idx_user_active ON [user](is_active);
 CREATE INDEX idx_user_verified ON [user](is_verified);
 CREATE INDEX idx_user_deleted ON [user](deleted_at);
 CREATE INDEX idx_campaign_user ON campaign(user_id);
+CREATE INDEX idx_campaign_goal ON campaign(goal_id);
 CREATE INDEX idx_campaign_status ON campaign(status);
+CREATE INDEX idx_campaign_deleted ON campaign(deleted_at);
+CREATE INDEX idx_goal_active ON goal(active);
+CREATE INDEX idx_goal_deleted ON goal(deleted_at);
+CREATE INDEX idx_donation_donor ON donation(donor_user_id);
+CREATE INDEX idx_donation_campaign ON donation(campaign_id);
+CREATE INDEX idx_donation_status ON donation(status);
+CREATE INDEX idx_donation_created ON donation(created_at);
 CREATE INDEX idx_publication_user ON publication(user_id);
 CREATE INDEX idx_publication_campaign ON publication(campaign_id);
 CREATE INDEX idx_follower_follower_user ON follower(follower_user_id);

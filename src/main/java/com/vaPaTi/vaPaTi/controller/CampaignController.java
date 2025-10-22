@@ -86,6 +86,21 @@ public class CampaignController {
         }
     }
 
+    @PutMapping("/{campaignId}/close")
+    @Operation(summary = "Close campaign (deactivate goal)")
+    public ResponseEntity<Map<String, Object>> closeCampaign(@PathVariable Long campaignId) {
+        try {
+            CampaignResponseDTO responseDTO = campaignService.closeCampaign(campaignId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Campaign closed successfully",
+                    "campaign", responseDTO
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
 
 }
 

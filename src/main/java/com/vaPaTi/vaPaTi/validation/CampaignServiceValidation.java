@@ -31,6 +31,5 @@ public class CampaignServiceValidation {
         if (goal == null) return;
 
         Optional.ofNullable(dto.getAmountGoal()).ifPresent(goal::setAmountGoal);
-        Optional.ofNullable(dto.getAmountRaised()).ifPresent(goal::setAmountRaised);
     }
 }
