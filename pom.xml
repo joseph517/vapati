@@ -53,6 +53,11 @@
             src/main/java/com/vaPaTi/vaPaTi/utils/**/*,
             src/main/java/com/vaPaTi/vaPaTi/VaPaTiApplication.java
         </sonar.exclusions>
+
+        <!-- Desactivar regla de nomenclatura de paquetes -->
+        <sonar.issue.ignore.multicriteria>e1</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.e1.ruleKey>java:S00120</sonar.issue.ignore.multicriteria.e1.ruleKey>
+        <sonar.issue.ignore.multicriteria.e1.resourceKey>**/*.java</sonar.issue.ignore.multicriteria.e1.resourceKey>
     </properties>
 
 	<dependencies>

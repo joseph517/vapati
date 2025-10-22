@@ -61,8 +61,7 @@ class CampaignServiceValidationTest {
         testDTO = new UpdateCampaignRequestDTO(
                 "Updated Campaign Name",
                 "Updated Description",
-                2000.0,
-                1500.0
+                2000.0
         );
     }
 
@@ -145,7 +144,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyName = new UpdateCampaignRequestDTO(
-                "New Name", null, null, null
+                "New Name", null, null
         );
 
         // When
@@ -167,7 +166,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyDescription = new UpdateCampaignRequestDTO(
-                null, "New Description", null, null
+                null, "New Description", null
         );
 
         // When
@@ -189,7 +188,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNullFields = new UpdateCampaignRequestDTO(
-                null, null, 1000.0, 500.0
+                null, null, 1000.0
         );
 
         // When
@@ -211,7 +210,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithEmptyStrings = new UpdateCampaignRequestDTO(
-                "", "", null, null
+                "", "", null
         );
 
         // When
@@ -220,24 +219,6 @@ class CampaignServiceValidationTest {
         // Then
         assertThat(campaign.getName()).isEqualTo("");
         assertThat(campaign.getDescription()).isEqualTo("");
-        verifyNoInteractions(campaignRepository);
-    }
-
-    @DisplayName("updateGoalFields - Should update both amount fields when both are provided and goal exists")
-    @Test
-    void updateGoalFields_WhenBothAmountsProvidedAndGoalExists_ShouldUpdateBothAmounts() {
-        // Given
-        Goal goal = Goal.builder()
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
-                .build();
-
-        // When
-        campaignServiceValidation.updateGoalFields(goal, testDTO);
-
-        // Then
-        assertThat(goal.getAmountGoal()).isEqualTo(2000.0);
-        assertThat(goal.getAmountRaised()).isEqualTo(1500.0);
         verifyNoInteractions(campaignRepository);
     }
 
@@ -251,7 +232,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyAmountGoal = new UpdateCampaignRequestDTO(
-                null, null, 3000.0, null
+                null, null, 3000.0
         );
 
         // When
@@ -260,28 +241,6 @@ class CampaignServiceValidationTest {
         // Then
         assertThat(goal.getAmountGoal()).isEqualTo(3000.0);
         assertThat(goal.getAmountRaised()).isEqualTo(500.0);
-        verifyNoInteractions(campaignRepository);
-    }
-
-    @DisplayName("updateGoalFields - Should update only amount raised when only amount raised is provided")
-    @Test
-    void updateGoalFields_WhenOnlyAmountRaisedProvided_ShouldUpdateOnlyAmountRaised() {
-        // Given
-        Goal goal = Goal.builder()
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
-                .build();
-
-        UpdateCampaignRequestDTO dtoWithOnlyAmountRaised = new UpdateCampaignRequestDTO(
-                null, null, null, 800.0
-        );
-
-        // When
-        campaignServiceValidation.updateGoalFields(goal, dtoWithOnlyAmountRaised);
-
-        // Then
-        assertThat(goal.getAmountGoal()).isEqualTo(1000.0);
-        assertThat(goal.getAmountRaised()).isEqualTo(800.0);
         verifyNoInteractions(campaignRepository);
     }
 
@@ -295,7 +254,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNullAmounts = new UpdateCampaignRequestDTO(
-                "Name", "Description", null, null
+                "Name", "Description", null
         );
 
         // When
@@ -303,6 +262,7 @@ class CampaignServiceValidationTest {
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualTo(1000.0);
+        // amountRaised should not be updated (no longer in DTO)
         assertThat(goal.getAmountRaised()).isEqualTo(500.0);
         verifyNoInteractions(campaignRepository);
     }
@@ -331,7 +291,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithZeroAmounts = new UpdateCampaignRequestDTO(
-                null, null, 0.0, 0.0
+                null, null, 0.0
         );
 
         // When
@@ -339,7 +299,8 @@ class CampaignServiceValidationTest {
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualTo(0.0);
-        assertThat(goal.getAmountRaised()).isEqualTo(0.0);
+        // amountRaised should not be updated (no longer in DTO)
+        assertThat(goal.getAmountRaised()).isEqualTo(500.0);
         verifyNoInteractions(campaignRepository);
     }
 
@@ -353,7 +314,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNegativeAmounts = new UpdateCampaignRequestDTO(
-                null, null, -100.0, -50.0
+                null, null, -100.0
         );
 
         // When
@@ -361,7 +322,8 @@ class CampaignServiceValidationTest {
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualTo(-100.0);
-        assertThat(goal.getAmountRaised()).isEqualTo(-50.0);
+        // amountRaised should not be updated (no longer in DTO)
+        assertThat(goal.getAmountRaised()).isEqualTo(500.0);
         verifyNoInteractions(campaignRepository);
     }
 
