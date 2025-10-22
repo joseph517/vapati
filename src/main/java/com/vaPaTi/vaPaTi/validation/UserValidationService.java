@@ -30,6 +30,10 @@ public class UserValidationService {
     private static final String USER_NOT_FOUND = "User not found";
     private static final String DTO_NULL_ERROR = "DTO must not be null";
     private static final String USER_NULL_ERROR = "User must not be null";
+    private static final Set<Character> SPECIAL_CHARS = Set.of(
+            '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
+            ',', '.', '?', '"', ':', '{', '}', '|', '<', '>'
+    );
     private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserInfoRepository userInfoRepository;
@@ -157,22 +161,52 @@ public class UserValidationService {
             throw new MessageException("Password must be at least 8 characters long");
         }
 
-        if (!password.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) {
+        PasswordCharacteristics chars = analyzePasswordCharacters(password);
+
+        if (!chars.hasSpecial()) {
             throw new MessageException("Password must contain at least one special character");
         }
-
-        if (!password.matches(".*[A-Z].*")) {
+        if (!chars.hasUppercase()) {
             throw new MessageException("Password must contain at least one uppercase letter");
         }
-
-        if (!password.matches(".*[a-z].*")) {
+        if (!chars.hasLowercase()) {
             throw new MessageException("Password must contain at least one lowercase letter");
         }
-
-        if (!password.matches(".*\\d.*")) {
+        if (!chars.hasDigit()) {
             throw new MessageException("Password must contain at least one number");
         }
     }
+
+    private static PasswordCharacteristics analyzePasswordCharacters(String password) {
+        boolean hasSpecial = false;
+        boolean hasUppercase = false;
+        boolean hasLowercase = false;
+        boolean hasDigit = false;
+
+        for (char c : password.toCharArray()) {
+            if (!hasSpecial && SPECIAL_CHARS.contains(c)) {
+                hasSpecial = true;
+            }
+            if (!hasUppercase && Character.isUpperCase(c)) {
+                hasUppercase = true;
+            }
+            if (!hasLowercase && Character.isLowerCase(c)) {
+                hasLowercase = true;
+            }
+            if (!hasDigit && Character.isDigit(c)) {
+                hasDigit = true;
+            }
+        }
+
+        return new PasswordCharacteristics(hasSpecial, hasUppercase, hasLowercase, hasDigit);
+    }
+
+    private record PasswordCharacteristics(
+            boolean hasSpecial,
+            boolean hasUppercase,
+            boolean hasLowercase,
+            boolean hasDigit
+    ) {}
 
     public User getUserById(Long id) {
         return userRepository.findById(id)
