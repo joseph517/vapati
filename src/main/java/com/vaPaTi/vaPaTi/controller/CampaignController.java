@@ -45,6 +45,12 @@ public class CampaignController {
         return campaignService.getAllCampaigns();
     }
 
+    @GetMapping("/{campaignId}")
+    @Operation(summary = "Get campaign by id")
+    public ResponseEntity<CampaignResponseDTO> getCampaignById(@PathVariable Long campaignId) {
+        return ResponseEntity.ok(campaignService.getCampaignById(campaignId));
+    }
+
     @GetMapping("/my-campaigns")
     @Operation(summary = "Get all campaigns of authenticated user")
     public ResponseEntity<Map<String, Object>> getMyCampaigns() {

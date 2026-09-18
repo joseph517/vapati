@@ -20,7 +20,6 @@ public class BankAccountController {
 
     private final BankAccountService bankAccountService;
 
-    // Constructor
     public BankAccountController(
             BankAccountService bankAccountService
     ) {

@@ -41,7 +41,7 @@ public class JwtService {
             throw new IllegalArgumentException("User cannot be null");
         }
         Map<String, Object> claims = new HashMap<>();
-        // Agregar datos del usuario al token
+        // Add user data to the token
         claims.put("role", user.getRole().getName());
         claims.put(USER_ID_CLAIM, user.getId());
         claims.put("firstName", user.getUserInfo().getFirstName());
@@ -65,7 +65,7 @@ public class JwtService {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationMs);
 
-        extraClaims.put("jti", UUID.randomUUID().toString()); // Asegura que el token sea único
+        extraClaims.put("jti", UUID.randomUUID().toString()); // Ensures the token is unique
 
         return Jwts.builder()
                 .setClaims(extraClaims)
@@ -84,7 +84,7 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    // Método para extraer todos los datos del usuario de una vez
+    // Method to extract all user data at once
     public UserTokenData extractUserData(String token) {
         Claims claims = parseToken(token);
         return UserTokenData.builder()

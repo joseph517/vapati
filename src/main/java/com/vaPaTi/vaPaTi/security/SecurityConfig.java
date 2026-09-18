@@ -32,18 +32,18 @@ public class SecurityConfig {
     private static final String ADMIN = "ADMIN";
     private static final String USER = "USER";
 
-    // URLs públicas que no requieren autenticación
+    // Public URLs that do not require authentication
     private static final String[] PUBLIC_URLS = {
-            "/auth/**",               // Rutas de autenticación
-            "/api/categories/list",     // Rutas de categorías
-            "/api/users/create",      // Ruta de creación de usuarios
-            "/swagger-ui/**",         // Interfaz Swagger
-            "/swagger-ui.html",       // Página principal de Swagger
-            "/v3/api-docs/**",        // Documentación OpenAPI
-            "/swagger-resources/**",  // Recursos Swagger
-            "/webjars/**",            // Archivos JS/CSS de Swagger
+            "/auth/**",               // Authentication routes
+            "/api/categories/list",     // Category routes
+            "/api/users/create",      // User creation route
+            "/swagger-ui/**",         // Swagger interface
+            "/swagger-ui.html",       // Swagger home page
+            "/v3/api-docs/**",        // OpenAPI documentation
+            "/swagger-resources/**",  // Swagger resources
+            "/webjars/**",            // Swagger JS/CSS files
             "/favicon.ico",           // Favicon
-            "/error"                  // Página de error
+            "/error"                  // Error page
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

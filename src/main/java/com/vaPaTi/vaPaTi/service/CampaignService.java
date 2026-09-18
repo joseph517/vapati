@@ -38,6 +38,12 @@ public class CampaignService {
                 .toList();
     }
 
+    public CampaignResponseDTO getCampaignById(Long campaignId) {
+        Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+
+        return CampaignMapper.toResponseDTO(campaign);
+    }
+
     public List<CampaignResponseDTO> getCampaignsByAuthenticatedUser() {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 

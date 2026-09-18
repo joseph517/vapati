@@ -27,7 +27,7 @@ public class CategoryController {
         return ResponseEntity.ok(categories);
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/create")
     @Operation(summary = "Create new category", description = "Create a new category")
     public ResponseEntity<CategoryDTO> createCategory(@RequestBody CreateCategoryDTO dto) {
@@ -35,7 +35,7 @@ public class CategoryController {
         return ResponseEntity.ok(newCategory);
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/update/{id}")
     @Operation(summary = "Update category", description = "Update category by ID")
     public ResponseEntity<CategoryDTO> updateCategory(@PathVariable Long id, @RequestBody CreateCategoryDTO dto) {
@@ -43,7 +43,7 @@ public class CategoryController {
         return ResponseEntity.ok(updatedCategory);
     }
 
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/delete/{id}")
     @Operation(summary = "Delete category", description = "Delete category by ID")
     public ResponseEntity<String> deleteCategory(@PathVariable Long id) {
