@@ -39,3 +39,5 @@ run-sonar-analysis.bat
 .kiro
 
 CLAUDE.md
+/specs
+.env
