@@ -3,7 +3,7 @@ services:
     container_name: apivapati_java_db
     image: mcr.microsoft.com/mssql/server:2022-latest
     ports:
-      - "1433:1433"
+      - "${DB_PORT:-1433}:1433"
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "TuContrasenaSegura!"
@@ -24,10 +24,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:${SERVER_PORT:-8080}"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      SERVER_PORT: ${SERVER_PORT:-8080}
     volumes:
       # For hot reload - mount source code
       - ./src:/app/src:ro
