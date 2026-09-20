@@ -76,7 +76,7 @@ Por seguridad, **no existe un endpoint para crear usuarios ADMIN** — `POST /ap
 **a) Genera el hash BCrypt de la contraseña que quieras usar** (con la app corriendo en Docker):
 
 ```bash
-docker exec apivapati_java_app_dev sh -c "cd /app && CP=target/classes:\$(find /root/.m2 -name '*.jar' | tr '\n' ':') && java -cp \"\$CP\" com.vaPaTi.vaPaTi.utils.PasswordHashGenerator 'TuContraseniaSegura'"
+docker exec apivapati_java_app_dev sh -c "cd /app && CP=target/classes:\$(find /root/.m2 -name '*.jar' | tr '\n' ':') && java -cp \"\$CP\" com.vaPaTi.vaPaTi.utils.PasswordHashGenerator 'TuContrasenaSegura'"
 ```
 
 Esto imprime un hash como `$2a$10$....` — cópialo.
