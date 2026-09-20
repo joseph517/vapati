@@ -5,10 +5,12 @@ import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -16,6 +18,7 @@ import java.util.Optional;
 public class CampaignServiceValidation {
 
     private final CampaignRepository campaignRepository;
+    private final CategoryRepository categoryRepository;
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
         return campaignRepository.findById(campaignId)
@@ -31,5 +34,19 @@ public class CampaignServiceValidation {
         if (goal == null) return;
 
         Optional.ofNullable(dto.getAmountGoal()).ifPresent(goal::setAmountGoal);
+    }
+
+    public void validateCategoryIds(List<Long> categoryIds) {
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            throw new MessageException("At least one category must be provided");
+        }
+        if (categoryIds.size() > 5) {
+            throw new MessageException("A campaign can have at most 5 categories");
+        }
+        for (Long categoryId : categoryIds) {
+            if (!categoryRepository.existsById(categoryId)) {
+                throw new MessageException("Category not found with id: " + categoryId);
+            }
+        }
     }
 }
