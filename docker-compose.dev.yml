@@ -32,7 +32,7 @@ services:
       - vapati-network-dev
 
   app-dev:
-    container_name: apivapati_java_app_dev
+    container_name: app_vapati_dev
     build:
       context: .
       dockerfile: Dockerfile.dev

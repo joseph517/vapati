@@ -33,7 +33,7 @@
 
 ---
 
-## ⚙️ Instalación y Ejecución
+## ⚙️ Instalación y ejecución en desarrollo
 
 ### 1. Clona el repositorio
 
@@ -53,16 +53,46 @@ docker-compose -f docker-compose.dev.yml up --build
 ```
 
 Esto levanta dos contenedores:
-- `apivapati_java_db_dev` — SQL Server 2022, expuesto en `localhost:1433` (usuario `sa`, password `TuContrasenaSegura!`, base de datos `ApiVaPaTiJava` — ver `src/main/resources/application-docker.properties`).
+- `apivapati_java_db_dev` — SQL Server 2022, expuesto en `localhost:1433` (usuario `sa`, password `<DB_PASSWORD del .env>`, base de datos `ApiVaPaTiJava` — ver `src/main/resources/application-docker.properties`).
 - `apivapati_java_app_dev` — la app Spring Boot, expuesta en `localhost:8080`, con hot reload al editar archivos `.java`.
 
-Para más detalle (modo producción, SonarQube, troubleshooting) revisa [`DOCKER-INSTRUCTIONS.md`](DOCKER-INSTRUCTIONS.md).
+Para más detalle (modo producción local, SonarQube, troubleshooting) revisa [`DOCKER-INSTRUCTIONS.md`](DOCKER-INSTRUCTIONS.md).
 
-> Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=TuContrasenaSegura!" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-latest` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos.
+> Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<tu-password>" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-latest` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos (con `DB_PASSWORD=<tu-password>` en el entorno).
 
-### 4. Publicar la imagen en Docker Hub
+### 4. Datos iniciales (roles y categorías)
 
-La imagen se construye y publica manualmente (no hay CI/CD automático):
+Al arrancar la app por primera vez, `src/main/resources/data.sql` siembra automáticamente:
+- Los roles `USER` y `ADMIN` (tabla `roles`).
+- Un set de categorías por defecto (tabla `category`): Technology, Health, Education, Environment, Arts, Sports.
+
+Esto es necesario porque `POST /api/users/create` exige que exista al menos un rol `USER` y al menos una categoría válida (`categoryIds`) — sin este seed, la creación de usuarios falla con `Role not found` o `Categories not found` en una base de datos nueva. El script es idempotente, así que no duplica datos si reinicias la app varias veces. Este mismo seed corre igual en producción, sin pasos adicionales.
+
+### 5. Crear el usuario administrador (desarrollo)
+
+Por seguridad, **no existe un endpoint para crear usuarios ADMIN** — `POST /api/users/create` siempre crea usuarios con rol `USER`. El admin se crea manualmente insertándolo en la base de datos:
+
+```bash
+# 1. Generar el hash BCrypt del password (imagen de desarrollo, incluye Maven)
+docker exec apivapati_java_app_dev sh -c "cd /app && CP=target/classes:\$(find /root/.m2 -name '*.jar' | tr '\n' ':') && java -cp \"\$CP\" com.vaPaTi.vaPaTi.utils.PasswordHashGenerator '<password-del-admin>'"
+
+# 2. Con el hash impreso ($2a$10$....), edita scripts/create-admin-user.sql (hash, email, username) y ejecútalo
+docker cp scripts/create-admin-user.sql apivapati_java_db_dev:/tmp/create-admin-user.sql
+docker exec apivapati_java_db_dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD del .env>' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
+
+# 3. Verificar el login
+curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"<email-del-admin>","password":"<password-del-admin>"}'
+```
+
+La respuesta debe incluir `"role":"ADMIN"`. El script no valida duplicados: si lo corres dos veces sin cambiar el email/username, falla por clave duplicada.
+
+## 🚀 Ejecución en producción
+
+El flujo de producción es: build de la imagen → publicarla en Docker Hub → desplegarla en un servidor con solo `docker-compose.prod.yml` + `.env` → crear el usuario admin ahí. La guía completa y autocontenida, paso a paso, con troubleshooting está en [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md) — esta sección es solo el resumen y el orden en que se hace.
+
+### 6. Publicar la imagen en Docker Hub
+
+Build y push manuales (no hay CI/CD automático):
 
 ```bash
 docker build -t <usuario-dockerhub>/vapati:<tag> .
@@ -70,7 +100,9 @@ docker login
 docker push <usuario-dockerhub>/vapati:<tag>
 ```
 
-### 5. Desplegar en un servidor
+Detalle completo, incluyendo cómo generar el access token y el troubleshooting de `docker login` en Linux: ver sección 1-3 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
+
+### 7. Desplegar en un servidor
 
 El servidor **solo necesita** `docker-compose.prod.yml` y un `.env` con los valores reales de producción (`DB_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `IMAGE_NAME`, `IMAGE_TAG` y puertos) — no el resto del repositorio:
 
@@ -81,51 +113,17 @@ docker-compose -f docker-compose.prod.yml up -d
 
 Esto levanta `apivapati_java_db` y `apivapati_java_app` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `DB_PASSWORD` y `JWT_SECRET` son obligatorios: sin ellos, la app cae en los valores de desarrollo por defecto, inseguros para producción.
 
-> 📖 Guía paso a paso con más detalle (preparación del `.env`, troubleshooting de `docker login`, verificación completa): [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
+Detalle completo (preparación del `.env`, copiar los archivos al servidor, verificación de que levantó bien): ver sección 4 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
-### 6. Datos iniciales (roles y categorías)
+### 8. Crear el usuario administrador (producción)
 
-Al arrancar la app por primera vez, `src/main/resources/data.sql` siembra automáticamente:
-- Los roles `USER` y `ADMIN` (tabla `roles`).
-- Un set de categorías por defecto (tabla `category`): Technology, Health, Education, Environment, Arts, Sports.
-
-Esto es necesario porque `POST /api/users/create` exige que exista al menos un rol `USER` y al menos una categoría válida (`categoryIds`) — sin este seed, la creación de usuarios falla con `Role not found` o `Categories not found` en una base de datos nueva. El script es idempotente, así que no duplica datos si reinicias la app varias veces. Este seed corre exactamente igual en producción (imagen publicada en Docker Hub), sin pasos adicionales.
-
-### 7. Crear el usuario administrador (directo desde la base de datos)
-
-Por seguridad, **no existe un endpoint para crear usuarios ADMIN** — `POST /api/users/create` siempre crea usuarios con rol `USER`. El admin se crea manualmente insertándolo en la base de datos. El comando para generar el hash BCrypt cambia según el entorno, porque la imagen de producción no tiene Maven ni `~/.m2`:
-
-- En desarrollo (`docker-compose.dev.yml`, imagen con Maven):
-
-  ```bash
-  docker exec apivapati_java_app_dev sh -c "cd /app && CP=target/classes:\$(find /root/.m2 -name '*.jar' | tr '\n' ':') && java -cp \"\$CP\" com.vaPaTi.vaPaTi.utils.PasswordHashGenerator 'TuContrasenaSegura'"
-  ```
-
-- En producción (`docker-compose.prod.yml`, imagen runtime sin Maven — se usa el `PropertiesLauncher` de Spring Boot contra el `app.jar` ya empaquetado):
-
-  ```bash
-  docker exec apivapati_java_app sh -c "java -Dloader.main=com.vaPaTi.vaPaTi.utils.PasswordHashGenerator -cp app.jar org.springframework.boot.loader.launch.PropertiesLauncher 'TuContrasenaSegura'"
-  ```
-
-Cualquiera de los dos imprime un hash `$2a$10$....`. Con ese hash, edita `scripts/create-admin-user.sql` (reemplaza el hash y, si quieres, el email/username) y ejecútalo contra la base de datos:
+Mismo flujo que en desarrollo, pero la imagen runtime no tiene Maven ni `~/.m2`, así que el hash se genera con el `PropertiesLauncher` de Spring Boot contra el `app.jar` ya empaquetado:
 
 ```bash
-# Desarrollo
-docker cp scripts/create-admin-user.sql apivapati_java_db_dev:/tmp/create-admin-user.sql
-docker exec apivapati_java_db_dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'TuContrasenaSegura!' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
-
-# Producción (usa el DB_PASSWORD real del .env del servidor)
-docker cp scripts/create-admin-user.sql apivapati_java_db:/tmp/create-admin-user.sql
-docker exec apivapati_java_db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD del .env>' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
+docker exec apivapati_java_app sh -c "java -Dloader.main=com.vaPaTi.vaPaTi.utils.PasswordHashGenerator -cp app.jar org.springframework.boot.loader.launch.PropertiesLauncher '<password-del-admin>'"
 ```
 
-Verifica el login (en producción, cambia `localhost:8080` por el host/puerto real):
-
-```bash
-curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"admin@vapati.com","password":"TuContrasenaSegura"}'
-```
-
-La respuesta debe incluir `"role":"ADMIN"`. El script no valida duplicados: si lo corres dos veces sin cambiar el email/username, falla por clave duplicada.
+Con el hash, completa `scripts/create-admin-user.sql` y ejecútalo contra `apivapati_java_db` (en vez de `apivapati_java_db_dev`), igual que en el paso 5. Detalle completo y verificación de login: ver sección 5 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
 # Diagramas
 
