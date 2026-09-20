@@ -34,7 +34,7 @@ VALUES (
     'admin@vapati.com',
     'admin',
     -- Password: TuContrasenaSegura!
-    '$2a$10$SriP3hFwrC2kUStX5OSLfeTqW.BlF5BwIPEPdzJnZsg2W.b1nk0yu',
+    '$2a$10$rrmYp26X5szeOsKGimP/fuFXgrdIhIQlzLAgFxhnjnbVKBa2j566a',
     '0000000000',
     'Administrator account',
     GETDATE(),
