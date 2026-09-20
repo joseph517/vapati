@@ -40,14 +40,14 @@ public class CampaignService {
         List<Campaign> campaigns = campaignRepository.findAll();
 
         return campaigns.stream()
-                .map(CampaignMapper::toResponseDTO)
+                .map(this::toResponseDTOWithCategories)
                 .toList();
     }
 
     public CampaignResponseDTO getCampaignById(Long campaignId) {
         Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
-        return CampaignMapper.toResponseDTO(campaign);
+        return toResponseDTOWithCategories(campaign);
     }
 
     public List<CampaignResponseDTO> getCampaignsByAuthenticatedUser() {
@@ -56,8 +56,13 @@ public class CampaignService {
         List<Campaign> campaigns = campaignRepository.findByUserId(userId);
 
         return campaigns.stream()
-                .map(CampaignMapper::toResponseDTO)
+                .map(this::toResponseDTOWithCategories)
                 .toList();
+    }
+
+    private CampaignResponseDTO toResponseDTOWithCategories(Campaign campaign) {
+        List<CampaignCategory> campaignCategories = campaignCategoryRepository.findByCampaignId(campaign.getId());
+        return CampaignMapper.toResponseDTO(campaign, campaignCategories);
     }
 
     @Transactional
@@ -78,7 +83,7 @@ public class CampaignService {
 
         saveCampaignCategories(savedCampaign, dto.getCategoryIds());
 
-        return CampaignMapper.toResponseDTO(savedCampaign);
+        return toResponseDTOWithCategories(savedCampaign);
     }
 
     private void saveCampaignCategories(Campaign campaign, List<Long> categoryIds) {
@@ -109,7 +114,7 @@ public class CampaignService {
         campaignCategoryRepository.deleteByCampaignId(updatedCampaign.getId());
         saveCampaignCategories(updatedCampaign, dto.getCategoryIds());
 
-        return CampaignMapper.toResponseDTO(updatedCampaign);
+        return toResponseDTOWithCategories(updatedCampaign);
     }
 
     public void deleteCampaign(Long campaignId) {
@@ -144,7 +149,7 @@ public class CampaignService {
         goal.setActive(false);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
-        return CampaignMapper.toResponseDTO(updatedCampaign);
+        return toResponseDTOWithCategories(updatedCampaign);
     }
 
 }
