@@ -41,9 +41,12 @@ VaPaTi tiene **3 modos** de ejecución en Docker:
 
 | Modo | Comando | RAM | Servicios | Uso |
 |------|---------|-----|-----------|-----|
-| **Producción** | `docker-compose up` | ~1GB | SQL + App (optimizado) | Testing, Deploy |
+| **Producción (build local)** | `docker-compose up` | ~1GB | SQL + App (build local, optimizado) | Testing producción-like en local |
+| **Producción (servidor)** | `docker-compose -f docker-compose.prod.yml up -d` | ~1GB | SQL + App (imagen de Docker Hub) | Deploy real en servidor |
 | **Desarrollo** | `docker-compose -f docker-compose.dev.yml up` | ~2GB | SQL + App (hot reload) | Desarrollo diario |
 | **Dev + SonarQube** | `docker-compose -f docker-compose.dev.yml --profile sonar up` | ~4GB | Todo | Análisis de código |
+
+`docker-compose.prod.yml` es el stack pensado para copiarse a un servidor: usa `image:` en vez de `build:` (pulea la imagen ya publicada en Docker Hub) y no monta código fuente. El proceso completo de build, push a Docker Hub y despliegue está documentado en el [`README.md`](README.md).
 
 ### ¿Cuándo usar cada modo?
 
