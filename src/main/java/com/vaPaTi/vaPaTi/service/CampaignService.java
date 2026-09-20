@@ -99,10 +99,15 @@ public class CampaignService {
 
         Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
+        campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
+
         campaignServiceValidation.updateCampaignFields(campaign, dto);
         campaignServiceValidation.updateGoalFields(campaign.getGoal(), dto);
 
         Campaign updatedCampaign = campaignRepository.save(campaign);
+
+        campaignCategoryRepository.deleteByCampaignId(updatedCampaign.getId());
+        saveCampaignCategories(updatedCampaign, dto.getCategoryIds());
 
         return CampaignMapper.toResponseDTO(updatedCampaign);
     }
