@@ -7,7 +7,9 @@ import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
@@ -45,6 +47,10 @@ class CampaignServiceTest {
     private CampaignServiceValidation campaignServiceValidation;
     @Mock
     private CampaignAuthorizationService campaignAuthorizationService;
+    @Mock
+    private CampaignCategoryRepository campaignCategoryRepository;
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private CampaignService campaignService;
@@ -80,10 +86,12 @@ class CampaignServiceTest {
         createCampaignDTO = new CreateCampaignRequestDTO();
         createCampaignDTO.setName("New Campaign");
         createCampaignDTO.setDescription("New Description");
+        createCampaignDTO.setCategoryIds(List.of(1L));
 
         updateCampaignDTO = new UpdateCampaignRequestDTO();
         updateCampaignDTO.setName("Updated Campaign");
         updateCampaignDTO.setDescription("Updated Description");
+        updateCampaignDTO.setCategoryIds(List.of(1L));
 
         campaignResponseDTO = new CampaignResponseDTO();
         campaignResponseDTO.setId(TEST_CAMPAIGN_ID);
@@ -110,9 +118,9 @@ class CampaignServiceTest {
             when(campaignRepository.findAll()).thenReturn(campaigns);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(campaign1)).thenReturn(dto1);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(campaign2)).thenReturn(dto2);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(campaign3)).thenReturn(dto3);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign1), any())).thenReturn(dto1);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign2), any())).thenReturn(dto2);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign3), any())).thenReturn(dto3);
 
                 // When
                 List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
@@ -124,9 +132,9 @@ class CampaignServiceTest {
                         .containsExactly(dto1, dto2, dto3);
 
                 verify(campaignRepository).findAll();
-                mapperMock.verify(() -> CampaignMapper.toResponseDTO(campaign1));
-                mapperMock.verify(() -> CampaignMapper.toResponseDTO(campaign2));
-                mapperMock.verify(() -> CampaignMapper.toResponseDTO(campaign3));
+                mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign1), any()));
+                mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign2), any()));
+                mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign3), any()));
             }
         }
 
@@ -172,7 +180,7 @@ class CampaignServiceTest {
             when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(testCampaign)).thenReturn(campaignResponseDTO);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
 
                 // When
                 CampaignResponseDTO result = campaignService.getCampaignById(TEST_CAMPAIGN_ID);
@@ -183,7 +191,7 @@ class CampaignServiceTest {
                         .isEqualTo(campaignResponseDTO);
 
                 verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
-                mapperMock.verify(() -> CampaignMapper.toResponseDTO(testCampaign));
+                mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()));
             }
         }
 
@@ -220,8 +228,8 @@ class CampaignServiceTest {
             when(campaignRepository.findByUserId(TEST_USER_ID)).thenReturn(userCampaigns);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(campaign1)).thenReturn(dto1);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(campaign2)).thenReturn(dto2);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign1), any())).thenReturn(dto1);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign2), any())).thenReturn(dto2);
 
                 // When
                 List<CampaignResponseDTO> result = campaignService.getCampaignsByAuthenticatedUser();
@@ -289,7 +297,7 @@ class CampaignServiceTest {
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toEntity(createCampaignDTO, testUser))
                         .thenReturn(savedCampaign);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(savedCampaign))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(savedCampaign), any()))
                         .thenReturn(expectedDTO);
 
                 // When
@@ -304,7 +312,7 @@ class CampaignServiceTest {
                 verify(userRepository).findById(TEST_USER_ID);
                 verify(campaignRepository).save(any(Campaign.class));
                 mapperMock.verify(() -> CampaignMapper.toEntity(createCampaignDTO, testUser));
-                mapperMock.verify(() -> CampaignMapper.toResponseDTO(savedCampaign));
+                mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(savedCampaign), any()));
             }
         }
 
@@ -323,7 +331,7 @@ class CampaignServiceTest {
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toEntity(any(CreateCampaignRequestDTO.class), eq(testUser)))
                         .thenReturn(savedCampaign);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(savedCampaign))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(savedCampaign), any()))
                         .thenReturn(expectedDTO);
 
                 // When
@@ -350,7 +358,7 @@ class CampaignServiceTest {
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toEntity(any(CreateCampaignRequestDTO.class), eq(testUser)))
                         .thenReturn(savedCampaign);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(savedCampaign))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(savedCampaign), any()))
                         .thenReturn(expectedDTO);
 
                 // When
@@ -386,7 +394,7 @@ class CampaignServiceTest {
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toEntity(any(), any())).thenReturn(testCampaign);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any())).thenReturn(campaignResponseDTO);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
 
                 // When
                 campaignService.createCampaign(createCampaignDTO);
@@ -394,6 +402,36 @@ class CampaignServiceTest {
                 // Then
                 verify(authenticatedUserService).getAuthenticatedUserId();
                 verify(userRepository).findById(TEST_USER_ID);
+            }
+        }
+
+        @Test
+        @DisplayName("Should validate category ids and create a CampaignCategory per id")
+        void createCampaign_WithValidCategoryIds_ShouldCreateCampaignCategories() {
+            // Given
+            com.vaPaTi.vaPaTi.entity.Category category1 = new com.vaPaTi.vaPaTi.entity.Category();
+            category1.setId(1L);
+            Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
+            when(campaignRepository.save(any(Campaign.class))).thenReturn(savedCampaign);
+            when(categoryRepository.findAllById(createCampaignDTO.getCategoryIds())).thenReturn(List.of(category1));
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toEntity(any(), any())).thenReturn(savedCampaign);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
+
+                // When
+                campaignService.createCampaign(createCampaignDTO);
+
+                // Then
+                verify(campaignServiceValidation).validateCategoryIds(createCampaignDTO.getCategoryIds());
+                verify(categoryRepository).findAllById(createCampaignDTO.getCategoryIds());
+                verify(campaignCategoryRepository).saveAll(argThat(list -> {
+                    List<?> saved = (List<?>) list;
+                    return saved.size() == 1;
+                }));
             }
         }
     }
@@ -415,7 +453,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(updatedCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(updatedCampaign))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(updatedCampaign), any()))
                         .thenReturn(expectedDTO);
 
                 // When
@@ -445,7 +483,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When
@@ -466,7 +504,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When
@@ -487,7 +525,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When
@@ -508,7 +546,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When
@@ -517,6 +555,82 @@ class CampaignServiceTest {
                 // Then
                 verify(campaignRepository).save(testCampaign);
             }
+        }
+
+        @Test
+        @DisplayName("Should replace the campaign's categories entirely")
+        void updateCampaign_ShouldReplaceCategories() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            com.vaPaTi.vaPaTi.entity.Category newCategory = new com.vaPaTi.vaPaTi.entity.Category();
+            newCategory.setId(2L);
+            updateCampaignDTO.setCategoryIds(List.of(2L));
+            when(categoryRepository.findAllById(updateCampaignDTO.getCategoryIds())).thenReturn(List.of(newCategory));
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
+                        .thenReturn(campaignResponseDTO);
+
+                // When
+                campaignService.updateCampaign(TEST_CAMPAIGN_ID, updateCampaignDTO);
+
+                // Then
+                verify(campaignServiceValidation).validateCategoryIds(updateCampaignDTO.getCategoryIds());
+                verify(campaignCategoryRepository).deleteByCampaignId(testCampaign.getId());
+                verify(categoryRepository).findAllById(updateCampaignDTO.getCategoryIds());
+                verify(campaignCategoryRepository).saveAll(argThat(list -> ((List<?>) list).size() == 1));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("getCampaignsByCategoryId() tests")
+    class GetCampaignsByCategoryIdTests {
+
+        @Test
+        @DisplayName("Should return only campaigns associated with the given category")
+        void getCampaignsByCategoryId_WithMatchingCampaigns_ShouldReturnFilteredList() {
+            // Given
+            Long categoryId = 5L;
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            com.vaPaTi.vaPaTi.entity.CampaignCategory campaignCategory =
+                    com.vaPaTi.vaPaTi.entity.CampaignCategory.builder()
+                            .campaign(campaign1)
+                            .build();
+
+            when(campaignCategoryRepository.findByCategoryId(categoryId)).thenReturn(List.of(campaignCategory));
+            when(campaignRepository.findAllById(List.of(1L))).thenReturn(List.of(campaign1));
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
+
+                // When
+                List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(categoryId);
+
+                // Then
+                assertThat(result).hasSize(1);
+                verify(campaignCategoryRepository).findByCategoryId(categoryId);
+                verify(campaignRepository).findAllById(List.of(1L));
+            }
+        }
+
+        @Test
+        @DisplayName("Should return empty list when no campaign is associated with the category")
+        void getCampaignsByCategoryId_WithNoMatches_ShouldReturnEmptyList() {
+            // Given
+            Long categoryId = 5L;
+            when(campaignCategoryRepository.findByCategoryId(categoryId)).thenReturn(List.of());
+            when(campaignRepository.findAllById(List.of())).thenReturn(List.of());
+
+            // When
+            List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(categoryId);
+
+            // Then
+            assertThat(result).isEmpty();
         }
     }
 
@@ -605,7 +719,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(testCampaign))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()))
                         .thenReturn(expectedDTO);
 
                 // When
@@ -664,7 +778,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When
@@ -685,7 +799,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When
@@ -706,7 +820,7 @@ class CampaignServiceTest {
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(any()))
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
                         .thenReturn(campaignResponseDTO);
 
                 // When

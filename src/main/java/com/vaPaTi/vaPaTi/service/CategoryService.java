@@ -5,7 +5,9 @@ import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.jetbrains.annotations.NotNull;
@@ -18,6 +20,7 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
+    private final CampaignCategoryRepository campaignCategoryRepository;
 
     public List<CategoryDTO> listCategories() {
         return categoryRepository.findAll().stream()
@@ -52,6 +55,7 @@ public class CategoryService {
         return categoryMapper.toCategoryDTO(categoryRepository.save(existingCategory));
     }
 
+    @Transactional
     public void deleteCategory(Long id) {
         if (!categoryRepository.existsById(id)) {
             throw new MessageException("Category not found with id: " + id);
@@ -60,6 +64,12 @@ public class CategoryService {
         if (isCategoryInUse(id)) {
             throw new MessageException("Cannot delete category because it's in use");
         }
+
+        if (!categoryRepository.findCampaignIdsThatWouldBeOrphaned(id).isEmpty()) {
+            throw new MessageException("Cannot delete category because it would leave campaigns without any category");
+        }
+
+        campaignCategoryRepository.deleteAll(campaignCategoryRepository.findByCategoryId(id));
 
         categoryRepository.deleteById(id);
     }

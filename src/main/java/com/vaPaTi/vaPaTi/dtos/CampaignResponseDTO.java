@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -15,5 +17,6 @@ public class CampaignResponseDTO {
     private Double amountGoal;
     private Double amountRaised;
     private Long userId;
+    private List<CategoryDTO> categories;
 }
 

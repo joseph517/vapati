@@ -3,6 +3,7 @@
 
 -- Drop tables if they exist (in reverse dependency order)
 IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
+IF OBJECT_ID('campaign_categories', 'U') IS NOT NULL DROP TABLE campaign_categories;
 IF OBJECT_ID('user_categories', 'U') IS NOT NULL DROP TABLE user_categories;
 IF OBJECT_ID('follower', 'U') IS NOT NULL DROP TABLE follower;
 IF OBJECT_ID('publication', 'U') IS NOT NULL DROP TABLE publication;
@@ -123,6 +124,17 @@ CREATE TABLE campaign (
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
     FOREIGN KEY (goal_id) REFERENCES goal(id) ON DELETE CASCADE
+);
+
+-- Create campaign_categories table (many-to-many relationship)
+CREATE TABLE campaign_categories (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    campaign_id BIGINT NOT NULL,
+    category_id BIGINT NOT NULL,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id),
+    UNIQUE(campaign_id, category_id)
 );
 
 -- Create publication table

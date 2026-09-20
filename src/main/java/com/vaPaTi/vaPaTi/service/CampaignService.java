@@ -4,11 +4,15 @@ import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
@@ -29,19 +33,21 @@ public class CampaignService {
     private final UserRepository userRepository;
     private final CampaignServiceValidation campaignServiceValidation;
     private final CampaignAuthorizationService campaignAuthorizationService;
+    private final CampaignCategoryRepository campaignCategoryRepository;
+    private final CategoryRepository categoryRepository;
 
     public List<CampaignResponseDTO> getAllCampaigns() {
         List<Campaign> campaigns = campaignRepository.findAll();
 
         return campaigns.stream()
-                .map(CampaignMapper::toResponseDTO)
+                .map(this::toResponseDTOWithCategories)
                 .toList();
     }
 
     public CampaignResponseDTO getCampaignById(Long campaignId) {
         Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
-        return CampaignMapper.toResponseDTO(campaign);
+        return toResponseDTOWithCategories(campaign);
     }
 
     public List<CampaignResponseDTO> getCampaignsByAuthenticatedUser() {
@@ -50,15 +56,35 @@ public class CampaignService {
         List<Campaign> campaigns = campaignRepository.findByUserId(userId);
 
         return campaigns.stream()
-                .map(CampaignMapper::toResponseDTO)
+                .map(this::toResponseDTOWithCategories)
                 .toList();
     }
 
+    private CampaignResponseDTO toResponseDTOWithCategories(Campaign campaign) {
+        List<CampaignCategory> campaignCategories = campaignCategoryRepository.findByCampaignId(campaign.getId());
+        return CampaignMapper.toResponseDTO(campaign, campaignCategories);
+    }
+
+    public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
+        List<Long> campaignIds = campaignCategoryRepository.findByCategoryId(categoryId).stream()
+                .map(campaignCategory -> campaignCategory.getCampaign().getId())
+                .toList();
+
+        List<Campaign> campaigns = campaignRepository.findAllById(campaignIds);
+
+        return campaigns.stream()
+                .map(this::toResponseDTOWithCategories)
+                .toList();
+    }
+
+    @Transactional
     public CampaignResponseDTO createCampaign(@NotNull CreateCampaignRequestDTO dto) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
 
         Double amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : 0;
         dto.setAmountRaised(amountRaised);
@@ -67,7 +93,20 @@ public class CampaignService {
 
         Campaign savedCampaign = campaignRepository.save(campaign);
 
-        return CampaignMapper.toResponseDTO(savedCampaign);
+        saveCampaignCategories(savedCampaign, dto.getCategoryIds());
+
+        return toResponseDTOWithCategories(savedCampaign);
+    }
+
+    private void saveCampaignCategories(Campaign campaign, List<Long> categoryIds) {
+        List<Category> categories = categoryRepository.findAllById(categoryIds);
+        List<CampaignCategory> campaignCategories = categories.stream()
+                .map(category -> CampaignCategory.builder()
+                        .campaign(campaign)
+                        .category(category)
+                        .build())
+                .toList();
+        campaignCategoryRepository.saveAll(campaignCategories);
     }
 
     @Transactional
@@ -77,12 +116,17 @@ public class CampaignService {
 
         Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
+        campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
+
         campaignServiceValidation.updateCampaignFields(campaign, dto);
         campaignServiceValidation.updateGoalFields(campaign.getGoal(), dto);
 
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
-        return CampaignMapper.toResponseDTO(updatedCampaign);
+        campaignCategoryRepository.deleteByCampaignId(updatedCampaign.getId());
+        saveCampaignCategories(updatedCampaign, dto.getCategoryIds());
+
+        return toResponseDTOWithCategories(updatedCampaign);
     }
 
     public void deleteCampaign(Long campaignId) {
@@ -117,7 +161,7 @@ public class CampaignService {
         goal.setActive(false);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
-        return CampaignMapper.toResponseDTO(updatedCampaign);
+        return toResponseDTOWithCategories(updatedCampaign);
     }
 
 }

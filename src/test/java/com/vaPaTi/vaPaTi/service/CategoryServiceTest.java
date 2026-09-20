@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +32,8 @@ class CategoryServiceTest {
     private CategoryRepository categoryRepository;
     @Mock
     private CategoryMapper categoryMapper;
+    @Mock
+    private CampaignCategoryRepository campaignCategoryRepository;
 
     @InjectMocks
     private CategoryService categoryService;
@@ -514,6 +517,43 @@ class CategoryServiceTest {
 
             // Then
             verify(categoryRepository).isCategoryInUse(TEST_CATEGORY_ID);
+        }
+
+        @Test
+        @DisplayName("Should throw and not delete when it would leave a campaign without any category")
+        void deleteCategory_WhenWouldOrphanCampaign_ShouldThrowAndNotDelete() {
+            // Given
+            when(categoryRepository.existsById(TEST_CATEGORY_ID)).thenReturn(true);
+            when(categoryRepository.isCategoryInUse(TEST_CATEGORY_ID)).thenReturn(false);
+            when(categoryRepository.findCampaignIdsThatWouldBeOrphaned(TEST_CATEGORY_ID)).thenReturn(List.of(42L));
+
+            // When & Then
+            assertThatThrownBy(() -> categoryService.deleteCategory(TEST_CATEGORY_ID))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Cannot delete category because it would leave campaigns without any category");
+
+            verify(categoryRepository, never()).deleteById(any());
+            verify(campaignCategoryRepository, never()).deleteAll(any());
+        }
+
+        @Test
+        @DisplayName("Should delete category and disassociate campaigns when no campaign would be orphaned")
+        void deleteCategory_WhenNoOrphanWouldResult_ShouldDisassociateAndDelete() {
+            // Given
+            com.vaPaTi.vaPaTi.entity.CampaignCategory campaignCategory =
+                    com.vaPaTi.vaPaTi.entity.CampaignCategory.builder().build();
+
+            when(categoryRepository.existsById(TEST_CATEGORY_ID)).thenReturn(true);
+            when(categoryRepository.isCategoryInUse(TEST_CATEGORY_ID)).thenReturn(false);
+            when(categoryRepository.findCampaignIdsThatWouldBeOrphaned(TEST_CATEGORY_ID)).thenReturn(List.of());
+            when(campaignCategoryRepository.findByCategoryId(TEST_CATEGORY_ID)).thenReturn(List.of(campaignCategory));
+
+            // When
+            categoryService.deleteCategory(TEST_CATEGORY_ID);
+
+            // Then
+            verify(campaignCategoryRepository).deleteAll(List.of(campaignCategory));
+            verify(categoryRepository).deleteById(TEST_CATEGORY_ID);
         }
     }
 

@@ -4,7 +4,9 @@ import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,9 +17,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
@@ -27,6 +31,8 @@ class CampaignServiceValidationTest {
 
     @Mock
     private CampaignRepository campaignRepository;
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private CampaignServiceValidation campaignServiceValidation;
@@ -61,7 +67,8 @@ class CampaignServiceValidationTest {
         testDTO = new UpdateCampaignRequestDTO(
                 "Updated Campaign Name",
                 "Updated Description",
-                2000.0
+                2000.0,
+                List.of(1L)
         );
     }
 
@@ -144,7 +151,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyName = new UpdateCampaignRequestDTO(
-                "New Name", null, null
+                "New Name", null, null, List.of(1L)
         );
 
         // When
@@ -166,7 +173,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyDescription = new UpdateCampaignRequestDTO(
-                null, "New Description", null
+                null, "New Description", null, List.of(1L)
         );
 
         // When
@@ -188,7 +195,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNullFields = new UpdateCampaignRequestDTO(
-                null, null, 1000.0
+                null, null, 1000.0, List.of(1L)
         );
 
         // When
@@ -210,7 +217,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithEmptyStrings = new UpdateCampaignRequestDTO(
-                "", "", null
+                "", "", null, List.of(1L)
         );
 
         // When
@@ -232,7 +239,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyAmountGoal = new UpdateCampaignRequestDTO(
-                null, null, 3000.0
+                null, null, 3000.0, List.of(1L)
         );
 
         // When
@@ -254,7 +261,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNullAmounts = new UpdateCampaignRequestDTO(
-                "Name", "Description", null
+                "Name", "Description", null, List.of(1L)
         );
 
         // When
@@ -291,7 +298,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithZeroAmounts = new UpdateCampaignRequestDTO(
-                null, null, 0.0
+                null, null, 0.0, List.of(1L)
         );
 
         // When
@@ -314,7 +321,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNegativeAmounts = new UpdateCampaignRequestDTO(
-                null, null, -100.0
+                null, null, -100.0, List.of(1L)
         );
 
         // When
@@ -325,6 +332,74 @@ class CampaignServiceValidationTest {
         // amountRaised should not be updated (no longer in DTO)
         assertThat(goal.getAmountRaised()).isEqualTo(500.0);
         verifyNoInteractions(campaignRepository);
+    }
+
+    @DisplayName("validateCategoryIds - Should pass when between 1 and 5 existing category ids are provided")
+    @Test
+    void validateCategoryIds_WithValidIds_ShouldNotThrow() {
+        // Given
+        List<Long> categoryIds = List.of(1L, 2L, 3L);
+        when(categoryRepository.existsById(1L)).thenReturn(true);
+        when(categoryRepository.existsById(2L)).thenReturn(true);
+        when(categoryRepository.existsById(3L)).thenReturn(true);
+
+        // When & Then
+        assertThatCode(() -> campaignServiceValidation.validateCategoryIds(categoryIds))
+                .doesNotThrowAnyException();
+
+        verify(categoryRepository).existsById(1L);
+        verify(categoryRepository).existsById(2L);
+        verify(categoryRepository).existsById(3L);
+    }
+
+    @DisplayName("validateCategoryIds - Should throw when the list is null")
+    @Test
+    void validateCategoryIds_WithNullList_ShouldThrow() {
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(null))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("At least one category must be provided");
+
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @DisplayName("validateCategoryIds - Should throw when the list is empty")
+    @Test
+    void validateCategoryIds_WithEmptyList_ShouldThrow() {
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(List.of()))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("At least one category must be provided");
+
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @DisplayName("validateCategoryIds - Should throw when more than 5 ids are provided")
+    @Test
+    void validateCategoryIds_WithMoreThanFiveIds_ShouldThrow() {
+        // Given
+        List<Long> categoryIds = List.of(1L, 2L, 3L, 4L, 5L, 6L);
+
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(categoryIds))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("A campaign can have at most 5 categories");
+
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @DisplayName("validateCategoryIds - Should throw when a category id does not exist")
+    @Test
+    void validateCategoryIds_WithNonExistentId_ShouldThrow() {
+        // Given
+        List<Long> categoryIds = List.of(1L, 999L);
+        when(categoryRepository.existsById(1L)).thenReturn(true);
+        when(categoryRepository.existsById(999L)).thenReturn(false);
+
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(categoryIds))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("Category not found with id: 999");
     }
 
 }
