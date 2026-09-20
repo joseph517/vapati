@@ -113,7 +113,17 @@ DB_PORT=
 scp docker-compose.prod.yml .env usuario@servidor:/ruta/de/despliegue/
 ```
 
-### 4.3. Descargar la imagen y levantar el stack
+### 4.3. Crear el volumen de la base de datos (solo la primera vez)
+
+`docker-compose.prod.yml` declara el volumen de SQL Server como `external: true`, así que Compose no lo crea solo — hay que crearlo a mano antes del primer `up -d` en cada servidor nuevo:
+
+```bash
+docker volume create sql_data_apivapati_java
+```
+
+Si te saltás este paso, `up -d` falla con `volume "sql_data_apivapati_java" not found`. Solo hace falta la primera vez: una vez creado, persiste entre reinicios y redeploys.
+
+### 4.4. Descargar la imagen y levantar el stack
 
 En el servidor, dentro de esa carpeta:
 
@@ -124,7 +134,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 Esto levanta `apivapati_java_db` (SQL Server) y `apivapati_java_app` (la imagen publicada), sin necesidad de tener el código fuente en el servidor. La app queda accesible en el puerto configurado (`APP_PORT`).
 
-### 4.4. Verificar que levantó bien
+### 4.5. Verificar que levantó bien
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f app

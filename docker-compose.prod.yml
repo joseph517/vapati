@@ -39,7 +39,7 @@ services:
 
 volumes:
   sql_data_apivapati_java:
-    # external: true
+    external: true
     name: sql_data_apivapati_java
 
 networks:
