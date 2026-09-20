@@ -65,6 +65,18 @@ public class CampaignService {
         return CampaignMapper.toResponseDTO(campaign, campaignCategories);
     }
 
+    public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
+        List<Long> campaignIds = campaignCategoryRepository.findByCategoryId(categoryId).stream()
+                .map(campaignCategory -> campaignCategory.getCampaign().getId())
+                .toList();
+
+        List<Campaign> campaigns = campaignRepository.findAllById(campaignIds);
+
+        return campaigns.stream()
+                .map(this::toResponseDTOWithCategories)
+                .toList();
+    }
+
     @Transactional
     public CampaignResponseDTO createCampaign(@NotNull CreateCampaignRequestDTO dto) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
