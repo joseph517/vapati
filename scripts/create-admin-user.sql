@@ -33,7 +33,7 @@ VALUES (
     'VaPaTi',
     'admin@vapati.com',
     'admin',
-    -- Password: TuContraseniaSegura
+    -- Password: TuContrasenaSegura!
     '$2a$10$pSKsJN029Eh54Iosvm6xJ.3wXy/o6nRpBp7Mrie56cYSiyCG5MAeS',
     '0000000000',
     'Administrator account',

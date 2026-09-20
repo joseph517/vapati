@@ -93,7 +93,7 @@ docker exec apivapati_java_db_dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U 
 **d) Verifica que el login funciona:**
 
 ```bash
-curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"admin@vapati.com","password":"TuPasswordSegura"}'
+curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"admin@vapati.com","password":"TuContrasenaSegura!"}'
 ```
 
 La respuesta debe incluir `"role":"ADMIN"` en el JWT/`userInfo`.
