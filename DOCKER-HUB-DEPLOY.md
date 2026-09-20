@@ -97,12 +97,12 @@ Copiá `.env.example` como base y completá, como mínimo:
 ```bash
 DB_PASSWORD=<password fuerte, cumple la política de complejidad de SQL Server>
 JWT_SECRET=<secreto largo y aleatorio>
-CORS_ALLOWED_ORIGINS=http://localhost:4200,http://localhost:3000   # o los orígenes reales cuando exista frontend desplegado
+CORS_ALLOWED_ORIGINS=http://localhost:3000   # o los orígenes reales cuando exista frontend desplegado
 IMAGE_NAME=<tu-usuario-dockerhub>/vapati
 IMAGE_TAG=<tag>
-SERVER_PORT=8080
-APP_PORT=8080
-DB_PORT=1433
+SERVER_PORT=
+APP_PORT=
+DB_PORT=
 ```
 
 > ⚠️ `DB_PASSWORD` y `JWT_SECRET` son obligatorios. Sin ellos, la app arranca igual usando valores de desarrollo por defecto, que **no son seguros para producción**.

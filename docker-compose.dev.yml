@@ -47,7 +47,7 @@ services:
       TESTCONTAINERS_RYUK_DISABLED: "false"
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:3000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     volumes:
       - ./src:/app/src:rw
       - ./pom.xml:/app/pom.xml:ro
