@@ -4,11 +4,15 @@ import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
@@ -29,6 +33,8 @@ public class CampaignService {
     private final UserRepository userRepository;
     private final CampaignServiceValidation campaignServiceValidation;
     private final CampaignAuthorizationService campaignAuthorizationService;
+    private final CampaignCategoryRepository campaignCategoryRepository;
+    private final CategoryRepository categoryRepository;
 
     public List<CampaignResponseDTO> getAllCampaigns() {
         List<Campaign> campaigns = campaignRepository.findAll();
@@ -54,11 +60,14 @@ public class CampaignService {
                 .toList();
     }
 
+    @Transactional
     public CampaignResponseDTO createCampaign(@NotNull CreateCampaignRequestDTO dto) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+
+        campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
 
         Double amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : 0;
         dto.setAmountRaised(amountRaised);
@@ -67,7 +76,20 @@ public class CampaignService {
 
         Campaign savedCampaign = campaignRepository.save(campaign);
 
+        saveCampaignCategories(savedCampaign, dto.getCategoryIds());
+
         return CampaignMapper.toResponseDTO(savedCampaign);
+    }
+
+    private void saveCampaignCategories(Campaign campaign, List<Long> categoryIds) {
+        List<Category> categories = categoryRepository.findAllById(categoryIds);
+        List<CampaignCategory> campaignCategories = categories.stream()
+                .map(category -> CampaignCategory.builder()
+                        .campaign(campaign)
+                        .category(category)
+                        .build())
+                .toList();
+        campaignCategoryRepository.saveAll(campaignCategories);
     }
 
     @Transactional
