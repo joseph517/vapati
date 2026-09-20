@@ -6,11 +6,12 @@ services:
       - "${DB_PORT:-1433}:1433"
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "TuContrasenaSegura!"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - sql_data_apivapati_java:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'TuContrasenaSegura!' -Q 'SELECT 1' -C || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $$DB_PASSWORD -Q 'SELECT 1' -C || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -29,6 +30,9 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
       SERVER_PORT: ${SERVER_PORT:-8080}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:3000}
     volumes:
       # For hot reload - mount source code
       - ./src:/app/src:ro
