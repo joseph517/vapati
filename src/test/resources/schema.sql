@@ -3,18 +3,19 @@
 
 -- Drop tables if they exist (in reverse dependency order)
 IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
-IF OBJECT_ID('campaign_categories', 'U') IS NOT NULL DROP TABLE campaign_categories;
-IF OBJECT_ID('user_categories', 'U') IS NOT NULL DROP TABLE user_categories;
-IF OBJECT_ID('follower', 'U') IS NOT NULL DROP TABLE follower;
+IF OBJECT_ID('report', 'U') IS NOT NULL DROP TABLE report;
+IF OBJECT_ID('campaign_category', 'U') IS NOT NULL DROP TABLE campaign_category;
+IF OBJECT_ID('user_category', 'U') IS NOT NULL DROP TABLE user_category;
+IF OBJECT_ID('followers', 'U') IS NOT NULL DROP TABLE followers;
 IF OBJECT_ID('publication', 'U') IS NOT NULL DROP TABLE publication;
 IF OBJECT_ID('campaign', 'U') IS NOT NULL DROP TABLE campaign;
 IF OBJECT_ID('goal', 'U') IS NOT NULL DROP TABLE goal;
-IF OBJECT_ID('bank_account', 'U') IS NOT NULL DROP TABLE bank_account;
+IF OBJECT_ID('bank_accounts', 'U') IS NOT NULL DROP TABLE bank_accounts;
 IF OBJECT_ID('verification_request', 'U') IS NOT NULL DROP TABLE verification_request;
-IF OBJECT_ID('revoked_token', 'U') IS NOT NULL DROP TABLE revoked_token;
+IF OBJECT_ID('revoked_tokens', 'U') IS NOT NULL DROP TABLE revoked_tokens;
 IF OBJECT_ID('user_info', 'U') IS NOT NULL DROP TABLE user_info;
 IF OBJECT_ID('[user]', 'U') IS NOT NULL DROP TABLE [user];
-IF OBJECT_ID('categories', 'U') IS NOT NULL DROP TABLE categories;
+IF OBJECT_ID('category', 'U') IS NOT NULL DROP TABLE category;
 IF OBJECT_ID('roles', 'U') IS NOT NULL DROP TABLE roles;
 
 -- Create roles table
@@ -25,8 +26,8 @@ CREATE TABLE roles (
     updated_at DATETIME2 DEFAULT GETDATE()
 );
 
--- Create categories table
-CREATE TABLE categories (
+-- Create category table
+CREATE TABLE category (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
@@ -40,6 +41,10 @@ CREATE TABLE [user] (
     role_id BIGINT NOT NULL,
     is_active BIT NOT NULL DEFAULT 1,
     is_verified BIT NOT NULL DEFAULT 0,
+    banned BIT DEFAULT 0,
+    banned_at DATETIME2 NULL,
+    suspended_until DATETIME2 NULL,
+    banned_reason VARCHAR(500) NULL,
     deleted_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
@@ -55,21 +60,22 @@ CREATE TABLE user_info (
     email VARCHAR(255) NOT NULL UNIQUE,
     user_name VARCHAR(50) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    phone VARCHAR(20),
-    description TEXT,
+    phone VARCHAR(20) NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    profile_picture VARCHAR(500) NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
 );
 
--- Create user_categories table (many-to-many relationship)
-CREATE TABLE user_categories (
+-- Create user_category table (many-to-many relationship)
+CREATE TABLE user_category (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id BIGINT NOT NULL,
     category_id BIGINT NOT NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id),
+    FOREIGN KEY (category_id) REFERENCES category(id),
     UNIQUE(user_id, category_id)
 );
 
@@ -77,22 +83,25 @@ CREATE TABLE user_categories (
 CREATE TABLE verification_request (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id BIGINT NOT NULL UNIQUE,
-    document_url VARCHAR(500),
+    dni_front VARCHAR(500) NOT NULL,
+    dni_back VARCHAR(500) NOT NULL,
+    selfie_user VARCHAR(500) NOT NULL,
     status VARCHAR(50) DEFAULT 'PENDING',
-    request_date DATETIME2 DEFAULT GETDATE(),
-    approved_date DATETIME2 NULL,
-    notes TEXT,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
+    deleted_at DATETIME2 NULL,
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
 );
 
--- Create bank_account table
-CREATE TABLE bank_account (
+-- Create bank_accounts table
+CREATE TABLE bank_accounts (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id BIGINT NOT NULL,
     bank_name VARCHAR(100) NOT NULL,
     account_holder VARCHAR(100) NOT NULL,
-    account_number VARCHAR(50) NOT NULL,
+    account_number VARCHAR(50) NOT NULL UNIQUE,
     account_type VARCHAR(50) NOT NULL,
+    is_verified BIT NOT NULL DEFAULT 0,
     deleted_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
@@ -126,14 +135,14 @@ CREATE TABLE campaign (
     FOREIGN KEY (goal_id) REFERENCES goal(id) ON DELETE CASCADE
 );
 
--- Create campaign_categories table (many-to-many relationship)
-CREATE TABLE campaign_categories (
+-- Create campaign_category table (many-to-many relationship)
+CREATE TABLE campaign_category (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     campaign_id BIGINT NOT NULL,
     category_id BIGINT NOT NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id),
+    FOREIGN KEY (category_id) REFERENCES category(id),
     UNIQUE(campaign_id, category_id)
 );
 
@@ -142,24 +151,25 @@ CREATE TABLE publication (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id BIGINT NOT NULL,
     campaign_id BIGINT NULL,
-    title VARCHAR(200) NOT NULL,
-    content TEXT,
-    publication_date DATETIME2 DEFAULT GETDATE(),
+    description VARCHAR(MAX),
     deleted_at DATETIME2 NULL,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
     FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE NO ACTION
 );
 
--- Create follower table (user following relationship)
-CREATE TABLE follower (
+-- Create followers table (user following relationship)
+CREATE TABLE followers (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    follower_user_id BIGINT NOT NULL,
-    followed_user_id BIGINT NOT NULL,
-    follow_date DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (follower_user_id) REFERENCES [user](id) ON DELETE CASCADE,
-    FOREIGN KEY (followed_user_id) REFERENCES [user](id) ON DELETE NO ACTION,
-    UNIQUE(follower_user_id, followed_user_id),
-    CHECK (follower_user_id != followed_user_id)
+    user_id BIGINT NOT NULL,
+    follower_id BIGINT NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    FOREIGN KEY (follower_id) REFERENCES [user](id) ON DELETE NO ACTION,
+    UNIQUE(user_id, follower_id),
+    CHECK (user_id != follower_id)
 );
 
 -- Create donation table
@@ -173,25 +183,43 @@ CREATE TABLE donation (
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (donor_user_id) REFERENCES [user](id) ON DELETE CASCADE,
-    FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE CASCADE,
+    FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE NO ACTION,
     CHECK (amount > 0)
 );
 
--- Create revoked_token table for JWT token blacklist
-CREATE TABLE revoked_token (
+-- Create report table (content/user moderation reports)
+CREATE TABLE report (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    token_jti VARCHAR(255) NOT NULL UNIQUE,
-    user_id BIGINT NOT NULL,
-    revoked_at DATETIME2 DEFAULT GETDATE(),
-    expiry_date DATETIME2 NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
+    reporter_id BIGINT NOT NULL,
+    reported_entity_type VARCHAR(50) NOT NULL,
+    reported_entity_id BIGINT NOT NULL,
+    reason VARCHAR(50) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    reviewed_by BIGINT NULL,
+    reviewed_at DATETIME2 NULL,
+    admin_notes TEXT,
+    action_taken VARCHAR(50) NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL,
+    FOREIGN KEY (reporter_id) REFERENCES [user](id) ON DELETE NO ACTION,
+    FOREIGN KEY (reviewed_by) REFERENCES [user](id) ON DELETE NO ACTION,
+    UNIQUE(reporter_id, reported_entity_type, reported_entity_id)
+);
+
+-- Create revoked_tokens table for JWT token blacklist
+CREATE TABLE revoked_tokens (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    token VARCHAR(512) NOT NULL UNIQUE,
+    expiration_date DATETIME2 NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 
 -- Insert initial roles
 INSERT INTO roles (name) VALUES ('USER'), ('ADMIN');
 
 -- Insert initial categories for testing
-INSERT INTO categories (name, description) VALUES 
+INSERT INTO category (name, description) VALUES
     ('Technology', 'Technology related campaigns'),
     ('Health', 'Health and medical campaigns'),
     ('Education', 'Educational campaigns'),
@@ -217,8 +245,9 @@ CREATE INDEX idx_donation_status ON donation(status);
 CREATE INDEX idx_donation_created ON donation(created_at);
 CREATE INDEX idx_publication_user ON publication(user_id);
 CREATE INDEX idx_publication_campaign ON publication(campaign_id);
-CREATE INDEX idx_follower_follower_user ON follower(follower_user_id);
-CREATE INDEX idx_follower_followed_user ON follower(followed_user_id);
-CREATE INDEX idx_revoked_token_jti ON revoked_token(token_jti);
-CREATE INDEX idx_revoked_token_user ON revoked_token(user_id);
-CREATE INDEX idx_revoked_token_expiry ON revoked_token(expiry_date);
+CREATE INDEX idx_followers_user ON followers(user_id);
+CREATE INDEX idx_followers_follower ON followers(follower_id);
+CREATE INDEX idx_revoked_tokens_token ON revoked_tokens(token);
+CREATE INDEX idx_revoked_tokens_expiration ON revoked_tokens(expiration_date);
+CREATE INDEX idx_report_reporter ON report(reporter_id);
+CREATE INDEX idx_report_status ON report(status);
