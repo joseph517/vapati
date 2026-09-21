@@ -36,6 +36,7 @@ public class CampaignService {
     private final CampaignAuthorizationService campaignAuthorizationService;
     private final CampaignCategoryRepository campaignCategoryRepository;
     private final CategoryRepository categoryRepository;
+    private final CampaignStatusHistoryService campaignStatusHistoryService;
 
     public List<CampaignResponseDTO> getAllCampaigns() {
         List<Campaign> campaigns = campaignRepository.findAll();
@@ -105,6 +106,8 @@ public class CampaignService {
         Campaign savedCampaign = campaignRepository.save(campaign);
 
         saveCampaignCategories(savedCampaign, dto.getCategoryIds());
+
+        campaignStatusHistoryService.recordTransition(savedCampaign, null, CampaignStatus.ACTIVE, userId);
 
         return toResponseDTOWithCategories(savedCampaign);
     }
