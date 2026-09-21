@@ -8,6 +8,7 @@ IF OBJECT_ID('campaign_category', 'U') IS NOT NULL DROP TABLE campaign_category;
 IF OBJECT_ID('user_category', 'U') IS NOT NULL DROP TABLE user_category;
 IF OBJECT_ID('followers', 'U') IS NOT NULL DROP TABLE followers;
 IF OBJECT_ID('publication', 'U') IS NOT NULL DROP TABLE publication;
+IF OBJECT_ID('campaign_status_history', 'U') IS NOT NULL DROP TABLE campaign_status_history;
 IF OBJECT_ID('campaign', 'U') IS NOT NULL DROP TABLE campaign;
 IF OBJECT_ID('goal', 'U') IS NOT NULL DROP TABLE goal;
 IF OBJECT_ID('bank_accounts', 'U') IS NOT NULL DROP TABLE bank_accounts;
@@ -133,6 +134,18 @@ CREATE TABLE campaign (
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
     FOREIGN KEY (goal_id) REFERENCES goal(id) ON DELETE CASCADE
+);
+
+-- Create campaign_status_history table (append-only audit log of campaign status changes)
+CREATE TABLE campaign_status_history (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    campaign_id BIGINT NOT NULL,
+    previous_status VARCHAR(50) NULL,
+    new_status VARCHAR(50) NOT NULL,
+    changed_by BIGINT NULL,
+    changed_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (campaign_id) REFERENCES campaign(id),
+    FOREIGN KEY (changed_by) REFERENCES [user](id)
 );
 
 -- Create campaign_category table (many-to-many relationship)
