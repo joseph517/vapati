@@ -431,7 +431,7 @@ class UserValidationServiceUserCreationTest {
                 when(userInfoMapper.fromCreateUserInfoDTO(createUserInfoDTO)).thenReturn(null);
 
                 // When & Then
-                assertThrows(NullPointerException.class,
+                assertThrows(MessageException.class,
                         () -> userValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper).fromCreateUserInfoDTO(createUserInfoDTO);

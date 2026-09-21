@@ -7,13 +7,15 @@ import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
 import com.vaPaTi.vaPaTi.entity.Follower;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -158,7 +160,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(CURRENT_USER_ID))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(MessageException.class)
                     .hasMessage(SELF_FOLLOW_ERROR);
 
             verify(userRepository, never()).findById(any());
@@ -174,7 +176,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(EntityNotFoundException.class)
+                    .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(CURRENT_USER_NOT_FOUND + CURRENT_USER_ID);
 
             verify(followerRepository, never()).save(any());
@@ -190,7 +192,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(EntityNotFoundException.class)
+                    .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID);
 
             verify(followerRepository, never()).save(any());
@@ -206,7 +208,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Inactive users cannot follow other users");
 
             verify(followerRepository, never()).save(any());
@@ -223,7 +225,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot follow inactive users");
 
             verify(followerRepository, never()).save(any());
@@ -240,7 +242,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(ConflictException.class)
                     .hasMessage("User is already being followed");
 
             verify(followerRepository, never()).save(any());
@@ -353,7 +355,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(CURRENT_USER_ID))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(MessageException.class)
                     .hasMessage(SELF_UNFOLLOW_ERROR);
 
             verify(followerRepository, never()).delete(any());
@@ -368,7 +370,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(OTHER_USER_ID))
-                    .isInstanceOf(EntityNotFoundException.class)
+                    .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(CURRENT_USER_NOT_FOUND + CURRENT_USER_ID);
 
             verify(followerRepository, never()).delete(any());
@@ -384,7 +386,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(OTHER_USER_ID))
-                    .isInstanceOf(EntityNotFoundException.class)
+                    .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(USER_TO_UNFOLLOW_NOT_FOUND + OTHER_USER_ID);
 
             verify(followerRepository, never()).delete(any());
@@ -402,7 +404,7 @@ class FollowerServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(OTHER_USER_ID))
-                    .isInstanceOf(EntityNotFoundException.class)
+                    .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Follow relationship not found");
 
             verify(followerRepository, never()).delete(any());

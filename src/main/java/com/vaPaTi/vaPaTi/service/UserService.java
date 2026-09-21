@@ -85,7 +85,7 @@ public class UserService {
     @Transactional
     public UserDTO updateUser( UpdateUserDTO dto) {
         if (dto == null) {
-            throw new IllegalArgumentException("DTO cannot be null");
+            throw new MessageException("DTO cannot be null");
         }
         
         Long userId = authenticatedUserService.getAuthenticatedUserId();
@@ -131,7 +131,7 @@ public class UserService {
 
     public UserDTO getUserById(Long id) {
         if (id == null || id <= 0) {
-            throw new IllegalArgumentException("ID must be a positive number");
+            throw new MessageException("ID must be a positive number");
         }
         
         User user = userRepository.findByIdWithFullDetails(id)

@@ -117,7 +117,7 @@ public class UserValidationService {
         UserInfo userInfo = userInfoMapper.fromCreateUserInfoDTO(dto);
 
         if (userInfo == null) {
-            throw new NullPointerException("Mapped UserInfo is null");
+            throw new MessageException("Mapped UserInfo is null");
         }
 
         // Encrypt the password AFTER mapping

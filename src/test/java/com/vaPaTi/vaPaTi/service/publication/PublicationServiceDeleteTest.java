@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -120,8 +122,8 @@ class PublicationServiceDeleteTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when publication does not exist")
-    void shouldThrowIllegalArgumentExceptionWhenPublicationDoesNotExist() {
+    @DisplayName("Should throw ResourceNotFoundException when publication does not exist")
+    void shouldThrowResourceNotFoundExceptionWhenPublicationDoesNotExist() {
         // Given
         Long nonExistentPublicationId = 999L;
         Long userId = 1L;
@@ -132,7 +134,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(nonExistentPublicationId, userId)
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Publication not found with ID: " + nonExistentPublicationId);
 
         // Verify interactions
@@ -143,8 +145,8 @@ class PublicationServiceDeleteTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalStateException when user is not the owner")
-    void shouldThrowIllegalStateExceptionWhenUserIsNotOwner() {
+    @DisplayName("Should throw ForbiddenActionException when user is not the owner")
+    void shouldThrowForbiddenActionExceptionWhenUserIsNotOwner() {
         // Given
         Long publicationId = 100L;
         Long nonOwnerId = 2L; // Different from publication owner (ID: 1)
@@ -155,7 +157,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(publicationId, nonOwnerId)
         )
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ForbiddenActionException.class)
                 .hasMessage("You don't have permission to delete this publication");
 
         // Verify interactions
@@ -166,8 +168,8 @@ class PublicationServiceDeleteTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when publication ID is null")
-    void shouldThrowIllegalArgumentExceptionWhenPublicationIdIsNull() {
+    @DisplayName("Should throw ResourceNotFoundException when publication ID is null")
+    void shouldThrowResourceNotFoundExceptionWhenPublicationIdIsNull() {
         // Given
         Long nullPublicationId = null;
         Long userId = 1L;
@@ -178,7 +180,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(nullPublicationId, userId)
         )
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Publication not found with ID: null");
 
         // Verify interactions
@@ -189,8 +191,8 @@ class PublicationServiceDeleteTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalStateException when user ID is null")
-    void shouldThrowIllegalStateExceptionWhenUserIdIsNull() {
+    @DisplayName("Should throw ForbiddenActionException when user ID is null")
+    void shouldThrowForbiddenActionExceptionWhenUserIdIsNull() {
         // Given
         Long publicationId = 100L;
         Long nullUserId = null;
@@ -201,7 +203,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(publicationId, nullUserId)
         )
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ForbiddenActionException.class)
                 .hasMessage("You don't have permission to delete this publication");
 
         // Verify interactions
@@ -270,7 +272,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(publicationId, userId)
         )
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ForbiddenActionException.class)
                 .hasMessage("You don't have permission to delete this publication");
 
         // Verify interactions
@@ -338,7 +340,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(nonExistentPublicationId, userId)
         )
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
 
         // Verify delete is never called
         verify(publicationRepository, times(1)).findById(eq(nonExistentPublicationId));
@@ -360,7 +362,7 @@ class PublicationServiceDeleteTest {
         assertThatThrownBy(() ->
                 publicationService.deletePublication(publicationId, unauthorizedUserId)
         )
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ForbiddenActionException.class);
 
         // Verify delete is never called
         verify(publicationRepository, times(1)).findById(eq(publicationId));

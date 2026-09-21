@@ -4,7 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.Publication;
 import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
@@ -42,10 +42,10 @@ public class PublicationService {
     public void deletePublication(Long publicationId, Long userId) {
 
         Publication publication = publicationRepository.findById(publicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Publication not found with ID: " + publicationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Publication not found with ID: " + publicationId));
 
         if (publication.getUser().getId() == null || !publication.getUser().getId().equals(userId)) {
-            throw new IllegalStateException("You don't have permission to delete this publication");
+            throw new ForbiddenActionException("You don't have permission to delete this publication");
         }
 
         publicationRepository.delete(publication);

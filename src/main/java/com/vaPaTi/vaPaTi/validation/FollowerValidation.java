@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
@@ -27,10 +27,10 @@ public class FollowerValidation {
         }
 
         User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new EntityNotFoundException("Current user not found with ID: " + currentUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found with ID: " + currentUserId));
 
         User otherUser = userRepository.findById(otherUserId)
-                .orElseThrow(() -> new EntityNotFoundException("Other user not found with ID: " + otherUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("Other user not found with ID: " + otherUserId));
 
         return followerRepository.existsByUserAndFollower(otherUser, currentUser);
     }

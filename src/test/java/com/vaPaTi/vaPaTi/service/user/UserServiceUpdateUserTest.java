@@ -90,13 +90,13 @@ class UserServiceUpdateUserTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when DTO is null")
-    void shouldThrowIllegalArgumentExceptionWhenDtoIsNull() {
+    @DisplayName("Should throw MessageException when DTO is null")
+    void shouldThrowMessageExceptionWhenDtoIsNull() {
         // Given - DTO is null
 
         // When & Then
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+        MessageException exception = assertThrows(
+                MessageException.class,
                 () -> userService.updateUser(null)
         );
 

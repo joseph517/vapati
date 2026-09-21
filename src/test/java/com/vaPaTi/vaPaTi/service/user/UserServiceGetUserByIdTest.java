@@ -147,13 +147,13 @@ class UserServiceGetUserByIdTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when ID is null")
-    void getUserById_WhenIdIsNull_ShouldThrowIllegalArgumentException() {
+    @DisplayName("Should throw MessageException when ID is null")
+    void getUserById_WhenIdIsNull_ShouldThrowMessageException() {
         // Given
         Long nullId = null;
 
         // When & Then
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        MessageException exception = assertThrows(MessageException.class, () -> {
             userService.getUserById(nullId);
         });
 
@@ -164,13 +164,13 @@ class UserServiceGetUserByIdTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when ID is zero")
-    void getUserById_WhenIdIsZero_ShouldThrowIllegalArgumentException() {
+    @DisplayName("Should throw MessageException when ID is zero")
+    void getUserById_WhenIdIsZero_ShouldThrowMessageException() {
         // Given
         Long zeroId = 0L;
 
         // When & Then
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        MessageException exception = assertThrows(MessageException.class, () -> {
             userService.getUserById(zeroId);
         });
 
@@ -181,13 +181,13 @@ class UserServiceGetUserByIdTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when ID is negative")
-    void getUserById_WhenIdIsNegative_ShouldThrowIllegalArgumentException() {
+    @DisplayName("Should throw MessageException when ID is negative")
+    void getUserById_WhenIdIsNegative_ShouldThrowMessageException() {
         // Given
         Long negativeId = -1L;
 
         // When & Then
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        MessageException exception = assertThrows(MessageException.class, () -> {
             userService.getUserById(negativeId);
         });
 
@@ -198,13 +198,13 @@ class UserServiceGetUserByIdTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when ID is large negative number")
-    void getUserById_WhenIdIsLargeNegative_ShouldThrowIllegalArgumentException() {
+    @DisplayName("Should throw MessageException when ID is large negative number")
+    void getUserById_WhenIdIsLargeNegative_ShouldThrowMessageException() {
         // Given
         Long largeNegativeId = -999999L;
 
         // When & Then
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        MessageException exception = assertThrows(MessageException.class, () -> {
             userService.getUserById(largeNegativeId);
         });
 

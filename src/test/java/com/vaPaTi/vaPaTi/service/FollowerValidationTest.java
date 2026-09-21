@@ -1,10 +1,10 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,15 +74,15 @@ class FollowerValidationTest {
     }
 
     @Test
-    @DisplayName("Should throw EntityNotFoundException when current user does not exist")
-    void isFollowing_WhenCurrentUserNotFound_ShouldThrowEntityNotFoundException() {
+    @DisplayName("Should throw ResourceNotFoundException when current user does not exist")
+    void isFollowing_WhenCurrentUserNotFound_ShouldThrowResourceNotFoundException() {
         // Given
         when(userRepository.findById(nonExistentUserId))
                 .thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> followerValidation.isFollowing(nonExistentUserId, otherUserId))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Current user not found with ID: " + nonExistentUserId);
 
         // Verify interactions
@@ -92,8 +92,8 @@ class FollowerValidationTest {
     }
 
     @Test
-    @DisplayName("Should throw EntityNotFoundException when other user does not exist")
-    void isFollowing_WhenOtherUserNotFound_ShouldThrowEntityNotFoundException() {
+    @DisplayName("Should throw ResourceNotFoundException when other user does not exist")
+    void isFollowing_WhenOtherUserNotFound_ShouldThrowResourceNotFoundException() {
         // Given
         when(userRepository.findById(currentUserId))
                 .thenReturn(Optional.of(currentUser));
@@ -102,7 +102,7 @@ class FollowerValidationTest {
 
         // When & Then
         assertThatThrownBy(() -> followerValidation.isFollowing(currentUserId, nonExistentUserId))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Other user not found with ID: " + nonExistentUserId);
 
         // Verify interactions with inOrder to ensure proper execution sequence
@@ -165,7 +165,7 @@ class FollowerValidationTest {
 
     @Test
     @DisplayName("Should handle null otherUserId parameter correctly")
-    void isFollowing_WhenOtherUserIdIsNull_ShouldThrowEntityNotFoundException() {
+    void isFollowing_WhenOtherUserIdIsNull_ShouldThrowResourceNotFoundException() {
         // Given
         when(userRepository.findById(currentUserId))
                 .thenReturn(Optional.of(currentUser));
@@ -174,7 +174,7 @@ class FollowerValidationTest {
 
         // When & Then
         assertThatThrownBy(() -> followerValidation.isFollowing(currentUserId, null))
-                .isInstanceOf(EntityNotFoundException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Other user not found with ID: null");
 
         // Verify interactions
