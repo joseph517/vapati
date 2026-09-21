@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.controller;
 
 import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.CampaignStatusHistoryResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.service.CampaignService;
@@ -129,6 +130,12 @@ public class CampaignController {
                     "error", e.getMessage()
             ));
         }
+    }
+
+    @GetMapping("/{campaignId}/status-history")
+    @Operation(summary = "Get the status transition history of a campaign")
+    public ResponseEntity<List<CampaignStatusHistoryResponseDTO>> getCampaignStatusHistory(@PathVariable Long campaignId) {
+        return ResponseEntity.ok(campaignService.getCampaignStatusHistory(campaignId));
     }
 
 }

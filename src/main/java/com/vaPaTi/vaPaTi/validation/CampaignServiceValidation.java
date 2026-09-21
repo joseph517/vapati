@@ -23,7 +23,7 @@ public class CampaignServiceValidation {
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
         return campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new MessageException("Campaign not found"));
+                .orElseThrow(() -> new MessageException("Campaign not found with id: " + campaignId));
     }
 
     public void updateCampaignFields(@NotNull Campaign campaign, @NotNull UpdateCampaignRequestDTO dto) {
