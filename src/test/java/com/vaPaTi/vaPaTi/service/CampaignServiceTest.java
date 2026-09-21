@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
@@ -75,6 +76,7 @@ class CampaignServiceTest {
 
         testGoal = new Goal();
         testGoal.setId(1L);
+        testGoal.setStatus(CampaignStatus.ACTIVE);
 
         testCampaign = new Campaign();
         testCampaign.setId(TEST_CAMPAIGN_ID);
@@ -727,10 +729,35 @@ class CampaignServiceTest {
 
                 // Then
                 assertThat(result).isNotNull().isEqualTo(expectedDTO);
-                assertThat(testGoal.getActive()).isFalse();
+                assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
                 verify(authenticatedUserService).getAuthenticatedUserId();
                 verify(campaignAuthorizationService).getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID);
                 verify(campaignRepository).save(testCampaign);
+            }
+        }
+
+        @Test
+        @DisplayName("Should close campaign successfully when goal is completed")
+        void closeCampaign_WithCompletedGoal_ShouldCloseCampaign() {
+            // Given
+            testGoal.setStatus(CampaignStatus.COMPLETED);
+            CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()))
+                        .thenReturn(expectedDTO);
+
+                // When
+                CampaignResponseDTO result = campaignService.closeCampaign(TEST_CAMPAIGN_ID);
+
+                // Then
+                assertThat(result).isNotNull().isEqualTo(expectedDTO);
+                assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
             }
         }
 
@@ -755,7 +782,7 @@ class CampaignServiceTest {
         @DisplayName("Should throw MessageException when goal is already closed")
         void closeCampaign_WithInactiveGoal_ShouldThrowException() {
             // Given
-            testGoal.setActive(false);
+            testGoal.setStatus(CampaignStatus.CLOSED);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
                     .thenReturn(testCampaign);
@@ -806,7 +833,7 @@ class CampaignServiceTest {
                 campaignService.closeCampaign(TEST_CAMPAIGN_ID);
 
                 // Then
-                assertThat(testGoal.getActive()).isFalse();
+                assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
             }
         }
 
@@ -829,6 +856,132 @@ class CampaignServiceTest {
                 // Then
                 verify(campaignRepository).save(testCampaign);
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("activateCampaign() tests")
+    class ActivateCampaignTests {
+
+        @Test
+        @DisplayName("Should reactivate to ACTIVE when goal amount was not reached")
+        void activateCampaign_WithClosedGoalBelowTarget_ShouldSetGoalActive() {
+            // Given
+            testGoal.setStatus(CampaignStatus.CLOSED);
+            testGoal.setAmountGoal(1000.0);
+            testGoal.setAmountRaised(500.0);
+            CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()))
+                        .thenReturn(expectedDTO);
+
+                // When
+                CampaignResponseDTO result = campaignService.activateCampaign(TEST_CAMPAIGN_ID);
+
+                // Then
+                assertThat(result).isNotNull().isEqualTo(expectedDTO);
+                assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
+            }
+        }
+
+        @Test
+        @DisplayName("Should reactivate to COMPLETED when goal amount was already reached")
+        void activateCampaign_WithClosedGoalAtOrAboveTarget_ShouldSetGoalCompleted() {
+            // Given
+            testGoal.setStatus(CampaignStatus.CLOSED);
+            testGoal.setAmountGoal(1000.0);
+            testGoal.setAmountRaised(1000.0);
+            CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()))
+                        .thenReturn(expectedDTO);
+
+                // When
+                CampaignResponseDTO result = campaignService.activateCampaign(TEST_CAMPAIGN_ID);
+
+                // Then
+                assertThat(result).isNotNull().isEqualTo(expectedDTO);
+                assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
+            }
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when campaign has no goal")
+        void activateCampaign_WithNoGoal_ShouldThrowException() {
+            // Given
+            testCampaign.setGoal(null);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+
+            // When & Then
+            assertThatThrownBy(() -> campaignService.activateCampaign(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .hasMessage("Campaign does not have a goal");
+
+            verify(campaignRepository, never()).save(any(Campaign.class));
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when goal is not closed (ACTIVE)")
+        void activateCampaign_WithActiveGoal_ShouldThrowException() {
+            // Given
+            testGoal.setStatus(CampaignStatus.ACTIVE);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+
+            // When & Then
+            assertThatThrownBy(() -> campaignService.activateCampaign(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .hasMessage("Campaign is not closed");
+
+            verify(campaignRepository, never()).save(any(Campaign.class));
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when goal is not closed (COMPLETED)")
+        void activateCampaign_WithCompletedGoal_ShouldThrowException() {
+            // Given
+            testGoal.setStatus(CampaignStatus.COMPLETED);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+
+            // When & Then
+            assertThatThrownBy(() -> campaignService.activateCampaign(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .hasMessage("Campaign is not closed");
+
+            verify(campaignRepository, never()).save(any(Campaign.class));
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when user is not owner nor admin")
+        void activateCampaign_WhenNotAuthorized_ShouldThrowException() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenThrow(new com.vaPaTi.vaPaTi.exception.MessageException("You are not authorized to perform this action"));
+
+            // When & Then
+            assertThatThrownBy(() -> campaignService.activateCampaign(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .hasMessage("You are not authorized to perform this action");
+
+            verify(campaignRepository, never()).save(any(Campaign.class));
         }
     }
 

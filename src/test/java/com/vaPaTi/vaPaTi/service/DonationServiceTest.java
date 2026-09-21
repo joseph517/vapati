@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
 import com.vaPaTi.vaPaTi.dtos.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
@@ -72,7 +73,7 @@ class DonationServiceTest {
                 .id(1L)
                 .amountGoal(GOAL_AMOUNT)
                 .amountRaised(INITIAL_AMOUNT_RAISED)
-                .active(true)
+                .status(CampaignStatus.ACTIVE)
                 .build();
 
         testCampaign = Campaign.builder()
@@ -203,6 +204,71 @@ class DonationServiceTest {
             donationService.createDonation(createDonationDTO);
 
             // Then
+            Double expectedAmountRaised = INITIAL_AMOUNT_RAISED + TEST_AMOUNT;
+            assertThat(testGoal.getAmountRaised()).isEqualTo(expectedAmountRaised);
+        }
+
+        @Test
+        @DisplayName("Should mark goal as COMPLETED when donation makes amount raised reach the goal")
+        void createDonation_WhenDonationReachesGoal_ShouldMarkGoalCompleted() {
+            // Given
+            testGoal.setAmountRaised(GOAL_AMOUNT - TEST_AMOUNT);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("Should keep goal ACTIVE when donation does not reach the goal")
+        void createDonation_WhenDonationDoesNotReachGoal_ShouldKeepGoalActive() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("Should accept donation when goal is already COMPLETED")
+        void createDonation_WhenGoalIsCompleted_ShouldStillAcceptDonation() {
+            // Given
+            testGoal.setStatus(CampaignStatus.COMPLETED);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            // When
+            DonationResponseDTO result = donationService.createDonation(createDonationDTO);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
             Double expectedAmountRaised = INITIAL_AMOUNT_RAISED + TEST_AMOUNT;
             assertThat(testGoal.getAmountRaised()).isEqualTo(expectedAmountRaised);
         }
@@ -368,7 +434,7 @@ class DonationServiceTest {
             assertThat(result.getAmountRaised()).isEqualTo(totalRaised);
             assertThat(result.getPercentageReached()).isEqualTo(60.0);
             assertThat(result.getIsGoalReached()).isFalse();
-            assertThat(result.getIsActive()).isTrue();
+            assertThat(result.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
             assertThat(result.getTotalDonors()).isEqualTo(uniqueDonors);
         }
 
@@ -435,7 +501,7 @@ class DonationServiceTest {
             // Then
             assertThat(result.getAmountGoal()).isZero();
             assertThat(result.getPercentageReached()).isZero();
-            assertThat(result.getIsActive()).isFalse();
+            assertThat(result.getStatus()).isNull();
         }
 
         @Test

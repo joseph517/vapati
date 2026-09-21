@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -51,7 +52,7 @@ class DonationValidationServiceTest {
                 .id(1L)
                 .amountGoal(1000.0)
                 .amountRaised(500.0)
-                .active(true)
+                .status(CampaignStatus.ACTIVE)
                 .build();
 
         testCampaign = Campaign.builder()
@@ -203,7 +204,7 @@ class DonationValidationServiceTest {
             // Given
             Goal activeGoal = Goal.builder()
                     .id(1L)
-                    .active(true)
+                    .status(CampaignStatus.ACTIVE)
                     .build();
 
             // When & Then (should not throw exception)
@@ -228,7 +229,7 @@ class DonationValidationServiceTest {
             // Given
             Goal inactiveGoal = Goal.builder()
                     .id(1L)
-                    .active(false)
+                    .status(CampaignStatus.CLOSED)
                     .build();
 
             // When & Then
