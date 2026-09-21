@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.dtos.VerificationStatusResponseDTO;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.VerificationRequest;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.VerificationRequestMapper;
 import com.vaPaTi.vaPaTi.repository.VerificationRequestRepository;
 import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
@@ -65,7 +66,7 @@ public class VerificationRequestService {
 
     public VerificationStatusResponseDTO getVerificationStatus(Long userId) {
         VerificationRequest request = verificationRequestRepository.findByUserId(userId)
-                .orElseThrow(() -> new MessageException("No verification request found."));
+                .orElseThrow(() -> new ResourceNotFoundException("No verification request found."));
         return verificationRequestMapper.toStatusDTO(request);
     }
 

@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserCategory;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserInfoRepository;
@@ -62,7 +63,7 @@ public class UserValidationService {
                 .toList();
 
         if (!missingIds.isEmpty()) {
-            throw new MessageException("Categories not found: " + missingIds);
+            throw new ResourceNotFoundException("Categories not found: " + missingIds);
         }
 
         return categories;
@@ -210,7 +211,7 @@ public class UserValidationService {
 
     public User getUserById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
     }
 
     public boolean existsById(Long id) {
@@ -258,7 +259,7 @@ public class UserValidationService {
         }
 
         return Optional.ofNullable(user.getUserInfo())
-                .orElseThrow(() -> new MessageException("UserInfo not found for user with id: " + user.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("UserInfo not found for user with id: " + user.getId()));
     }
 
     private boolean isValidString(String value) {

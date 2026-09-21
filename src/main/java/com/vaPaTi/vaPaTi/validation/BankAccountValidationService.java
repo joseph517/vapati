@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -52,7 +53,7 @@ public class BankAccountValidationService {
 
     public void verifyUserIsVerified(Long userId) {
         Boolean isVerified = bankAccountRepository.isUserVerified(userId)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
         if (!isVerified) {
             throw new MessageException(USER_NOT_VERIFIED);
         }

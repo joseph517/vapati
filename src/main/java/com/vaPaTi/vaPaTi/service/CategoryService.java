@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
@@ -40,7 +41,7 @@ public class CategoryService {
 
     public CategoryDTO updateCategory(Long id, @NotNull CreateCategoryDTO dto) {
         Category existingCategory = categoryRepository.findById(id)
-                .orElseThrow(() -> new MessageException("Category not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
 
         if (dto.getName() != null &&
                 !existingCategory.getName().equals(dto.getName()) &&
@@ -58,7 +59,7 @@ public class CategoryService {
     @Transactional
     public void deleteCategory(Long id) {
         if (!categoryRepository.existsById(id)) {
-            throw new MessageException("Category not found with id: " + id);
+            throw new ResourceNotFoundException("Category not found with id: " + id);
         }
 
         if (isCategoryInUse(id)) {

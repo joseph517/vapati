@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ public class DonationValidationService {
 
     public Campaign validateAndGetCampaign(Long campaignId) {
         Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new MessageException("Campaign not found with id: " + campaignId));
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with id: " + campaignId));
 
         if (campaign.getDeletedAt() != null) {
             throw new MessageException("Cannot donate to a deleted campaign");
@@ -53,7 +54,7 @@ public class DonationValidationService {
 
     public User validateAndGetDonor(Long donorUserId) {
         return userRepository.findById(donorUserId)
-                .orElseThrow(() -> new MessageException("Donor user not found with id: " + donorUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("Donor user not found with id: " + donorUserId));
     }
 
     public void validateNotSelfDonation(Long donorUserId, Long campaignOwnerId) {

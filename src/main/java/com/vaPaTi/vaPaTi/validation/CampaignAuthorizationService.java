@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,10 @@ public class CampaignAuthorizationService {
 
     public void validateOwnershipOrAdmin(Long campaignId, Long userId) {
         Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new MessageException(CAMPAIGN_NOT_FOUND + campaignId));
+                .orElseThrow(() -> new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException("User not found with id: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         boolean isOwner = campaign.getUser().getId().equals(userId);
         boolean isAdmin = user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName());
@@ -46,6 +47,6 @@ public class CampaignAuthorizationService {
     public Campaign getCampaignIfAuthorized(Long campaignId, Long userId) {
         validateOwnershipOrAdmin(campaignId, userId);
         return campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new MessageException(CAMPAIGN_NOT_FOUND + campaignId));
+                .orElseThrow(() -> new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId));
     }
 }

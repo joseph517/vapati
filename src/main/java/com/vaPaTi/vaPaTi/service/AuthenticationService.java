@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,7 @@ public class AuthenticationService {
         User user = userRepository.findAllWithDetails().stream()
                 .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(request.getEmail()))
                 .findFirst()
-                .orElseThrow(() -> new MessageException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         validateUserStatus(user);
 
@@ -86,7 +87,7 @@ public class AuthenticationService {
         return userRepository.findAllWithDetails().stream()
                 .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
                 .findFirst()
-                .orElseThrow(() -> new MessageException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     private void validateUserStatus(User user) {

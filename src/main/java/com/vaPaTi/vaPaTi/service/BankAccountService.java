@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
@@ -54,7 +55,7 @@ public class BankAccountService {
                 // Restore deleted account
                 BankAccount accountToRestore = bankAccountRepository
                         .findByUserIdAndAccountNumberAndDeletedAtIsNotNull(dto.getUserId(), dto.getAccountNumber())
-                        .orElseThrow(() -> new MessageException("Account not found for restoration"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Account not found for restoration"));
 
                 accountToRestore.setDeletedAt(null);
                 BankAccount restored = bankAccountRepository.save(accountToRestore);
@@ -73,13 +74,13 @@ public class BankAccountService {
 
     public List<BankAccountDTO> getBankAccountsByUserId(Long userId) {
         if (!userValidationService.existsById(userId)) {
-            throw new MessageException("User not found with id: " + userId);
+            throw new ResourceNotFoundException("User not found with id: " + userId);
         }
 
         List<BankAccount> bankAccounts = bankAccountRepository.findByUserId(userId);
 
         if (bankAccounts.isEmpty()) {
-            throw new MessageException("No bank accounts found for user with id: " + userId);
+            throw new ResourceNotFoundException("No bank accounts found for user with id: " + userId);
         }
 
         return bankAccounts.stream()
@@ -90,7 +91,7 @@ public class BankAccountService {
     @Transactional
     public void deleteBankAccount(Long id) {
         BankAccount bankAccount = bankAccountRepository.findById(id)
-                .orElseThrow(() -> new MessageException("Bank account not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Bank account not found with id: " + id));
 
         if (bankAccount.getDeletedAt() != null) {
             throw new MessageException("Bank account is already deleted");
@@ -107,7 +108,7 @@ public class BankAccountService {
 
         // Search for the bank account
         BankAccount bankAccount = bankAccountRepository.findById(id)
-                .orElseThrow(() -> new MessageException("Bank account not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Bank account not found with id: " + id));
 
         // Verify that the account is not deleted
         if (bankAccount.getDeletedAt() != null) {

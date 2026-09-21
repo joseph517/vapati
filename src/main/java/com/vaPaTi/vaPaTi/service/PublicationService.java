@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.Publication;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -23,7 +24,7 @@ public class PublicationService {
 
     public PublicationResponseDTO createPublication(CreatePublicationDTO dto) {
         User user = userRepository.findById(dto.getUserId())
-                .orElseThrow(() -> new MessageException("User not found with ID: " + dto.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + dto.getUserId()));
 
         Publication publication = publicationMapper.toEntity(dto, user);
         publication = publicationRepository.save(publication);

@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class CampaignServiceValidation {
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
         return campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new MessageException("Campaign not found with id: " + campaignId));
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with id: " + campaignId));
     }
 
     public void updateCampaignFields(@NotNull Campaign campaign, @NotNull UpdateCampaignRequestDTO dto) {
@@ -54,7 +55,7 @@ public class CampaignServiceValidation {
         }
         for (Long categoryId : categoryIds) {
             if (!categoryRepository.existsById(categoryId)) {
-                throw new MessageException("Category not found with id: " + categoryId);
+                throw new ResourceNotFoundException("Category not found with id: " + categoryId);
             }
         }
     }

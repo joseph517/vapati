@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
 import com.vaPaTi.vaPaTi.repository.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -69,7 +70,7 @@ public class UserService {
         UserInfo userInfo = userValidationService.createUserInfo(userInfoDTO);
 
         // Role
-        Role userRole = roleRepository.findByName("USER").orElseThrow(() -> new MessageException("Role not found"));
+        Role userRole = roleRepository.findByName("USER").orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
         user.setRole(userRole);
         user.setUserInfo(userInfo);
@@ -117,7 +118,7 @@ public class UserService {
     public void deleteUser() {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         if (user.getDeletedAt() != null) {
             throw new MessageException("User is already deleted");
@@ -133,7 +134,7 @@ public class UserService {
         }
         
         User user = userRepository.findByIdWithFullDetails(id)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
         return userMapper.toUserDTO(user);
     }
 

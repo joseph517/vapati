@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.*;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
@@ -69,7 +70,7 @@ public class ReportValidationService {
             case USER -> {
                 Optional<User> user = userRepository.findById(entityId);
                 if (user.isEmpty()) {
-                    throw new MessageException(USER_NOT_FOUND);
+                    throw new ResourceNotFoundException(USER_NOT_FOUND);
                 }
                 if (user.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted user");
@@ -78,7 +79,7 @@ public class ReportValidationService {
             case PUBLICATION -> {
                 Optional<Publication> publication = publicationRepository.findById(entityId);
                 if (publication.isEmpty()) {
-                    throw new MessageException(PUBLICATION_NOT_FOUND);
+                    throw new ResourceNotFoundException(PUBLICATION_NOT_FOUND);
                 }
                 if (publication.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted publication");
@@ -87,7 +88,7 @@ public class ReportValidationService {
             case CAMPAIGN -> {
                 Optional<Campaign> campaign = campaignRepository.findById(entityId);
                 if (campaign.isEmpty()) {
-                    throw new MessageException(CAMPAIGN_NOT_FOUND);
+                    throw new ResourceNotFoundException(CAMPAIGN_NOT_FOUND);
                 }
                 // Campaign doesn't have soft delete yet, but we check if it exists
             }
@@ -125,7 +126,7 @@ public class ReportValidationService {
      */
     public Report validateReportExists(Long reportId) {
         return reportRepository.findById(reportId)
-                .orElseThrow(() -> new MessageException("Report not found with id: " + reportId));
+                .orElseThrow(() -> new ResourceNotFoundException("Report not found with id: " + reportId));
     }
 
     /**
@@ -152,6 +153,6 @@ public class ReportValidationService {
      */
     public User getReporter(Long reporterId) {
         return userRepository.findById(reporterId)
-                .orElseThrow(() -> new MessageException("Reporter " + USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException("Reporter " + USER_NOT_FOUND));
     }
 }

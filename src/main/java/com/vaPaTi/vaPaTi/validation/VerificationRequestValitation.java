@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.VerificationRequest;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.repository.VerificationRequestRepository;
 import org.jetbrains.annotations.NotNull;
@@ -28,7 +29,7 @@ public class VerificationRequestValitation {
 
     public User validateAndGetUser(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException("User not found."));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
     }
 
     public void validateUserNotVerified(@NotNull User user) {
@@ -39,7 +40,7 @@ public class VerificationRequestValitation {
 
     public VerificationRequest findVerificationRequestById(Long requestId) {
         return verificationRequestRepository.findById(requestId)
-                .orElseThrow(() -> new MessageException("Verification request not found."));
+                .orElseThrow(() -> new ResourceNotFoundException("Verification request not found."));
     }
 
     public boolean isPendingRequest(@NotNull VerificationRequest request) {

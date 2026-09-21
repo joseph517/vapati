@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.entity.*;
-import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -62,7 +62,7 @@ public class ReportActionService {
         }
 
         User user = userRepository.findById(report.getReportedEntityId())
-                .orElseThrow(() -> new MessageException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         user.setBanned(true);
         user.setBannedAt(LocalDateTime.now());
@@ -81,7 +81,7 @@ public class ReportActionService {
         }
 
         User user = userRepository.findById(report.getReportedEntityId())
-                .orElseThrow(() -> new MessageException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         user.setSuspendedUntil(LocalDateTime.now().plusDays(30));
         user.setBannedReason(report.getAdminNotes() != null ? report.getAdminNotes() : "Suspended by admin");
@@ -111,7 +111,7 @@ public class ReportActionService {
      */
     private void removePublication(Long publicationId) {
         Publication publication = publicationRepository.findById(publicationId)
-                .orElseThrow(() -> new MessageException("Publication not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Publication not found"));
 
         // Soft delete is handled by @SQLDelete annotation
         publicationRepository.delete(publication);
@@ -122,7 +122,7 @@ public class ReportActionService {
      */
     private void removeCampaign(Long campaignId) {
         Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new MessageException("Campaign not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found"));
 
         // Soft delete is handled by @SQLDelete annotation
         campaignRepository.delete(campaign);

@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
 import com.vaPaTi.vaPaTi.entity.Follower;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -135,7 +136,7 @@ public class FollowerService {
     public FollowersListResponseDto getFollowers(Long userId) {
         // Get user
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
 
         // Get followers
         List<Follower> followers = followerRepository.findFollowersByUser(user);
@@ -151,7 +152,7 @@ public class FollowerService {
     public FollowersListResponseDto getFollowing(Long userId) {
         // Get user
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
 
         // Get following
         List<Follower> following = followerRepository.findFollowingsByFollower(user);
@@ -166,7 +167,7 @@ public class FollowerService {
      */
     public long getFollowerCount(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
 
         return followerRepository.countByUser(user);
     }
@@ -178,7 +179,7 @@ public class FollowerService {
      */
     public long getFollowingCount(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new MessageException(USER_NOT_FOUND + userId));
+                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
 
         return followerRepository.countByFollower(user);
     }
