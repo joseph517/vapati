@@ -195,8 +195,11 @@ public class CampaignService {
             throw new MessageException("Campaign is not closed");
         }
 
-        goal.setStatus(goal.getAmountRaised() >= goal.getAmountGoal() ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE);
+        CampaignStatus newStatus = goal.getAmountRaised() >= goal.getAmountGoal() ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE;
+        goal.setStatus(newStatus);
         Campaign updatedCampaign = campaignRepository.save(campaign);
+
+        campaignStatusHistoryService.recordTransition(updatedCampaign, CampaignStatus.CLOSED, newStatus, userId);
 
         return toResponseDTOWithCategories(updatedCampaign);
     }
