@@ -209,7 +209,7 @@ CREATE INDEX idx_campaign_user ON campaign(user_id);
 CREATE INDEX idx_campaign_goal ON campaign(goal_id);
 CREATE INDEX idx_campaign_status ON campaign(status);
 CREATE INDEX idx_campaign_deleted ON campaign(deleted_at);
-CREATE INDEX idx_goal_active ON goal(active);
+CREATE INDEX idx_goal_status ON goal(status);
 CREATE INDEX idx_goal_deleted ON goal(deleted_at);
 CREATE INDEX idx_donation_donor ON donation(donor_user_id);
 CREATE INDEX idx_donation_campaign ON donation(campaign_id);
