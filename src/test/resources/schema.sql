@@ -104,7 +104,7 @@ CREATE TABLE goal (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     amount_goal DECIMAL(15,2) NOT NULL DEFAULT 0,
     amount_raised DECIMAL(15,2) NOT NULL DEFAULT 0,
-    active BIT NOT NULL DEFAULT 1,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
     target_date DATETIME2,
     deleted_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
