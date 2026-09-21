@@ -637,6 +637,61 @@ class CampaignServiceTest {
     }
 
     @Nested
+    @DisplayName("getCampaignsByStatus() tests")
+    class GetCampaignsByStatusTests {
+
+        @Test
+        @DisplayName("Should return only campaigns whose goal has the requested status")
+        void getCampaignsByStatus_WithMatchingCampaigns_ShouldReturnFilteredList() {
+            // Given
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
+            when(campaignRepository.findByGoal_Status(CampaignStatus.CLOSED)).thenReturn(List.of(campaign1));
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
+
+                // When
+                List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("CLOSED");
+
+                // Then
+                assertThat(result).hasSize(1);
+                verify(campaignServiceValidation).parseStatus("CLOSED");
+                verify(campaignRepository).findByGoal_Status(CampaignStatus.CLOSED);
+            }
+        }
+
+        @Test
+        @DisplayName("Should propagate exception when status value is invalid")
+        void getCampaignsByStatus_WithInvalidValue_ShouldThrowException() {
+            // Given
+            when(campaignServiceValidation.parseStatus("FOO"))
+                    .thenThrow(new com.vaPaTi.vaPaTi.exception.MessageException("Invalid campaign status: FOO"));
+
+            // When & Then
+            assertThatThrownBy(() -> campaignService.getCampaignsByStatus("FOO"))
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .hasMessage("Invalid campaign status: FOO");
+
+            verify(campaignRepository, never()).findByGoal_Status(any());
+        }
+
+        @Test
+        @DisplayName("Should return empty list when no campaign matches the status")
+        void getCampaignsByStatus_WithNoMatches_ShouldReturnEmptyList() {
+            // Given
+            when(campaignServiceValidation.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
+            when(campaignRepository.findByGoal_Status(CampaignStatus.ACTIVE)).thenReturn(List.of());
+
+            // When
+            List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("ACTIVE");
+
+            // Then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
     @DisplayName("deleteCampaign() tests")
     class DeleteCampaignTests {
 

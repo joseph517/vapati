@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -332,6 +333,24 @@ class CampaignServiceValidationTest {
         // amountRaised should not be updated (no longer in DTO)
         assertThat(goal.getAmountRaised()).isEqualTo(500.0);
         verifyNoInteractions(campaignRepository);
+    }
+
+    @DisplayName("parseStatus - Should return the matching enum value for a valid status")
+    @Test
+    void parseStatus_WithValidValue_ShouldReturnEnum() {
+        // When & Then
+        assertThat(campaignServiceValidation.parseStatus("ACTIVE")).isEqualTo(CampaignStatus.ACTIVE);
+        assertThat(campaignServiceValidation.parseStatus("completed")).isEqualTo(CampaignStatus.COMPLETED);
+        assertThat(campaignServiceValidation.parseStatus("Closed")).isEqualTo(CampaignStatus.CLOSED);
+    }
+
+    @DisplayName("parseStatus - Should throw MessageException when value does not match any enum constant")
+    @Test
+    void parseStatus_WithInvalidValue_ShouldThrow() {
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.parseStatus("FOO"))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("Invalid campaign status: FOO");
     }
 
     @DisplayName("validateCategoryIds - Should pass when between 1 and 5 existing category ids are provided")
