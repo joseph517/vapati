@@ -47,7 +47,8 @@ public class CampaignMapper {
                 goal != null ? goal.getAmountGoal() : 0,
                 goal != null ? goal.getAmountRaised() : 0,
                 campaign.getUser() != null ? campaign.getUser().getId() : null,
-                categories
+                categories,
+                goal != null ? goal.getStatus() : null
         );
     }
 }

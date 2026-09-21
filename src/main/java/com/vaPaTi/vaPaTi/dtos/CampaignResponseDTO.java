@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,5 +19,6 @@ public class CampaignResponseDTO {
     private Double amountRaised;
     private Long userId;
     private List<CategoryDTO> categories;
+    private CampaignStatus status;
 }
 
