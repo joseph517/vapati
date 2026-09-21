@@ -53,8 +53,8 @@ docker-compose -f docker-compose.dev.yml up --build
 ```
 
 Esto levanta dos contenedores:
-- `apivapati_java_db_dev` — SQL Server 2022, expuesto en `localhost:1433` (usuario `sa`, password `<DB_PASSWORD del .env>`, base de datos `ApiVaPaTiJava` — ver `src/main/resources/application-docker.properties`).
-- `apivapati_java_app_dev` — la app Spring Boot, expuesta en `localhost:8080`, con hot reload al editar archivos `.java`.
+- `db_vapati_dev` — SQL Server 2022, expuesto en `localhost:1433` (usuario `sa`, password `<DB_PASSWORD del .env>`, base de datos `ApiVaPaTiJava` — ver `src/main/resources/application-docker.properties`).
+- `app_vapati_dev` — la app Spring Boot, expuesta en `localhost:8080`, con hot reload al editar archivos `.java`.
 
 Para más detalle (modo producción local, SonarQube, troubleshooting) revisa [`DOCKER-INSTRUCTIONS.md`](DOCKER-INSTRUCTIONS.md).
 
@@ -74,11 +74,11 @@ Por seguridad, **no existe un endpoint para crear usuarios ADMIN** — `POST /ap
 
 ```bash
 # 1. Generar el hash BCrypt del password (imagen de desarrollo, incluye Maven)
-docker exec apivapati_java_app_dev sh -c "cd /app && CP=target/classes:\$(find /root/.m2 -name '*.jar' | tr '\n' ':') && java -cp \"\$CP\" com.vaPaTi.vaPaTi.utils.PasswordHashGenerator '<password-del-admin>'"
+docker exec app_vapati_dev sh -c "cd /app && CP=target/classes:\$(find /root/.m2 -name '*.jar' | tr '\n' ':') && java -cp \"\$CP\" com.vaPaTi.vaPaTi.utils.PasswordHashGenerator '<password-del-admin>'"
 
 # 2. Con el hash impreso ($2a$10$....), edita scripts/create-admin-user.sql (hash, email, username) y ejecútalo
-docker cp scripts/create-admin-user.sql apivapati_java_db_dev:/tmp/create-admin-user.sql
-docker exec apivapati_java_db_dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD del .env>' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
+docker cp scripts/create-admin-user.sql db_vapati_dev:/tmp/create-admin-user.sql
+docker exec db_vapati_dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD del .env>' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
 
 # 3. Verificar el login
 curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"<email-del-admin>","password":"<password-del-admin>"}'
@@ -115,7 +115,7 @@ docker-compose -f docker-compose.prod.yml pull
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-Esto levanta `apivapati_java_db` y `apivapati_java_app` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `DB_PASSWORD` y `JWT_SECRET` son obligatorios: sin ellos, la app cae en los valores de desarrollo por defecto, inseguros para producción.
+Esto levanta `db_vapati_prod` y `app_vapati_prod` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `DB_PASSWORD` y `JWT_SECRET` son obligatorios: sin ellos, la app cae en los valores de desarrollo por defecto, inseguros para producción.
 
 Detalle completo (preparación del `.env`, copiar los archivos al servidor, verificación de que levantó bien): ver sección 4 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
@@ -124,10 +124,10 @@ Detalle completo (preparación del `.env`, copiar los archivos al servidor, veri
 Mismo flujo que en desarrollo, pero la imagen runtime no tiene Maven ni `~/.m2`, así que el hash se genera con el `PropertiesLauncher` de Spring Boot contra el `app.jar` ya empaquetado:
 
 ```bash
-docker exec apivapati_java_app sh -c "java -Dloader.main=com.vaPaTi.vaPaTi.utils.PasswordHashGenerator -cp app.jar org.springframework.boot.loader.launch.PropertiesLauncher '<password-del-admin>'"
+docker exec app_vapati_prod sh -c "java -Dloader.main=com.vaPaTi.vaPaTi.utils.PasswordHashGenerator -cp app.jar org.springframework.boot.loader.launch.PropertiesLauncher '<password-del-admin>'"
 ```
 
-Con el hash, completa `scripts/create-admin-user.sql` y ejecútalo contra `apivapati_java_db` (en vez de `apivapati_java_db_dev`), igual que en el paso 5. Detalle completo y verificación de login: ver sección 5 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
+Con el hash, completa `scripts/create-admin-user.sql` y ejecútalo contra `db_vapati_prod` (en vez de `db_vapati_dev`), igual que en el paso 5. Detalle completo y verificación de login: ver sección 5 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
 # Diagramas
 

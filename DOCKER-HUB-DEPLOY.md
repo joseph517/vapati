@@ -132,7 +132,7 @@ docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Esto levanta `apivapati_java_db` (SQL Server) y `apivapati_java_app` (la imagen publicada), sin necesidad de tener el código fuente en el servidor. La app queda accesible en el puerto configurado (`APP_PORT`).
+Esto levanta `db_vapati_prod` (SQL Server) y `app_vapati_prod` (la imagen publicada), sin necesidad de tener el código fuente en el servidor. La app queda accesible en el puerto configurado (`APP_PORT`).
 
 ### 4.5. Verificar que levantó bien
 
@@ -155,7 +155,7 @@ Debería devolver las categorías sembradas por `data.sql` (Technology, Health, 
 La imagen runtime no tiene Maven ni `~/.m2`, así que el comando de generación de hash usado en desarrollo no funciona ahí. Se usa el `PropertiesLauncher` de Spring Boot contra el `app.jar` ya empaquetado:
 
 ```bash
-docker exec apivapati_java_app sh -c "java -Dloader.main=com.vaPaTi.vaPaTi.utils.PasswordHashGenerator -cp app.jar org.springframework.boot.loader.launch.PropertiesLauncher '<password-del-admin>'"
+docker exec app_vapati_prod sh -c "java -Dloader.main=com.vaPaTi.vaPaTi.utils.PasswordHashGenerator -cp app.jar org.springframework.boot.loader.launch.PropertiesLauncher '<password-del-admin>'"
 ```
 
 Esto imprime un hash BCrypt (`$2a$10$....`). Con ese hash:
@@ -164,8 +164,8 @@ Esto imprime un hash BCrypt (`$2a$10$....`). Con ese hash:
 2. Copiá y ejecutá el script contra la base de datos de producción:
 
    ```bash
-   docker cp scripts/create-admin-user.sql apivapati_java_db:/tmp/create-admin-user.sql
-   docker exec apivapati_java_db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD del .env>' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
+   docker cp scripts/create-admin-user.sql db_vapati_prod:/tmp/create-admin-user.sql
+   docker exec db_vapati_prod /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD del .env>' -C -d ApiVaPaTiJava -i /tmp/create-admin-user.sql
    ```
 
 3. Verificá el login:

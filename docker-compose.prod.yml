@@ -1,6 +1,6 @@
 services:
   sqlserver:
-    container_name: apivapati_java_db
+    container_name: db_vapati_prod
     image: mcr.microsoft.com/mssql/server:2022-latest
     ports:
       - "${DB_PORT:-1433}:1433"
@@ -27,7 +27,7 @@ services:
       - vapati-network
 
   app:
-    container_name: apivapati_java_app
+    container_name: app_vapati_prod
     image: ${IMAGE_NAME:-app_vapati_prod}:${IMAGE_TAG:-latest}
     ports:
       - "${APP_PORT:-8080}:${SERVER_PORT:-8080}"

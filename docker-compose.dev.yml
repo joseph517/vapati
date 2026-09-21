@@ -3,7 +3,7 @@
 
 services:
   sqlserver:
-    container_name: apivapati_java_db_dev
+    container_name: db_vapati_dev
     image: mcr.microsoft.com/mssql/server:2022-latest
     ports:
       - "${DB_PORT:-1433}:1433"
