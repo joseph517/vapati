@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
 import com.vaPaTi.vaPaTi.dtos.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
@@ -65,6 +66,11 @@ public class DonationService {
 
         // Update goal amount raised
         goal.setAmountRaised(goal.getAmountRaised() + dto.getAmount());
+
+        // Auto-complete: mark goal as COMPLETED once the amount raised reaches the target
+        if (goal.getStatus() == CampaignStatus.ACTIVE && goal.getAmountRaised() >= goal.getAmountGoal()) {
+            goal.setStatus(CampaignStatus.COMPLETED);
+        }
 
         // Save donation (goal will be updated via cascade)
         Donation savedDonation = donationRepository.save(donation);
