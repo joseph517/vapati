@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
@@ -154,11 +155,11 @@ public class CampaignService {
             throw new MessageException("Campaign does not have a goal");
         }
 
-        if (Boolean.FALSE.equals(goal.getActive())) {
+        if (goal.getStatus() == CampaignStatus.CLOSED) {
             throw new MessageException("Campaign goal is already closed");
         }
 
-        goal.setActive(false);
+        goal.setStatus(CampaignStatus.CLOSED);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
         return toResponseDTOWithCategories(updatedCampaign);
