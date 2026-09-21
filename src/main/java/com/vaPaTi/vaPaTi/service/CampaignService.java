@@ -66,6 +66,16 @@ public class CampaignService {
         return CampaignMapper.toResponseDTO(campaign, campaignCategories);
     }
 
+    public List<CampaignResponseDTO> getCampaignsByStatus(String status) {
+        CampaignStatus campaignStatus = campaignServiceValidation.parseStatus(status);
+
+        List<Campaign> campaigns = campaignRepository.findByGoal_Status(campaignStatus);
+
+        return campaigns.stream()
+                .map(this::toResponseDTOWithCategories)
+                .toList();
+    }
+
     public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
         List<Long> campaignIds = campaignCategoryRepository.findByCategoryId(categoryId).stream()
                 .map(campaignCategory -> campaignCategory.getCampaign().getId())
