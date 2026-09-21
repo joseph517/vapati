@@ -41,7 +41,11 @@ public class CampaignController {
 
     @GetMapping("/list")
     @Operation(summary = "Get all campaigns")
-    public List<CampaignResponseDTO> getAllCampaigns(@RequestParam(required = false) Long categoryId) {
+    public List<CampaignResponseDTO> getAllCampaigns(@RequestParam(required = false) Long categoryId,
+                                                       @RequestParam(required = false) String status) {
+        if (status != null) {
+            return campaignService.getCampaignsByStatus(status);
+        }
         if (categoryId != null) {
             return campaignService.getCampaignsByCategoryId(categoryId);
         }
