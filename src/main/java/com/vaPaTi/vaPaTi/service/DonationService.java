@@ -29,6 +29,7 @@ public class DonationService {
     private final DonationValidationService donationValidationService;
     private final AuthenticatedUserService authenticatedUserService;
     private final DonationMapper donationMapper;
+    private final CampaignStatusHistoryService campaignStatusHistoryService;
 
     @Transactional
     public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
@@ -70,6 +71,7 @@ public class DonationService {
         // Auto-complete: mark goal as COMPLETED once the amount raised reaches the target
         if (goal.getStatus() == CampaignStatus.ACTIVE && goal.getAmountRaised() >= goal.getAmountGoal()) {
             goal.setStatus(CampaignStatus.COMPLETED);
+            campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
         }
 
         // Save donation (goal will be updated via cascade)

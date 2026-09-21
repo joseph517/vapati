@@ -151,8 +151,10 @@ public class CampaignService {
                 .orElseThrow(() -> new RuntimeException("Campaign not found"));
 
         // When deleting, also deactivate the goal
-        if (campaign.getGoal() != null) {
+        if (campaign.getGoal() != null && campaign.getGoal().getStatus() != CampaignStatus.CLOSED) {
+            CampaignStatus previousStatus = campaign.getGoal().getStatus();
             campaign.getGoal().setStatus(CampaignStatus.CLOSED);
+            campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, userId);
         }
 
         campaignRepository.delete(campaign);
