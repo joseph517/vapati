@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
@@ -34,6 +35,14 @@ public class CampaignServiceValidation {
         if (goal == null) return;
 
         Optional.ofNullable(dto.getAmountGoal()).ifPresent(goal::setAmountGoal);
+    }
+
+    public CampaignStatus parseStatus(String status) {
+        try {
+            return CampaignStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new MessageException("Invalid campaign status: " + status);
+        }
     }
 
     public void validateCategoryIds(List<Long> categoryIds) {
