@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,7 +20,7 @@ public class CampaignStatisticsDTO {
     private Double amountRaised;
     private Double percentageReached;
     private Boolean isGoalReached;
-    private Boolean isActive;
+    private CampaignStatus status;
     private LocalDateTime targetDate;
     private Long daysRemaining;
     private Long totalDonors;

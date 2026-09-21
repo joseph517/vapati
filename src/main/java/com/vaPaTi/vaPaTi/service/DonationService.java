@@ -111,7 +111,7 @@ public class DonationService {
                 .amountRaised(totalRaised)
                 .percentageReached(percentage)
                 .isGoalReached(totalRaised >= goalAmount)
-                .isActive(goal != null && goal.getActive())
+                .status(goal != null ? goal.getStatus() : null)
                 .totalDonors(uniqueDonors)
                 .build();
     }
