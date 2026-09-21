@@ -30,6 +30,12 @@
     <properties>
         <java.version>21</java.version>
         <testcontainers.version>1.21.2</testcontainers.version>
+        <docker.remote.api.version>1.56</docker.remote.api.version>
+		<!-- 
+		 Debe coincidir con el ApiVersion real del daemon usado para correr los
+             tests (docker context default version format '{{.Server.APIVersion}}').
+             Se reconfirma en el paso 1 del plan antes de fijarlo.
+		 -->
 
         <!-- Configuración SonarQube -->
         <sonar.projectKey>vaPaTi</sonar.projectKey>
@@ -202,6 +208,9 @@
 					<reuseForks>true</reuseForks>
 					<!-- Optimizaciones de memoria -->
 					<argLine>@{argLine} -Xmx2048m -XX:MaxMetaspaceSize=512m</argLine>
+					<systemPropertyVariables>
+						<api.version>${docker.remote.api.version}</api.version>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
             <plugin>
