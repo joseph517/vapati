@@ -32,9 +32,10 @@ public class Goal {
     @Column(name = "amount_raised", nullable = false)
     private Double amountRaised;
 
-    @Column(name = "active", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
-    private Boolean active = true;
+    private CampaignStatus status = CampaignStatus.ACTIVE;
 
     @Column(name = "target_date")
     private LocalDateTime targetDate;
@@ -55,8 +56,8 @@ public class Goal {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
-        if (active == null) {
-            active = true;
+        if (status == null) {
+            status = CampaignStatus.ACTIVE;
         }
     }
 
