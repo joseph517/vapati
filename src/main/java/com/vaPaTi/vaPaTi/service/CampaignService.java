@@ -139,7 +139,7 @@ public class CampaignService {
 
         // When deleting, also deactivate the goal
         if (campaign.getGoal() != null) {
-            campaign.getGoal().setActive(false);
+            campaign.getGoal().setStatus(CampaignStatus.CLOSED);
         }
 
         campaignRepository.delete(campaign);
@@ -160,6 +160,26 @@ public class CampaignService {
         }
 
         goal.setStatus(CampaignStatus.CLOSED);
+        Campaign updatedCampaign = campaignRepository.save(campaign);
+
+        return toResponseDTOWithCategories(updatedCampaign);
+    }
+
+    @Transactional
+    public CampaignResponseDTO activateCampaign(Long campaignId) {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+        Campaign campaign = campaignAuthorizationService.getCampaignIfAuthorized(campaignId, userId);
+
+        Goal goal = campaign.getGoal();
+        if (goal == null) {
+            throw new MessageException("Campaign does not have a goal");
+        }
+
+        if (goal.getStatus() != CampaignStatus.CLOSED) {
+            throw new MessageException("Campaign is not closed");
+        }
+
+        goal.setStatus(goal.getAmountRaised() >= goal.getAmountGoal() ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
         return toResponseDTOWithCategories(updatedCampaign);
