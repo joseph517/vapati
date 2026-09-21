@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -45,7 +46,7 @@ public class DonationValidationService {
         if (goal == null) {
             throw new MessageException("Campaign does not have a goal");
         }
-        if (Boolean.FALSE.equals(goal.getActive())) {
+        if (goal.getStatus() == CampaignStatus.CLOSED) {
             throw new MessageException("Campaign goal is not active");
         }
     }
