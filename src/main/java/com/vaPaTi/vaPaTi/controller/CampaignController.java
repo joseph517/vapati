@@ -111,5 +111,21 @@ public class CampaignController {
         }
     }
 
+    @PutMapping("/{campaignId}/activate")
+    @Operation(summary = "Activate a previously closed campaign")
+    public ResponseEntity<Map<String, Object>> activateCampaign(@PathVariable Long campaignId) {
+        try {
+            CampaignResponseDTO responseDTO = campaignService.activateCampaign(campaignId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Campaign activated successfully",
+                    "campaign", responseDTO
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
 }
 
