@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
@@ -31,7 +32,7 @@ public class CampaignAuthorizationService {
         boolean isAdmin = user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName());
 
         if (!isOwner && !isAdmin) {
-            throw new MessageException(UNAUTHORIZED_MESSAGE);
+            throw new ForbiddenActionException(UNAUTHORIZED_MESSAGE);
         }
     }
 

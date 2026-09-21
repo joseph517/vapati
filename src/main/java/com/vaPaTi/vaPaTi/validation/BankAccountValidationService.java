@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
@@ -56,7 +57,7 @@ public class BankAccountValidationService {
         Boolean isVerified = bankAccountRepository.isUserVerified(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
         if (!isVerified) {
-            throw new MessageException(USER_NOT_VERIFIED);
+            throw new ForbiddenActionException(USER_NOT_VERIFIED);
         }
     }
 

@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.service;
 import com.vaPaTi.vaPaTi.dtos.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -92,16 +93,16 @@ public class AuthenticationService {
 
     private void validateUserStatus(User user) {
         if (!user.isActive()) {
-            throw new MessageException("User account is disabled");
+            throw new ForbiddenActionException("User account is disabled");
         }
 
         if (user.getBanned() != null && user.getBanned()) {
-            throw new MessageException("Your account has been banned. Reason: " +
+            throw new ForbiddenActionException("Your account has been banned. Reason: " +
                 (user.getBannedReason() != null ? user.getBannedReason() : DEFAULT_VIOLATION_REASON));
         }
 
         if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
-            throw new MessageException("Your account is suspended until " + user.getSuspendedUntil() +
+            throw new ForbiddenActionException("Your account is suspended until " + user.getSuspendedUntil() +
                 ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : DEFAULT_VIOLATION_REASON));
         }
     }
