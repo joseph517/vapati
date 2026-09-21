@@ -119,11 +119,11 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when request is null")
-    void authenticate_WithNullRequest_ShouldThrowIllegalArgumentException() {
+    @DisplayName("Should throw MessageException when request is null")
+    void authenticate_WithNullRequest_ShouldThrowMessageException() {
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(null))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(MessageException.class)
                 .hasMessage("Authentication request cannot be null");
         // Verify no interactions with dependencies
         verifyNoInteractions(authenticationManager, userRepository, jwtService);

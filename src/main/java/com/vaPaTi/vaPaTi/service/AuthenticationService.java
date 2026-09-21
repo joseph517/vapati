@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
+import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -30,7 +31,7 @@ public class AuthenticationService {
     @Transactional
     public AuthResponse authenticate(AuthRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Authentication request cannot be null");
+            throw new MessageException("Authentication request cannot be null");
         }
         
         try {
@@ -42,7 +43,7 @@ public class AuthenticationService {
                     )
             );
         } catch (BadCredentialsException e) {
-            throw new MessageException("Invalid email or password");
+            throw new InvalidCredentialsException("Invalid email or password");
         }
 
         // If authentication is successful, find the user
@@ -64,7 +65,7 @@ public class AuthenticationService {
             String email = jwtService.extractUsername(refreshToken);
 
             if (!jwtService.isTokenValid(refreshToken, email)) {
-                throw new MessageException(INVALID_REFRESH_TOKEN_MSG);
+                throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
             }
 
             User user = findUserByEmail(email);
@@ -74,13 +75,13 @@ public class AuthenticationService {
         } catch (MessageException e) {
             throw e;
         } catch (RuntimeException e) {
-            throw new MessageException(INVALID_REFRESH_TOKEN_MSG);
+            throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
         }
     }
 
     private void validateRefreshToken(String token) {
         if (token == null || token.trim().isEmpty()) {
-            throw new MessageException(INVALID_REFRESH_TOKEN_MSG);
+            throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
         }
     }
 
