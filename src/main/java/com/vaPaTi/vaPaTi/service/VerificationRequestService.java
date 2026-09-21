@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.ProcessVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.VerificationStatusResponseDTO;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.VerificationRequest;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.VerificationRequestMapper;
@@ -37,7 +38,7 @@ public class VerificationRequestService {
             VerificationRequest request = existingRequest.get();
 
             if (verificationRequestValitation.isPendingRequest(request)) {
-                throw new MessageException("There is already a pending request for this user.");
+                throw new ConflictException("There is already a pending request for this user.");
             }
 
             if (verificationRequestValitation.isRejectedRequest(request)) {

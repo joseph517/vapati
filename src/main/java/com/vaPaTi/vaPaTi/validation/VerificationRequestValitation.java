@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.VerificationRequest;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -34,7 +35,7 @@ public class VerificationRequestValitation {
 
     public void validateUserNotVerified(@NotNull User user) {
         if (user.isVerified()) {
-            throw new MessageException("User is already verified.");
+            throw new ConflictException("User is already verified.");
         }
     }
 

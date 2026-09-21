@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserCategory;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;
@@ -136,7 +137,7 @@ public class UserValidationService {
 
         // check if email already exists (excluding the current user)
         if (userInfoRepository.existsByEmailAndUserIdNot(email, userIdToExclude)) {
-            throw new MessageException("Email already exists");
+            throw new ConflictException("Email already exists");
         }
     }
 
@@ -153,7 +154,7 @@ public class UserValidationService {
 
         // check if username already exists (excluding the current user)
         if (userInfoRepository.existsByUserNameAndUserIdNot(userName, userIdToExclude)) {
-            throw new MessageException("Username already exists");
+            throw new ConflictException("Username already exists");
         }
     }
 

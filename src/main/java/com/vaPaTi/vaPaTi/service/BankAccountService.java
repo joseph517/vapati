@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.BankAccountMapper;
@@ -62,7 +63,7 @@ public class BankAccountService {
                 return bankAccountMapper.toDto(restored);
 
             case ALREADY_EXISTS:
-                throw new MessageException("Account number already exists");
+                throw new ConflictException("Account number already exists");
 
             case OWNED_BY_OTHER_USER:
                 throw new MessageException("Cannot create account with this number");
@@ -94,7 +95,7 @@ public class BankAccountService {
                 .orElseThrow(() -> new ResourceNotFoundException("Bank account not found with id: " + id));
 
         if (bankAccount.getDeletedAt() != null) {
-            throw new MessageException("Bank account is already deleted");
+            throw new ConflictException("Bank account is already deleted");
         }
 
         bankAccount.setDeletedAt(LocalDateTime.now());

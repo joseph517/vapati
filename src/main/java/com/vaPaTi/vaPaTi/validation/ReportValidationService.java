@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
@@ -105,7 +106,7 @@ public class ReportValidationService {
         );
 
         if (exists) {
-            throw new MessageException("You have already reported this " + entityType.name().toLowerCase());
+            throw new ConflictException("You have already reported this " + entityType.name().toLowerCase());
         }
     }
 

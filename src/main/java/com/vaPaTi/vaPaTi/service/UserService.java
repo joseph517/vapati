@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
@@ -121,7 +122,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         if (user.getDeletedAt() != null) {
-            throw new MessageException("User is already deleted");
+            throw new ConflictException("User is already deleted");
         }
 
         user.setDeletedAt(LocalDateTime.now());

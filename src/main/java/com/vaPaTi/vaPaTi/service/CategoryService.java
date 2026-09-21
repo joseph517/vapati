@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.service;
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
@@ -31,7 +32,7 @@ public class CategoryService {
 
     public CategoryDTO createCategory(@NotNull CreateCategoryDTO dto) {
         if (Boolean.TRUE.equals(categoryRepository.existsByName(dto.getName()))) {
-            throw new MessageException("Category with name '" + dto.getName() + "' already exists");
+            throw new ConflictException("Category with name '" + dto.getName() + "' already exists");
         }
 
         Category newCategory = categoryMapper.toEntity(dto);
@@ -47,7 +48,7 @@ public class CategoryService {
                 !existingCategory.getName().equals(dto.getName()) &&
                 Boolean.TRUE.equals(categoryRepository.existsByName(dto.getName()))) {
 
-            throw new MessageException("Another category already has the name: " + dto.getName());
+            throw new ConflictException("Another category already has the name: " + dto.getName());
         }
 
 

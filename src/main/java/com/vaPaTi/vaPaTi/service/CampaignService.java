@@ -10,6 +10,7 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
 import com.vaPaTi.vaPaTi.mapper.CampaignStatusHistoryMapper;
@@ -175,7 +176,7 @@ public class CampaignService {
         }
 
         if (goal.getStatus() == CampaignStatus.CLOSED) {
-            throw new MessageException("Campaign goal is already closed");
+            throw new ConflictException("Campaign goal is already closed");
         }
 
         CampaignStatus previousStatus = goal.getStatus();
