@@ -24,19 +24,13 @@ public class CampaignController {
     @PostMapping("/create")
     @Operation(summary = "Create campaign")
     public ResponseEntity<Map<String, Object>> createCampaign(@Valid @RequestBody CreateCampaignRequestDTO dto) {
-        try {
-            CampaignResponseDTO responseDTO = campaignService.createCampaign(dto);
+        CampaignResponseDTO responseDTO = campaignService.createCampaign(dto);
 
-            return ResponseEntity.ok(Map.of(
-                    "message", "Campaign created successfully",
-                    "campaignId", responseDTO.getId(),
-                    "status", "CREATED"
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(Map.of(
+                "message", "Campaign created successfully",
+                "campaignId", responseDTO.getId(),
+                "status", "CREATED"
+        ));
     }
 
 
@@ -62,19 +56,13 @@ public class CampaignController {
     @GetMapping("/my-campaigns")
     @Operation(summary = "Get all campaigns of authenticated user")
     public ResponseEntity<Map<String, Object>> getMyCampaigns() {
-        try {
-            List<CampaignResponseDTO> campaigns = campaignService.getCampaignsByAuthenticatedUser();
+        List<CampaignResponseDTO> campaigns = campaignService.getCampaignsByAuthenticatedUser();
 
-            return ResponseEntity.ok(Map.of(
-                    "message", "Campaigns retrieved successfully",
-                    "campaigns", campaigns,
-                    "total", campaigns.size()
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(Map.of(
+                "message", "Campaigns retrieved successfully",
+                "campaigns", campaigns,
+                "total", campaigns.size()
+        ));
     }
 
     @PutMapping("/{campaignId}")
@@ -87,49 +75,31 @@ public class CampaignController {
 
     @DeleteMapping("/{campaignId}")
     public ResponseEntity<Map<String, Object>> deleteCampaign(@PathVariable Long campaignId) {
-        try {
-            campaignService.deleteCampaign(campaignId);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Campaign deleted successfully",
-                    "campaignId", campaignId
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage()
-            ));
-        }
+        campaignService.deleteCampaign(campaignId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Campaign deleted successfully",
+                "campaignId", campaignId
+        ));
     }
 
     @PutMapping("/{campaignId}/close")
     @Operation(summary = "Close campaign (deactivate goal)")
     public ResponseEntity<Map<String, Object>> closeCampaign(@PathVariable Long campaignId) {
-        try {
-            CampaignResponseDTO responseDTO = campaignService.closeCampaign(campaignId);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Campaign closed successfully",
-                    "campaign", responseDTO
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage()
-            ));
-        }
+        CampaignResponseDTO responseDTO = campaignService.closeCampaign(campaignId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Campaign closed successfully",
+                "campaign", responseDTO
+        ));
     }
 
     @PutMapping("/{campaignId}/activate")
     @Operation(summary = "Activate a previously closed campaign")
     public ResponseEntity<Map<String, Object>> activateCampaign(@PathVariable Long campaignId) {
-        try {
-            CampaignResponseDTO responseDTO = campaignService.activateCampaign(campaignId);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Campaign activated successfully",
-                    "campaign", responseDTO
-            ));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage()
-            ));
-        }
+        CampaignResponseDTO responseDTO = campaignService.activateCampaign(campaignId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Campaign activated successfully",
+                "campaign", responseDTO
+        ));
     }
 
     @GetMapping("/{campaignId}/status-history")
