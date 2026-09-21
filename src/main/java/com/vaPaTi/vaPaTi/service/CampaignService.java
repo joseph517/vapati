@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.CampaignStatusHistoryResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
@@ -11,8 +12,10 @@ import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
+import com.vaPaTi.vaPaTi.mapper.CampaignStatusHistoryMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -37,6 +40,7 @@ public class CampaignService {
     private final CampaignCategoryRepository campaignCategoryRepository;
     private final CategoryRepository categoryRepository;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
+    private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
 
     public List<CampaignResponseDTO> getAllCampaigns() {
         List<Campaign> campaigns = campaignRepository.findAll();
@@ -204,6 +208,17 @@ public class CampaignService {
         campaignStatusHistoryService.recordTransition(updatedCampaign, CampaignStatus.CLOSED, newStatus, userId);
 
         return toResponseDTOWithCategories(updatedCampaign);
+    }
+
+    public List<CampaignStatusHistoryResponseDTO> getCampaignStatusHistory(Long campaignId) {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+        campaignAuthorizationService.validateOwnershipOrAdmin(campaignId, userId);
+
+        campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+
+        return campaignStatusHistoryRepository.findByCampaignIdOrderByChangedAtAsc(campaignId).stream()
+                .map(CampaignStatusHistoryMapper::toResponseDTO)
+                .toList();
     }
 
 }
