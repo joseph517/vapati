@@ -86,6 +86,10 @@ curl -X POST http://localhost:8080/auth/login -H "Content-Type: application/json
 
 La respuesta debe incluir `"role":"ADMIN"`. El script no valida duplicados: si lo corres dos veces sin cambiar el email/username, falla por clave duplicada.
 
+## Tests
+
+Guía completa (unitarios, integración con Testcontainers/MSSQL, cómo correr una clase o un método específico) en [`TESTING.md`](TESTING.md).
+
 ## 🚀 Ejecución en producción
 
 El flujo de producción es: build de la imagen → publicarla en Docker Hub → desplegarla en un servidor con solo `docker-compose.prod.yml` + `.env` → crear el usuario admin ahí. La guía completa y autocontenida, paso a paso, con troubleshooting está en [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md) — esta sección es solo el resumen y el orden en que se hace.
