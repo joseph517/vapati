@@ -1,6 +1,5 @@
 package com.vaPaTi.vaPaTi;
 
-import org.junit.jupiter.api.Tag;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.MSSQLServerContainer;
