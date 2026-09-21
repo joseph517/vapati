@@ -3,9 +3,7 @@ package com.vaPaTi.vaPaTi.controller;
 import com.vaPaTi.vaPaTi.dtos.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
 import com.vaPaTi.vaPaTi.dtos.RefreshTokenRequest;
-import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.service.AuthenticationService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,11 +28,7 @@ public class AuthController {
 
     @PostMapping("/refresh-token")
     public ResponseEntity<AuthResponse> refreshToken(@RequestBody RefreshTokenRequest request) {
-        try {
-            AuthResponse authResponse = authenticationService.refreshToken(request.getRefreshToken());
-            return ResponseEntity.ok(authResponse);
-        } catch (MessageException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        AuthResponse authResponse = authenticationService.refreshToken(request.getRefreshToken());
+        return ResponseEntity.ok(authResponse);
     }
 }
