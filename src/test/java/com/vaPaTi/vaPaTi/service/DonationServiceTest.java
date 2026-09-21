@@ -41,6 +41,8 @@ class DonationServiceTest {
     private AuthenticatedUserService authenticatedUserService;
     @Mock
     private DonationMapper donationMapper;
+    @Mock
+    private CampaignStatusHistoryService campaignStatusHistoryService;
 
     @InjectMocks
     private DonationService donationService;
@@ -230,6 +232,28 @@ class DonationServiceTest {
         }
 
         @Test
+        @DisplayName("Should record an ACTIVE -> COMPLETED status history entry with no acting user when the goal is auto-completed")
+        void createDonation_WhenDonationReachesGoal_ShouldRecordStatusHistoryEntry() {
+            // Given
+            testGoal.setAmountRaised(GOAL_AMOUNT - TEST_AMOUNT);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
+        }
+
+        @Test
         @DisplayName("Should keep goal ACTIVE when donation does not reach the goal")
         void createDonation_WhenDonationDoesNotReachGoal_ShouldKeepGoalActive() {
             // Given
@@ -247,6 +271,27 @@ class DonationServiceTest {
 
             // Then
             assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("Should not record a status history entry when the goal is not auto-completed")
+        void createDonation_WhenDonationDoesNotReachGoal_ShouldNotRecordStatusHistoryEntry() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            verify(campaignStatusHistoryService, never())
+                    .recordTransition(any(), any(), any(), any());
         }
 
         @Test

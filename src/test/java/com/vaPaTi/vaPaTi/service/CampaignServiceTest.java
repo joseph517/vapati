@@ -10,6 +10,7 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -52,6 +53,10 @@ class CampaignServiceTest {
     private CampaignCategoryRepository campaignCategoryRepository;
     @Mock
     private CategoryRepository categoryRepository;
+    @Mock
+    private CampaignStatusHistoryService campaignStatusHistoryService;
+    @Mock
+    private CampaignStatusHistoryRepository campaignStatusHistoryRepository;
 
     @InjectMocks
     private CampaignService campaignService;
@@ -436,6 +441,29 @@ class CampaignServiceTest {
                 }));
             }
         }
+
+        @Test
+        @DisplayName("Should record a null -> ACTIVE status history entry authored by the owner")
+        void createCampaign_ShouldRecordStatusHistoryEntry() {
+            // Given
+            Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
+            when(campaignRepository.save(any(Campaign.class))).thenReturn(savedCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toEntity(any(), any())).thenReturn(savedCampaign);
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
+
+                // When
+                campaignService.createCampaign(createCampaignDTO);
+
+                // Then
+                verify(campaignStatusHistoryService)
+                        .recordTransition(savedCampaign, null, CampaignStatus.ACTIVE, TEST_USER_ID);
+            }
+        }
     }
 
     @Nested
@@ -758,6 +786,40 @@ class CampaignServiceTest {
             // Then
             verify(campaignRepository).delete(testCampaign);
         }
+
+        @Test
+        @DisplayName("Should record a status history entry when the goal was not already closed")
+        void deleteCampaign_WithGoalNotClosed_ShouldRecordStatusHistoryEntry() {
+            // Given
+            testGoal.setStatus(CampaignStatus.ACTIVE);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
+            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("Should not record a duplicate status history entry when the goal was already closed")
+        void deleteCampaign_WithGoalAlreadyClosed_ShouldNotRecordStatusHistoryEntry() {
+            // Given
+            testGoal.setStatus(CampaignStatus.CLOSED);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
+            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            verify(campaignStatusHistoryService, never())
+                    .recordTransition(any(), any(), any(), any());
+        }
     }
 
     @Nested
@@ -912,6 +974,45 @@ class CampaignServiceTest {
                 verify(campaignRepository).save(testCampaign);
             }
         }
+
+        @Test
+        @DisplayName("Should record an ACTIVE -> CLOSED status history entry authored by the acting user")
+        void closeCampaign_ShouldRecordStatusHistoryEntry() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
+                        .thenReturn(campaignResponseDTO);
+
+                // When
+                campaignService.closeCampaign(TEST_CAMPAIGN_ID);
+
+                // Then
+                verify(campaignStatusHistoryService)
+                        .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, TEST_USER_ID);
+            }
+        }
+
+        @Test
+        @DisplayName("Should not record a status history entry when closing throws")
+        void closeCampaign_WhenThrows_ShouldNotRecordStatusHistoryEntry() {
+            // Given
+            testCampaign.setGoal(null);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+
+            // When & Then
+            assertThatThrownBy(() -> campaignService.closeCampaign(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class);
+
+            verify(campaignStatusHistoryService, never())
+                    .recordTransition(any(), any(), any(), any());
+        }
     }
 
     @Nested
@@ -1037,6 +1138,58 @@ class CampaignServiceTest {
                     .hasMessage("You are not authorized to perform this action");
 
             verify(campaignRepository, never()).save(any(Campaign.class));
+        }
+
+        @Test
+        @DisplayName("Should record a CLOSED -> ACTIVE status history entry authored by the acting user")
+        void activateCampaign_WithGoalBelowTarget_ShouldRecordStatusHistoryEntry() {
+            // Given
+            testGoal.setStatus(CampaignStatus.CLOSED);
+            testGoal.setAmountGoal(1000.0);
+            testGoal.setAmountRaised(500.0);
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
+                        .thenReturn(campaignResponseDTO);
+
+                // When
+                campaignService.activateCampaign(TEST_CAMPAIGN_ID);
+
+                // Then
+                verify(campaignStatusHistoryService)
+                        .recordTransition(testCampaign, CampaignStatus.CLOSED, CampaignStatus.ACTIVE, TEST_USER_ID);
+            }
+        }
+
+        @Test
+        @DisplayName("Should record a CLOSED -> COMPLETED status history entry when target was already reached")
+        void activateCampaign_WithGoalAtTarget_ShouldRecordStatusHistoryEntry() {
+            // Given
+            testGoal.setStatus(CampaignStatus.CLOSED);
+            testGoal.setAmountGoal(1000.0);
+            testGoal.setAmountRaised(1000.0);
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
+                        .thenReturn(campaignResponseDTO);
+
+                // When
+                campaignService.activateCampaign(TEST_CAMPAIGN_ID);
+
+                // Then
+                verify(campaignStatusHistoryService)
+                        .recordTransition(testCampaign, CampaignStatus.CLOSED, CampaignStatus.COMPLETED, TEST_USER_ID);
+            }
         }
     }
 

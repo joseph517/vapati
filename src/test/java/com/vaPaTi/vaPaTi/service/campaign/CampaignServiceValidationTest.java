@@ -103,7 +103,7 @@ class CampaignServiceValidationTest {
         // When & Then
         assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(campaignId))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("Campaign not found");
+                .hasMessage("Campaign not found with id: " + campaignId);
 
         verify(campaignRepository, times(1)).findById(campaignId);
         verifyNoMoreInteractions(campaignRepository);
@@ -118,7 +118,7 @@ class CampaignServiceValidationTest {
         // When & Then
         assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(null))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("Campaign not found");
+                .hasMessage("Campaign not found with id: null");
 
         verify(campaignRepository, times(1)).findById(null);
         verifyNoMoreInteractions(campaignRepository);
