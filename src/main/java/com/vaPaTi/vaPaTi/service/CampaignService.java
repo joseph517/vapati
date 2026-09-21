@@ -172,8 +172,11 @@ public class CampaignService {
             throw new MessageException("Campaign goal is already closed");
         }
 
+        CampaignStatus previousStatus = goal.getStatus();
         goal.setStatus(CampaignStatus.CLOSED);
         Campaign updatedCampaign = campaignRepository.save(campaign);
+
+        campaignStatusHistoryService.recordTransition(updatedCampaign, previousStatus, CampaignStatus.CLOSED, userId);
 
         return toResponseDTOWithCategories(updatedCampaign);
     }
