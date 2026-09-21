@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.repository;
 
+import com.vaPaTi.vaPaTi.AbstractIntegrationTest;
 import com.vaPaTi.vaPaTi.entity.BankAccount;
 import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
@@ -8,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,9 +18,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@ActiveProfiles("docker")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-class BankAccountRepositoryTest {
+class BankAccountRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired
     private BankAccountRepository bankAccountRepository;
