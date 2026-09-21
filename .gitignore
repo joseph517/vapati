@@ -40,6 +40,7 @@ run-sonar-analysis.bat
 
 CLAUDE.md
 /specs
+/.claude
 .env
 .env.*
 !.env.example
