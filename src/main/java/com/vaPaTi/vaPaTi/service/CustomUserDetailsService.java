@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -21,52 +20,24 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
 
+    // Includes deleted accounts but never restores them: restoration happens in AuthenticationService.authenticate,
+    // after the password and the account status are validated
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        // First try to find an active user (with the SQL restriction)
-        Optional<User> activeUser = userRepository.findAllWithDetails().stream()
-                .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
-                .findFirst();
+        User user = userRepository.findByEmailIncludingDeleted(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        if (activeUser.isPresent()) {
-            User user = activeUser.get();
-            if (!user.isActive()) {
-                throw new UsernameNotFoundException("User account is disabled");
-            }
-
-            return org.springframework.security.core.userdetails.User.builder()
-                    .username(user.getUserInfo().getEmail())
-                    .password(user.getUserInfo().getPassword())
-                    .authorities(getAuthorities(user))
-                    .disabled(!user.isActive())
-                    .build();
+        if (!user.isActive()) {
+            throw new UsernameNotFoundException("User account is disabled");
         }
 
-        // If no active user is found, search for a deleted one
-        Optional<User> deletedUser = userRepository.findByEmailIncludingDeleted(email);
-
-        if (deletedUser.isPresent() && deletedUser.get().getDeletedAt() != null) {
-            // User exists but is deleted - restore automatically
-            User userToRestore = deletedUser.get();
-            userToRestore.setDeletedAt(null);
-            userRepository.save(userToRestore);
-
-            // Verify that the restored user is active
-            if (!userToRestore.isActive()) {
-                throw new UsernameNotFoundException("User account is disabled");
-            }
-
-            return org.springframework.security.core.userdetails.User.builder()
-                    .username(userToRestore.getUserInfo().getEmail())
-                    .password(userToRestore.getUserInfo().getPassword())
-                    .authorities(getAuthorities(userToRestore))
-                    .disabled(!userToRestore.isActive())
-                    .build();
-        }
-
-        // User does not exist at all
-        throw new UsernameNotFoundException("User not found with email: " + email);
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(user.getUserInfo().getEmail())
+                .password(user.getUserInfo().getPassword())
+                .authorities(getAuthorities(user))
+                .disabled(!user.isActive())
+                .build();
     }
 
     private Collection<? extends GrantedAuthority> getAuthorities(User user) {

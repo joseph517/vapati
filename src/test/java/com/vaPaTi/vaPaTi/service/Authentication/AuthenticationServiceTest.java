@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.service.AuthenticationService;
 import com.vaPaTi.vaPaTi.service.JwtService;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
 import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
@@ -34,10 +35,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -98,8 +97,8 @@ class AuthenticationServiceTest {
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
         when(jwtService.generateToken(mockUser))
                 .thenReturn(expectedAccessToken);
         when(jwtService.generateRefreshToken(mockUser))
@@ -129,7 +128,7 @@ class AuthenticationServiceTest {
                         auth.getPrincipal().equals("test@example.com") &&
                         auth.getCredentials().equals("password123")
         ));
-        inOrder.verify(userRepository).findAllWithDetails();
+        inOrder.verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         inOrder.verify(jwtService).generateToken(mockUser);
         inOrder.verify(jwtService).generateRefreshToken(mockUser);
     }
@@ -169,8 +168,8 @@ class AuthenticationServiceTest {
         Authentication mockAuth = mock(Authentication.class);
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(Collections.emptyList());
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
@@ -179,7 +178,7 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verifyNoInteractions(jwtService);
     }
 
@@ -188,17 +187,14 @@ class AuthenticationServiceTest {
     void authenticate_WithInactiveUser_ShouldThrowMessageException() {
         // Given
         User mockUser = mock(User.class);
-        UserInfo mockUserInfo = mock(UserInfo.class);
         Authentication mockAuth = mock(Authentication.class);
 
         when(mockUser.isActive()).thenReturn(false);
-        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
-        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
 
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
@@ -207,12 +203,12 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verifyNoInteractions(jwtService);
     }
 
     @Test
-    @DisplayName("Should handle case insensitive email matching")
+    @DisplayName("Should look up the user with the email as received (the DB collation is case insensitive)")
     void authenticate_WithCaseInsensitiveEmail_ShouldAuthenticateSuccessfully() {
         // Given
         AuthRequest upperCaseEmailRequest = new AuthRequest("TEST@EXAMPLE.COM", "password123");
@@ -233,8 +229,8 @@ class AuthenticationServiceTest {
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("TEST@EXAMPLE.COM"))
+                .thenReturn(Optional.of(mockUser));
         when(jwtService.generateToken(mockUser))
                 .thenReturn(expectedAccessToken);
         when(jwtService.generateRefreshToken(mockUser))
@@ -251,57 +247,9 @@ class AuthenticationServiceTest {
         verify(authenticationManager).authenticate(ArgumentMatchers.argThat(auth ->
                 auth.getPrincipal().equals("TEST@EXAMPLE.COM")
         ));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("TEST@EXAMPLE.COM");
         verify(jwtService).generateToken(mockUser);
         verify(jwtService).generateRefreshToken(mockUser);
-    }
-
-    @Test
-    @DisplayName("Should find correct user when multiple users exist")
-    void authenticate_WithMultipleUsers_ShouldFindCorrectUser() {
-        // Given
-        User targetUser = mock(User.class);
-        User otherUser = mock(User.class);
-        UserInfo targetUserInfo = mock(UserInfo.class);
-        UserInfo otherUserInfo = mock(UserInfo.class);
-        Role mockRole = mock(Role.class);
-        Authentication mockAuth = mock(Authentication.class);
-
-        // Configure target user
-        when(targetUser.isActive()).thenReturn(true);
-        when(targetUser.getId()).thenReturn(1L);
-        when(targetUser.getUserInfo()).thenReturn(targetUserInfo);
-        when(targetUser.getRole()).thenReturn(mockRole);
-        when(mockRole.getName()).thenReturn("USER");
-        when(targetUserInfo.getEmail()).thenReturn("test@example.com");
-        when(targetUserInfo.getFirstName()).thenReturn("John");
-        when(targetUserInfo.getLastName()).thenReturn("Doe");
-        when(targetUserInfo.getUserName()).thenReturn("johndoe");
-
-        // Configure other user
-        when(otherUser.getUserInfo()).thenReturn(otherUserInfo);
-        when(otherUserInfo.getEmail()).thenReturn("other@example.com");
-
-        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
-                .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(Arrays.asList(otherUser, targetUser));
-        when(jwtService.generateToken(targetUser))
-                .thenReturn(expectedAccessToken);
-        when(jwtService.generateRefreshToken(targetUser))
-                .thenReturn(expectedRefreshToken);
-
-        // When
-        AuthResponse result = authenticationService.authenticate(validAuthRequest);
-
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.getUserInfo().email).isEqualTo("test@example.com");
-
-        verify(jwtService).generateToken(targetUser);
-        verify(jwtService).generateRefreshToken(targetUser);
-        verify(jwtService, never()).generateToken(otherUser);
-        verify(jwtService, never()).generateRefreshToken(otherUser);
     }
 
     @Test
@@ -309,19 +257,16 @@ class AuthenticationServiceTest {
     void authenticate_WithBannedUserWithReason_ShouldThrowMessageException() {
         // Given
         User mockUser = mock(User.class);
-        UserInfo mockUserInfo = mock(UserInfo.class);
         Authentication mockAuth = mock(Authentication.class);
 
         when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(true);
         when(mockUser.getBannedReason()).thenReturn("Custom ban reason");
-        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
-        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
 
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
@@ -330,7 +275,7 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verifyNoInteractions(jwtService);
     }
 
@@ -339,19 +284,16 @@ class AuthenticationServiceTest {
     void authenticate_WithBannedUserWithoutReason_ShouldThrowMessageException() {
         // Given
         User mockUser = mock(User.class);
-        UserInfo mockUserInfo = mock(UserInfo.class);
         Authentication mockAuth = mock(Authentication.class);
 
         when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(true);
         when(mockUser.getBannedReason()).thenReturn(null);
-        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
-        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
 
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
@@ -360,7 +302,7 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verifyNoInteractions(jwtService);
     }
 
@@ -369,7 +311,6 @@ class AuthenticationServiceTest {
     void authenticate_WithSuspendedUserWithReason_ShouldThrowMessageException() {
         // Given
         User mockUser = mock(User.class);
-        UserInfo mockUserInfo = mock(UserInfo.class);
         Authentication mockAuth = mock(Authentication.class);
         LocalDateTime suspensionEnd = LocalDateTime.now().plusDays(7);
 
@@ -377,13 +318,11 @@ class AuthenticationServiceTest {
         when(mockUser.getBanned()).thenReturn(null);
         when(mockUser.getSuspendedUntil()).thenReturn(suspensionEnd);
         when(mockUser.getBannedReason()).thenReturn("Custom suspension reason");
-        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
-        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
 
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
@@ -393,7 +332,7 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verifyNoInteractions(jwtService);
     }
 
@@ -402,7 +341,6 @@ class AuthenticationServiceTest {
     void authenticate_WithSuspendedUserWithoutReason_ShouldThrowMessageException() {
         // Given
         User mockUser = mock(User.class);
-        UserInfo mockUserInfo = mock(UserInfo.class);
         Authentication mockAuth = mock(Authentication.class);
         LocalDateTime suspensionEnd = LocalDateTime.now().plusDays(7);
 
@@ -410,13 +348,11 @@ class AuthenticationServiceTest {
         when(mockUser.getBanned()).thenReturn(null);
         when(mockUser.getSuspendedUntil()).thenReturn(suspensionEnd);
         when(mockUser.getBannedReason()).thenReturn(null);
-        when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
-        when(mockUserInfo.getEmail()).thenReturn("test@example.com");
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
 
         // When & Then
         assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
@@ -426,7 +362,7 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verifyNoInteractions(jwtService);
     }
 
@@ -454,8 +390,8 @@ class AuthenticationServiceTest {
 
         when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mockAuth);
-        when(userRepository.findAllWithDetails())
-                .thenReturn(List.of(mockUser));
+        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                .thenReturn(Optional.of(mockUser));
         when(jwtService.generateToken(mockUser))
                 .thenReturn(expectedAccessToken);
         when(jwtService.generateRefreshToken(mockUser))
@@ -471,9 +407,114 @@ class AuthenticationServiceTest {
 
         // Verify interactions
         verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findAllWithDetails();
+        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
         verify(jwtService).generateToken(mockUser);
         verify(jwtService).generateRefreshToken(mockUser);
+    }
+
+    @Nested
+    @DisplayName("authenticate() - deleted account restoration")
+    class RestoreDeletedAccountTests {
+
+        private User deletedUser;
+        private LocalDateTime deletedAt;
+
+        @BeforeEach
+        void setUpDeletedUser() {
+            deletedAt = LocalDateTime.now().minusDays(2);
+            UserInfo info = UserInfo.builder()
+                    .email("test@example.com")
+                    .firstName("John")
+                    .lastName("Doe")
+                    .userName("johndoe")
+                    .build();
+            deletedUser = User.builder()
+                    .id(1L)
+                    .userInfo(info)
+                    .role(Role.builder().id(1L).name("USER").build())
+                    .active(true)
+                    .build();
+            deletedUser.setDeletedAt(deletedAt);
+            info.setUser(deletedUser);
+
+            when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
+                    .thenReturn(authentication);
+            when(userRepository.findByEmailIncludingDeleted("test@example.com"))
+                    .thenReturn(Optional.of(deletedUser));
+        }
+
+        @Test
+        @DisplayName("Deleted account with correct password: restored and tokens issued")
+        void shouldRestoreDeletedAccount() {
+            when(jwtService.generateToken(deletedUser)).thenReturn(expectedAccessToken);
+            when(jwtService.generateRefreshToken(deletedUser)).thenReturn(expectedRefreshToken);
+
+            AuthResponse result = authenticationService.authenticate(validAuthRequest);
+
+            assertThat(result.getAccessToken()).isEqualTo(expectedAccessToken);
+            assertThat(deletedUser.getDeletedAt()).isNull();
+
+            // Restores only after validating the password and the account status
+            InOrder inOrder = inOrder(authenticationManager, accountStatusValidationService, userRepository, jwtService);
+            inOrder.verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
+            inOrder.verify(accountStatusValidationService).validateNotBlocked(deletedUser);
+            inOrder.verify(userRepository).save(deletedUser);
+            inOrder.verify(jwtService).generateToken(deletedUser);
+        }
+
+        @Test
+        @DisplayName("Deleted and banned account: 403 with the reason, not restored")
+        void shouldNotRestoreDeletedAndBannedAccount() {
+            deletedUser.setBanned(true);
+            deletedUser.setBannedReason("Spam");
+
+            assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Your account has been banned. Reason: Spam");
+
+            assertThat(deletedUser.getDeletedAt()).isEqualTo(deletedAt);
+            verify(userRepository, never()).save(ArgumentMatchers.any());
+            verifyNoInteractions(jwtService);
+        }
+
+        @Test
+        @DisplayName("Deleted and suspended account: 403 with the reason, not restored")
+        void shouldNotRestoreDeletedAndSuspendedAccount() {
+            deletedUser.setSuspendedUntil(LocalDateTime.now().plusDays(5));
+
+            assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessageStartingWith("Your account is suspended until");
+
+            assertThat(deletedUser.getDeletedAt()).isEqualTo(deletedAt);
+            verify(userRepository, never()).save(ArgumentMatchers.any());
+            verifyNoInteractions(jwtService);
+        }
+
+        @Test
+        @DisplayName("Deleted and disabled account: 403, not restored")
+        void shouldNotRestoreDeletedAndDisabledAccount() {
+            deletedUser.setActive(false);
+
+            assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("User account is disabled");
+
+            assertThat(deletedUser.getDeletedAt()).isEqualTo(deletedAt);
+            verify(userRepository, never()).save(ArgumentMatchers.any());
+        }
+
+        @Test
+        @DisplayName("Account that is not deleted: nothing is saved")
+        void shouldNotSaveWhenAccountIsNotDeleted() {
+            deletedUser.setDeletedAt(null);
+            when(jwtService.generateToken(deletedUser)).thenReturn(expectedAccessToken);
+            when(jwtService.generateRefreshToken(deletedUser)).thenReturn(expectedRefreshToken);
+
+            authenticationService.authenticate(validAuthRequest);
+
+            verify(userRepository, never()).save(ArgumentMatchers.any());
+        }
     }
 
     @Nested

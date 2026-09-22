@@ -50,13 +50,18 @@ public class AuthenticationService {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        // If authentication is successful, find the user
-        User user = userRepository.findAllWithDetails().stream()
-                .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(request.getEmail()))
-                .findFirst()
+        // If authentication is successful, find the user (findAllWithDetails doesn't see deleted accounts)
+        User user = userRepository.findByEmailIncludingDeleted(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        // A banned or suspended account gets 403 and is left as it was, even if it's deleted
         validateUserStatus(user);
+
+        // Only restores an account the user deleted themselves
+        if (user.getDeletedAt() != null) {
+            user.setDeletedAt(null);
+            userRepository.save(user);
+        }
 
         return generateAuthResponse(user);
     }
