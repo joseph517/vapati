@@ -24,15 +24,15 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
 
     List<Donation> findByStatus(DonationStatus status);
 
-    @Query("SELECT d FROM Donation d WHERE d.campaign.id = :campaignId ORDER BY d.createdAt DESC")
+    @Query("SELECT d FROM Donation d WHERE d.campaignId = :campaignId ORDER BY d.createdAt DESC")
     List<Donation> findByCampaignIdOrderByCreatedAtDesc(@Param("campaignId") Long campaignId);
 
-    @Query("SELECT d FROM Donation d WHERE d.donor.id = :donorId ORDER BY d.createdAt DESC")
+    @Query("SELECT d FROM Donation d WHERE d.donorUserId = :donorId ORDER BY d.createdAt DESC")
     List<Donation> findByDonorIdOrderByCreatedAtDesc(@Param("donorId") Long donorId);
 
-    @Query("SELECT SUM(d.amount) FROM Donation d WHERE d.campaign.id = :campaignId AND d.status = 'COMPLETED'")
+    @Query("SELECT SUM(d.amount) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Double sumCompletedDonationsByCampaignId(@Param("campaignId") Long campaignId);
 
-    @Query("SELECT COUNT(DISTINCT d.donor.id) FROM Donation d WHERE d.campaign.id = :campaignId AND d.status = 'COMPLETED'")
+    @Query("SELECT COUNT(DISTINCT d.donorUserId) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countUniqueDonorsByCampaignId(@Param("campaignId") Long campaignId);
 }

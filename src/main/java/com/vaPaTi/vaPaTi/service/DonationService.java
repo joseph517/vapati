@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.DonationMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
@@ -19,7 +20,9 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +33,7 @@ public class DonationService {
     private final AuthenticatedUserService authenticatedUserService;
     private final DonationMapper donationMapper;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
+    private final CampaignRepository campaignRepository;
 
     @Transactional
     public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
@@ -83,7 +87,28 @@ public class DonationService {
     public List<DonationResponseDTO> getDonationsByAuthenticatedUser() {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         List<Donation> donations = donationRepository.findByDonorIdOrderByCreatedAtDesc(userId);
-        return donationMapper.toDTOList(donations);
+        return donationMapper.toDTOList(donations, findDeletedCampaignNames(donations));
+    }
+
+    /**
+     * Donations to a soft-deleted campaign have a null campaign relation. Their names are
+     * fetched in a single native query that bypasses the soft-delete restriction.
+     */
+    private Map<Long, String> findDeletedCampaignNames(List<Donation> donations) {
+        List<Long> deletedCampaignIds = donations.stream()
+                .filter(donation -> donation.getCampaign() == null)
+                .map(Donation::getCampaignId)
+                .distinct()
+                .toList();
+
+        if (deletedCampaignIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return campaignRepository.findNamesByIdsIncludingDeleted(deletedCampaignIds).stream()
+                .collect(Collectors.toMap(
+                        CampaignRepository.CampaignNameProjection::getId,
+                        CampaignRepository.CampaignNameProjection::getName));
     }
 
     public List<DonationResponseDTO> getDonationsByCampaign(Long campaignId) {

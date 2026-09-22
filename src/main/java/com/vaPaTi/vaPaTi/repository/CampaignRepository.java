@@ -26,5 +26,14 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long> {
 
     @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.id = :id")
     Optional<Campaign> findByIdWithActiveOwner(@Param("id") Long id);
+
+    @Query(value = "SELECT id, name FROM campaign WHERE id IN (:ids)", nativeQuery = true)
+    List<CampaignNameProjection> findNamesByIdsIncludingDeleted(@Param("ids") List<Long> ids);
+
+    interface CampaignNameProjection {
+        Long getId();
+
+        String getName();
+    }
 }
 

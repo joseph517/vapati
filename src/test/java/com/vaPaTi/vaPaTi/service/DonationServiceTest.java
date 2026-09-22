@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.DonationMapper;
+import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
@@ -24,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +45,8 @@ class DonationServiceTest {
     private DonationMapper donationMapper;
     @Mock
     private CampaignStatusHistoryService campaignStatusHistoryService;
+    @Mock
+    private CampaignRepository campaignRepository;
 
     @InjectMocks
     private DonationService donationService;
@@ -352,7 +356,7 @@ class DonationServiceTest {
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(donations);
-            when(donationMapper.toDTOList(donations)).thenReturn(expectedDTOs);
+            when(donationMapper.toDTOList(donations, Map.of())).thenReturn(expectedDTOs);
 
             // When
             List<DonationResponseDTO> result = donationService.getDonationsByAuthenticatedUser();
@@ -361,7 +365,7 @@ class DonationServiceTest {
             assertThat(result).isNotNull().hasSize(1).isEqualTo(expectedDTOs);
             verify(authenticatedUserService).getAuthenticatedUserId();
             verify(donationRepository).findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID);
-            verify(donationMapper).toDTOList(donations);
+            verify(donationMapper).toDTOList(donations, Map.of());
         }
 
         @Test
@@ -370,7 +374,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(List.of());
-            when(donationMapper.toDTOList(List.of())).thenReturn(List.of());
+            when(donationMapper.toDTOList(List.of(), Map.of())).thenReturn(List.of());
 
             // When
             List<DonationResponseDTO> result = donationService.getDonationsByAuthenticatedUser();
@@ -386,13 +390,54 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(List.of());
-            when(donationMapper.toDTOList(any())).thenReturn(List.of());
+            when(donationMapper.toDTOList(any(), any())).thenReturn(List.of());
 
             // When
             donationService.getDonationsByAuthenticatedUser();
 
             // Then
             verify(authenticatedUserService).getAuthenticatedUserId();
+        }
+
+        @Test
+        @DisplayName("Should not query deleted campaign names when every campaign is alive")
+        void getDonationsByAuthenticatedUser_WithAliveCampaigns_ShouldNotQueryDeletedNames() {
+            // Given
+            List<Donation> donations = List.of(testDonation);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations, Map.of())).thenReturn(List.of(donationResponseDTO));
+
+            // When
+            donationService.getDonationsByAuthenticatedUser();
+
+            // Then
+            verifyNoInteractions(campaignRepository);
+        }
+
+        @Test
+        @DisplayName("Should fetch the names of deleted campaigns in a single query and pass them to the mapper")
+        void getDonationsByAuthenticatedUser_WithDeletedCampaigns_ShouldFetchNamesInSingleQuery() {
+            // Given: two donations to deleted campaign 20 (relation null) and one to the alive campaign
+            Donation toDeleted1 = Donation.builder().id(10L).donor(testDonor).campaign(null).campaignId(20L).build();
+            Donation toDeleted2 = Donation.builder().id(11L).donor(testDonor).campaign(null).campaignId(20L).build();
+            List<Donation> donations = List.of(testDonation, toDeleted1, toDeleted2);
+
+            CampaignRepository.CampaignNameProjection projection = mock(CampaignRepository.CampaignNameProjection.class);
+            when(projection.getId()).thenReturn(20L);
+            when(projection.getName()).thenReturn("Deleted campaign");
+
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(donations);
+            when(campaignRepository.findNamesByIdsIncludingDeleted(List.of(20L))).thenReturn(List.of(projection));
+            when(donationMapper.toDTOList(donations, Map.of(20L, "Deleted campaign"))).thenReturn(List.of());
+
+            // When
+            donationService.getDonationsByAuthenticatedUser();
+
+            // Then
+            verify(campaignRepository, times(1)).findNamesByIdsIncludingDeleted(List.of(20L));
+            verify(donationMapper).toDTOList(donations, Map.of(20L, "Deleted campaign"));
         }
     }
 

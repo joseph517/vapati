@@ -19,6 +19,7 @@ public class DonationResponseDTO {
     private String donorUserName;
     private Long campaignId;
     private String campaignName;
+    private Boolean campaignDeleted;
     private Double amount;
     private DonationStatus status;
     private String transactionId;

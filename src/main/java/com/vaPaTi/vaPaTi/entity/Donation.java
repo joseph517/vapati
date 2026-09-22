@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
@@ -24,12 +26,22 @@ public class Donation {
     private Long id;
 
     @ManyToOne(optional = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "donor_user_id", nullable = false)
     private User donor;
 
     @ManyToOne(optional = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "campaign_id", nullable = false)
     private Campaign campaign;
+
+    // Read-only copies of the FKs: they keep their value when donor or campaign is soft deleted
+    // (the relation is then null) and let queries filter by FK without joining the soft-deleted table.
+    @Column(name = "campaign_id", insertable = false, updatable = false)
+    private Long campaignId;
+
+    @Column(name = "donor_user_id", insertable = false, updatable = false)
+    private Long donorUserId;
 
     @Column(name = "amount", nullable = false)
     private Double amount;
