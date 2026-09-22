@@ -30,13 +30,13 @@ class TokenBlackListServiceTest {
     @InjectMocks
     private TokenBlackListService tokenBlackListService;
 
-    private String validToken;
+    private String validJti;
     private LocalDateTime futureExpirationDate;
     private LocalDateTime currentDateTime;
 
     @BeforeEach
     void setUp() {
-        validToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
+        validJti = "3f1c9a7e-2b4d-4c8e-9f61-0a5b7d2e8c14";
         futureExpirationDate = LocalDateTime.of(2024, 12, 31, 23, 59, 59);
         currentDateTime = LocalDateTime.of(2024, 6, 15, 10, 30, 0);
     }
@@ -49,58 +49,58 @@ class TokenBlackListServiceTest {
         @DisplayName("Debe retornar true cuando el token está revocado")
         void shouldReturnTrueWhenTokenIsRevoked() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(true);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(true);
 
             // When
-            boolean result = tokenBlackListService.isTokenRevoked(validToken);
+            boolean result = tokenBlackListService.isTokenRevoked(validJti);
 
             // Then
             assertThat(result).isTrue();
-            verify(revokedTokenRepository).existsByToken(validToken);
+            verify(revokedTokenRepository).existsByJti(validJti);
         }
 
         @Test
         @DisplayName("Debe retornar false cuando el token no está revocado")
         void shouldReturnFalseWhenTokenIsNotRevoked() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(false);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(false);
 
             // When
-            boolean result = tokenBlackListService.isTokenRevoked(validToken);
+            boolean result = tokenBlackListService.isTokenRevoked(validJti);
 
             // Then
             assertThat(result).isFalse();
-            verify(revokedTokenRepository).existsByToken(validToken);
+            verify(revokedTokenRepository).existsByJti(validJti);
         }
 
         @Test
         @DisplayName("Debe manejar token nulo correctamente")
         void shouldHandleNullTokenCorrectly() {
             // Given
-            String nullToken = null;
-            when(revokedTokenRepository.existsByToken(nullToken)).thenReturn(false);
+            String nullJti = null;
+            when(revokedTokenRepository.existsByJti(nullJti)).thenReturn(false);
 
             // When
-            boolean result = tokenBlackListService.isTokenRevoked(nullToken);
+            boolean result = tokenBlackListService.isTokenRevoked(nullJti);
 
             // Then
             assertThat(result).isFalse();
-            verify(revokedTokenRepository).existsByToken(nullToken);
+            verify(revokedTokenRepository).existsByJti(nullJti);
         }
 
         @Test
         @DisplayName("Debe manejar token vacío correctamente")
         void shouldHandleEmptyTokenCorrectly() {
             // Given
-            String emptyToken = "";
-            when(revokedTokenRepository.existsByToken(emptyToken)).thenReturn(false);
+            String emptyJti = "";
+            when(revokedTokenRepository.existsByJti(emptyJti)).thenReturn(false);
 
             // When
-            boolean result = tokenBlackListService.isTokenRevoked(emptyToken);
+            boolean result = tokenBlackListService.isTokenRevoked(emptyJti);
 
             // Then
             assertThat(result).isFalse();
-            verify(revokedTokenRepository).existsByToken(emptyToken);
+            verify(revokedTokenRepository).existsByJti(emptyJti);
         }
     }
 
@@ -112,16 +112,16 @@ class TokenBlackListServiceTest {
         @DisplayName("Debe revocar token cuando no está previamente revocado")
         void shouldRevokeTokenWhenNotPreviouslyRevoked() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(false);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(false);
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
 
             // When
-            tokenBlackListService.revokeToken(validToken, futureExpirationDate);
+            tokenBlackListService.revokeToken(validJti, futureExpirationDate);
 
             // Then
-            verify(revokedTokenRepository).existsByToken(validToken);
+            verify(revokedTokenRepository).existsByJti(validJti);
             verify(revokedTokenRepository).save(argThat(revokedToken ->
-                    revokedToken.getToken().equals(validToken) &&
+                    revokedToken.getJti().equals(validJti) &&
                             revokedToken.getExpirationDate().equals(futureExpirationDate)
             ));
         }
@@ -130,13 +130,13 @@ class TokenBlackListServiceTest {
         @DisplayName("No debe revocar token cuando ya está revocado")
         void shouldNotRevokeTokenWhenAlreadyRevoked() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(true);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(true);
 
             // When
-            tokenBlackListService.revokeToken(validToken, futureExpirationDate);
+            tokenBlackListService.revokeToken(validJti, futureExpirationDate);
 
             // Then
-            verify(revokedTokenRepository).existsByToken(validToken);
+            verify(revokedTokenRepository).existsByJti(validJti);
             verify(revokedTokenRepository, never()).save(any(RevokedToken.class));
         }
 
@@ -144,15 +144,15 @@ class TokenBlackListServiceTest {
         @DisplayName("Debe verificar el orden de ejecución: primero verificar existencia, luego guardar")
         void shouldVerifyExecutionOrder() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(false);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(false);
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
             var inOrder = inOrder(revokedTokenRepository);
 
             // When
-            tokenBlackListService.revokeToken(validToken, futureExpirationDate);
+            tokenBlackListService.revokeToken(validJti, futureExpirationDate);
 
             // Then
-            inOrder.verify(revokedTokenRepository).existsByToken(validToken);
+            inOrder.verify(revokedTokenRepository).existsByJti(validJti);
             inOrder.verify(revokedTokenRepository).save(any(RevokedToken.class));
         }
 
@@ -160,17 +160,17 @@ class TokenBlackListServiceTest {
         @DisplayName("Debe manejar token nulo al intentar revocar")
         void shouldHandleNullTokenWhenRevoking() {
             // Given
-            String nullToken = null;
-            when(revokedTokenRepository.existsByToken(nullToken)).thenReturn(false);
+            String nullJti = null;
+            when(revokedTokenRepository.existsByJti(nullJti)).thenReturn(false);
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
 
             // When
-            tokenBlackListService.revokeToken(nullToken, futureExpirationDate);
+            tokenBlackListService.revokeToken(nullJti, futureExpirationDate);
 
             // Then
-            verify(revokedTokenRepository).existsByToken(nullToken);
+            verify(revokedTokenRepository).existsByJti(nullJti);
             verify(revokedTokenRepository).save(argThat(revokedToken ->
-                    revokedToken.getToken() == null &&
+                    revokedToken.getJti() == null &&
                             revokedToken.getExpirationDate().equals(futureExpirationDate)
             ));
         }
@@ -180,16 +180,16 @@ class TokenBlackListServiceTest {
         void shouldHandleNullExpirationDateWhenRevoking() {
             // Given
             LocalDateTime nullExpirationDate = null;
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(false);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(false);
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
 
             // When
-            tokenBlackListService.revokeToken(validToken, nullExpirationDate);
+            tokenBlackListService.revokeToken(validJti, nullExpirationDate);
 
             // Then
-            verify(revokedTokenRepository).existsByToken(validToken);
+            verify(revokedTokenRepository).existsByJti(validJti);
             verify(revokedTokenRepository).save(argThat(revokedToken ->
-                    revokedToken.getToken().equals(validToken) &&
+                    revokedToken.getJti().equals(validJti) &&
                             revokedToken.getExpirationDate() == null
             ));
         }
@@ -199,16 +199,16 @@ class TokenBlackListServiceTest {
         void shouldHandlePastExpirationDate() {
             // Given
             LocalDateTime pastExpirationDate = LocalDateTime.of(2023, 1, 1, 0, 0, 0);
-            when(revokedTokenRepository.existsByToken(validToken)).thenReturn(false);
+            when(revokedTokenRepository.existsByJti(validJti)).thenReturn(false);
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
 
             // When
-            tokenBlackListService.revokeToken(validToken, pastExpirationDate);
+            tokenBlackListService.revokeToken(validJti, pastExpirationDate);
 
             // Then
-            verify(revokedTokenRepository).existsByToken(validToken);
+            verify(revokedTokenRepository).existsByJti(validJti);
             verify(revokedTokenRepository).save(argThat(revokedToken ->
-                    revokedToken.getToken().equals(validToken) &&
+                    revokedToken.getJti().equals(validJti) &&
                             revokedToken.getExpirationDate().equals(pastExpirationDate)
             ));
         }
@@ -294,21 +294,21 @@ class TokenBlackListServiceTest {
         @DisplayName("Escenario completo: verificar -> revocar -> verificar nuevamente")
         void shouldHandleCompleteScenarioCheckRevokeCheckAgain() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken))
+            when(revokedTokenRepository.existsByJti(validJti))
                     .thenReturn(false)
                     .thenReturn(false)
                     .thenReturn(true);
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
 
             // When
-            boolean initialCheck = tokenBlackListService.isTokenRevoked(validToken);
-            tokenBlackListService.revokeToken(validToken, futureExpirationDate);
-            boolean finalCheck = tokenBlackListService.isTokenRevoked(validToken);
+            boolean initialCheck = tokenBlackListService.isTokenRevoked(validJti);
+            tokenBlackListService.revokeToken(validJti, futureExpirationDate);
+            boolean finalCheck = tokenBlackListService.isTokenRevoked(validJti);
 
             // Then
             assertThat(initialCheck).isFalse();
             assertThat(finalCheck).isTrue();
-            verify(revokedTokenRepository, times(3)).existsByToken(validToken); // corregido
+            verify(revokedTokenRepository, times(3)).existsByJti(validJti); // corregido
             verify(revokedTokenRepository).save(any(RevokedToken.class));
         }
 
@@ -317,17 +317,17 @@ class TokenBlackListServiceTest {
         @DisplayName("Debe evitar doble revocación del mismo token")
         void shouldAvoidDoubleRevocationOfSameToken() {
             // Given
-            when(revokedTokenRepository.existsByToken(validToken))
+            when(revokedTokenRepository.existsByJti(validJti))
                     .thenReturn(false)  // Primera llamada: no existe
                     .thenReturn(true);  // Segunda llamada: ya existe
             when(revokedTokenRepository.save(any(RevokedToken.class))).thenReturn(mock(RevokedToken.class));
 
             // When
-            tokenBlackListService.revokeToken(validToken, futureExpirationDate);
-            tokenBlackListService.revokeToken(validToken, futureExpirationDate);
+            tokenBlackListService.revokeToken(validJti, futureExpirationDate);
+            tokenBlackListService.revokeToken(validJti, futureExpirationDate);
 
             // Then
-            verify(revokedTokenRepository, times(2)).existsByToken(validToken);
+            verify(revokedTokenRepository, times(2)).existsByJti(validJti);
             verify(revokedTokenRepository, times(1)).save(any(RevokedToken.class));
         }
     }

@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.security;
 import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,8 +45,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             final String jwt = authHeader.substring(7);
 
-            // Check if the token is in the blacklist
-            if (tokenBlackListService.isTokenRevoked(jwt)) {
+            // Check if the token is in the blacklist (by its jti)
+            final String jti = jwtService.extractClaim(jwt, Claims::getId);
+            if (tokenBlackListService.isTokenRevoked(jti)) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token is revoked");
                 return;
             }

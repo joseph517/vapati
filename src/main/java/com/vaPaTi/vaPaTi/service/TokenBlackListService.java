@@ -15,14 +15,14 @@ public class TokenBlackListService {
 
     private final RevokedTokenRepository revokedTokenRepository;
 
-    public boolean isTokenRevoked(String token) {
-        return revokedTokenRepository.existsByToken(token);
+    public boolean isTokenRevoked(String jti) {
+        return revokedTokenRepository.existsByJti(jti);
     }
 
     @Transactional
-    public void revokeToken(String token, LocalDateTime expirationDate) {
-        if (!isTokenRevoked(token)) {
-            revokedTokenRepository.save(new RevokedToken(token, expirationDate));
+    public void revokeToken(String jti, LocalDateTime expirationDate) {
+        if (!isTokenRevoked(jti)) {
+            revokedTokenRepository.save(new RevokedToken(jti, expirationDate));
         }
     }
 

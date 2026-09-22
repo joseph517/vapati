@@ -14,8 +14,8 @@ public class RevokedToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "token", nullable = false, unique = true, length = 512)
-    private String token;
+    @Column(name = "jti", nullable = false, unique = true, length = 36)
+    private String jti;
 
     @Column(name = "expiration_date", nullable = false)
     private LocalDateTime expirationDate;
@@ -25,8 +25,8 @@ public class RevokedToken {
 
     public RevokedToken() {}
 
-    public RevokedToken(String token, LocalDateTime expirationDate) {
-        this.token = token;
+    public RevokedToken(String jti, LocalDateTime expirationDate) {
+        this.jti = jti;
         this.expirationDate = expirationDate;
         this.createdAt = LocalDateTime.now();
     }

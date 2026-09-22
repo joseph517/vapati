@@ -9,17 +9,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Repository
 public interface RevokedTokenRepository extends JpaRepository<RevokedToken, Long> {
 
-    boolean existsByToken(String token);
+    boolean existsByJti(String jti);
 
     @Query("DELETE FROM RevokedToken r WHERE r.expirationDate < :currentDate")
     @Modifying
     @Transactional
     void deleteExpiredTokens(@Param("currentDate") LocalDateTime currentDate);
-
-    Optional<RevokedToken> findByToken(String token);
 }

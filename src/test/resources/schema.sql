@@ -223,7 +223,7 @@ CREATE TABLE report (
 -- Create revoked_tokens table for JWT token blacklist
 CREATE TABLE revoked_tokens (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    token VARCHAR(512) NOT NULL UNIQUE,
+    jti VARCHAR(36) NOT NULL UNIQUE,
     expiration_date DATETIME2 NOT NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE()
 );
@@ -260,7 +260,7 @@ CREATE INDEX idx_publication_user ON publication(user_id);
 CREATE INDEX idx_publication_campaign ON publication(campaign_id);
 CREATE INDEX idx_followers_user ON followers(user_id);
 CREATE INDEX idx_followers_follower ON followers(follower_id);
-CREATE INDEX idx_revoked_tokens_token ON revoked_tokens(token);
+CREATE INDEX idx_revoked_tokens_jti ON revoked_tokens(jti);
 CREATE INDEX idx_revoked_tokens_expiration ON revoked_tokens(expiration_date);
 CREATE INDEX idx_report_reporter ON report(reporter_id);
 CREATE INDEX idx_report_status ON report(status);
