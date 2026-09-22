@@ -172,6 +172,25 @@ public class CampaignService {
         campaignRepository.delete(campaign);
     }
 
+    /**
+     * Closes every campaign of the given owner that is not already closed, recording each transition
+     * with the owner as changedBy. Does not delete them. Used when the owner deletes their account.
+     */
+    @Transactional
+    public void closeAllByOwner(Long userId) {
+        List<Campaign> campaignsToClose = campaignRepository.findByUserId(userId).stream()
+                .filter(campaign -> campaign.getGoal() != null && campaign.getGoal().getStatus() != CampaignStatus.CLOSED)
+                .toList();
+
+        for (Campaign campaign : campaignsToClose) {
+            CampaignStatus previousStatus = campaign.getGoal().getStatus();
+            campaign.getGoal().setStatus(CampaignStatus.CLOSED);
+            campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, userId);
+        }
+
+        campaignRepository.saveAll(campaignsToClose);
+    }
+
     @Transactional
     public CampaignResponseDTO closeCampaign(Long campaignId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();

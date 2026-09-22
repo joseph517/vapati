@@ -36,6 +36,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final RoleRepository roleRepository;
     private final AuthenticatedUserService authenticatedUserService;
+    private final CampaignService campaignService;
 
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
@@ -124,6 +125,8 @@ public class UserService {
         if (user.getDeletedAt() != null) {
             throw new ConflictException("User is already deleted");
         }
+
+        campaignService.closeAllByOwner(userId);
 
         user.setDeletedAt(LocalDateTime.now());
         userRepository.save(user);
