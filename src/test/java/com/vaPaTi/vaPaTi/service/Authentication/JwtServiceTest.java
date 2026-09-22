@@ -10,6 +10,7 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.SecretKey;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -523,6 +525,78 @@ class JwtServiceTest {
         Date expected = jwtService.extractExpiration(token);
 
         assertThat(expiration.atZone(ZoneId.systemDefault()).toInstant()).isEqualTo(expected.toInstant());
+    }
+
+    @Nested
+    @DisplayName("init() secret validation")
+    class SecretValidationTests {
+
+        private JwtService serviceWithSecret(String secret) {
+            JwtService service = new JwtService();
+            ReflectionTestUtils.setField(service, "jwtSecret", secret);
+            ReflectionTestUtils.setField(service, "jwtExpirationMs", TEST_EXPIRATION);
+            ReflectionTestUtils.setField(service, "jwtRefreshExpirationMs", TEST_REFRESH_EXPIRATION);
+            return service;
+        }
+
+        @Test
+        @DisplayName("Empty secret: fails startup")
+        void shouldRejectEmptySecret() {
+            assertThatThrownBy(() -> serviceWithSecret("").init())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("empty");
+            assertThatThrownBy(() -> serviceWithSecret("   ").init())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("empty");
+            assertThatThrownBy(() -> serviceWithSecret(null).init())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("empty");
+        }
+
+        @Test
+        @DisplayName("Public placeholder secret: fails startup and says it's the placeholder")
+        void shouldRejectPlaceholderSecret() {
+            String placeholder = "your-512-bit-secret-key-should-be-long-and-random";
+
+            assertThatThrownBy(() -> serviceWithSecret(placeholder).init())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("placeholder")
+                    .hasMessageNotContaining(placeholder);
+        }
+
+        @Test
+        @DisplayName("Secret of 31 bytes: fails startup without printing the secret")
+        void shouldRejectShortSecret() {
+            String shortSecret = randomSecret(31);
+
+            assertThatThrownBy(() -> serviceWithSecret(shortSecret).init())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("too short")
+                    .hasMessageContaining("32 bytes")
+                    .hasMessageNotContaining(shortSecret);
+        }
+
+        @Test
+        @DisplayName("Random secret of 32 bytes or more: starts")
+        void shouldAcceptRandomSecretOf32BytesOrMore() {
+            JwtService exactly32 = serviceWithSecret(randomSecret(32));
+            JwtService longer = serviceWithSecret(randomSecret(88));
+
+            assertThatCode(exactly32::init).doesNotThrowAnyException();
+            assertThatCode(longer::init).doesNotThrowAnyException();
+            assertThat(ReflectionTestUtils.getField(exactly32, "signingKey")).isNotNull();
+        }
+
+        // ASCII only, so the length in chars equals the length in bytes
+        private String randomSecret(int bytes) {
+            String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            SecureRandom random = new SecureRandom();
+            StringBuilder sb = new StringBuilder(bytes);
+            for (int i = 0; i < bytes; i++) {
+                sb.append(alphabet.charAt(random.nextInt(alphabet.length())));
+            }
+            return sb.toString();
+        }
     }
 
 }

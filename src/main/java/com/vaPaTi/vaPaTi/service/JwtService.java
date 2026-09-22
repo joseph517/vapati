@@ -8,6 +8,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -22,6 +23,8 @@ public class JwtService {
 
     private static final String USER_ID_CLAIM = "userId";
     private static final String TOKEN_TYPE_CLAIM = "type";
+    private static final String PLACEHOLDER_SECRET = "your-512-bit-secret-key-should-be-long-and-random";
+    private static final int MIN_SECRET_BYTES = 32;
 
     public static final String ACCESS_TOKEN_TYPE = "access";
     public static final String REFRESH_TOKEN_TYPE = "refresh";
@@ -39,7 +42,21 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
-        this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        validateSecret(jwtSecret);
+        this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
+
+    // Fails startup in every environment with an insecure secret. Never prints the secret itself.
+    private static void validateSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret is empty. Set JWT_SECRET (at least " + MIN_SECRET_BYTES + " bytes)");
+        }
+        if (PLACEHOLDER_SECRET.equals(secret)) {
+            throw new IllegalStateException("JWT secret is the public placeholder. Set JWT_SECRET to a random value, e.g. openssl rand -base64 64");
+        }
+        if (secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException("JWT secret is too short. JWT_SECRET needs at least " + MIN_SECRET_BYTES + " bytes");
+        }
     }
 
     public String generateToken( User user) {

@@ -46,7 +46,7 @@ services:
       DOCKER_HOST: unix:///var/run/docker.sock
       TESTCONTAINERS_RYUK_DISABLED: "false"
       DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./src:/app/src:rw
