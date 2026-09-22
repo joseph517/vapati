@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CampaignStatusHistoryResponseDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.CampaignStatusHistory;
+import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CampaignStatusHistoryMapper;
@@ -19,8 +20,10 @@ import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -34,7 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("CampaignService.getCampaignStatusHistory() Tests")
+@DisplayName("CampaignService status history Tests")
 class CampaignServiceStatusHistoryTest {
 
     @Mock
@@ -166,5 +169,87 @@ class CampaignServiceStatusHistoryTest {
                 .hasMessage("Campaign not found with id: " + TEST_CAMPAIGN_ID);
 
         verify(campaignStatusHistoryRepository, never()).findByCampaignIdOrderByChangedAtAsc(any());
+    }
+
+    @Nested
+    @DisplayName("closeAndSoftDelete() tests")
+    class CloseAndSoftDeleteTests {
+
+        private static final Long CHANGED_BY_USER_ID = 99L;
+
+        private Goal goalWithStatus(CampaignStatus status) {
+            Goal goal = new Goal();
+            goal.setId(1L);
+            goal.setStatus(status);
+            testCampaign.setGoal(goal);
+            return goal;
+        }
+
+        @Test
+        @DisplayName("Should close an ACTIVE goal, record ACTIVE -> CLOSED with the given user and soft delete")
+        void closeAndSoftDelete_WithActiveGoal_ShouldCloseRecordAndDelete() {
+            // Given
+            Goal goal = goalWithStatus(CampaignStatus.ACTIVE);
+
+            // When
+            campaignService.closeAndSoftDelete(testCampaign, CHANGED_BY_USER_ID);
+
+            // Then
+            assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, CHANGED_BY_USER_ID);
+            InOrder inOrder = inOrder(campaignRepository);
+            inOrder.verify(campaignRepository).saveAndFlush(testCampaign);
+            inOrder.verify(campaignRepository).delete(testCampaign);
+        }
+
+        @Test
+        @DisplayName("Should close a COMPLETED goal, record COMPLETED -> CLOSED and soft delete")
+        void closeAndSoftDelete_WithCompletedGoal_ShouldCloseRecordAndDelete() {
+            // Given
+            Goal goal = goalWithStatus(CampaignStatus.COMPLETED);
+
+            // When
+            campaignService.closeAndSoftDelete(testCampaign, CHANGED_BY_USER_ID);
+
+            // Then
+            assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.COMPLETED, CampaignStatus.CLOSED, CHANGED_BY_USER_ID);
+            InOrder inOrder = inOrder(campaignRepository);
+            inOrder.verify(campaignRepository).saveAndFlush(testCampaign);
+            inOrder.verify(campaignRepository).delete(testCampaign);
+        }
+
+        @Test
+        @DisplayName("Should not record a transition when the goal is already CLOSED, but still soft delete")
+        void closeAndSoftDelete_WithClosedGoal_ShouldOnlyDelete() {
+            // Given
+            Goal goal = goalWithStatus(CampaignStatus.CLOSED);
+
+            // When
+            campaignService.closeAndSoftDelete(testCampaign, CHANGED_BY_USER_ID);
+
+            // Then
+            assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
+            verify(campaignRepository, never()).saveAndFlush(any());
+            verify(campaignRepository).delete(testCampaign);
+        }
+
+        @Test
+        @DisplayName("Should soft delete without recording a transition when the campaign has no goal")
+        void closeAndSoftDelete_WithoutGoal_ShouldOnlyDelete() {
+            // Given
+            testCampaign.setGoal(null);
+
+            // When
+            campaignService.closeAndSoftDelete(testCampaign, CHANGED_BY_USER_ID);
+
+            // Then
+            verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
+            verify(campaignRepository, never()).saveAndFlush(any());
+            verify(campaignRepository).delete(testCampaign);
+        }
     }
 }

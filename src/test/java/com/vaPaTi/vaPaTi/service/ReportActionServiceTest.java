@@ -2,9 +2,15 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.entity.*;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
+import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +39,8 @@ class ReportActionServiceTest {
     private PublicationRepository publicationRepository;
     @Mock
     private CampaignRepository campaignRepository;
+    @Mock
+    private CampaignService campaignService;
 
     @InjectMocks
     private ReportActionService reportActionService;
@@ -41,6 +49,8 @@ class ReportActionServiceTest {
     private User testUser;
     private Publication testPublication;
     private Campaign testCampaign;
+
+    private static final Long ADMIN_ID = 99L;
 
     @BeforeEach
     void setUp() {
@@ -58,6 +68,10 @@ class ReportActionServiceTest {
         testReport.setId(1L);
         testReport.setReportedEntityId(1L);
         testReport.setReportedEntityType(ReportedEntityType.USER);
+
+        User admin = new User();
+        admin.setId(ADMIN_ID);
+        testReport.setReviewedBy(admin);
     }
 
     @Nested
@@ -74,7 +88,7 @@ class ReportActionServiceTest {
             reportActionService.executeAction(testReport);
 
             // Then
-            verifyNoInteractions(userRepository, publicationRepository, campaignRepository);
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
         }
 
         @Test
@@ -135,7 +149,7 @@ class ReportActionServiceTest {
 
             // When & Then
             assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
-            verifyNoInteractions(userRepository, publicationRepository, campaignRepository);
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
         }
 
         @Test
@@ -148,7 +162,7 @@ class ReportActionServiceTest {
             reportActionService.executeAction(testReport);
 
             // Then
-            verifyNoInteractions(userRepository, publicationRepository, campaignRepository);
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
         }
 
         @Test
@@ -161,7 +175,7 @@ class ReportActionServiceTest {
             reportActionService.executeAction(testReport);
 
             // Then
-            verifyNoInteractions(userRepository, publicationRepository, campaignRepository);
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
         }
     }
 
@@ -405,7 +419,7 @@ class ReportActionServiceTest {
 
             // Then
             verify(campaignRepository).findById(1L);
-            verify(campaignRepository).delete(testCampaign);
+            verify(campaignService).closeAndSoftDelete(testCampaign, ADMIN_ID);
         }
 
         @Test
@@ -419,7 +433,7 @@ class ReportActionServiceTest {
             reportActionService.executeAction(testReport);
 
             // Then
-            verifyNoInteractions(userRepository, publicationRepository, campaignRepository);
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
         }
 
         @Test
@@ -531,7 +545,7 @@ class ReportActionServiceTest {
 
             // Then
             verify(campaignRepository).findById(1L);
-            verify(campaignRepository).delete(testCampaign);
+            verify(campaignService).closeAndSoftDelete(testCampaign, ADMIN_ID);
         }
 
         @Test
@@ -548,12 +562,12 @@ class ReportActionServiceTest {
                     .hasMessage("Campaign not found");
 
             verify(campaignRepository).findById(1L);
-            verify(campaignRepository, never()).delete(any());
+            verify(campaignService, never()).closeAndSoftDelete(any(), any());
         }
 
         @Test
-        @DisplayName("Should rely on @SQLDelete annotation for soft delete")
-        void removeCampaign_ShouldUseSoftDelete() {
+        @DisplayName("Should delegate to CampaignService.closeAndSoftDelete with the reviewing admin")
+        void removeCampaign_ShouldDelegateToCloseAndSoftDeleteWithAdmin() {
             // Given
             testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
             testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
@@ -563,6 +577,71 @@ class ReportActionServiceTest {
             reportActionService.executeAction(testReport);
 
             // Then
+            verify(campaignService).closeAndSoftDelete(testCampaign, ADMIN_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("removeCampaign() with a real CampaignService (O11)")
+    class RemoveCampaignWithRealCampaignServiceTests {
+
+        private CampaignStatusHistoryService campaignStatusHistoryService;
+        private ReportActionService service;
+
+        @BeforeEach
+        void setUpRealCampaignService() {
+            campaignStatusHistoryService = mock(CampaignStatusHistoryService.class);
+            CampaignService realCampaignService = new CampaignService(
+                    campaignRepository,
+                    mock(AuthenticatedUserService.class),
+                    userRepository,
+                    mock(CampaignServiceValidation.class),
+                    mock(CampaignAuthorizationService.class),
+                    mock(CampaignCategoryRepository.class),
+                    mock(CategoryRepository.class),
+                    campaignStatusHistoryService,
+                    mock(CampaignStatusHistoryRepository.class)
+            );
+            service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService);
+
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+        }
+
+        @Test
+        @DisplayName("Should close an ACTIVE campaign, record ACTIVE -> CLOSED with the admin and soft delete it")
+        void removeCampaign_WithActiveCampaign_ShouldCloseRecordWithAdminAndDelete() {
+            // Given
+            Goal goal = new Goal();
+            goal.setStatus(CampaignStatus.ACTIVE);
+            testCampaign.setGoal(goal);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            service.executeAction(testReport);
+
+            // Then
+            assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, ADMIN_ID);
+            verify(campaignRepository).saveAndFlush(testCampaign);
+            verify(campaignRepository).delete(testCampaign);
+        }
+
+        @Test
+        @DisplayName("Should not record a transition for an already CLOSED campaign, but still soft delete it")
+        void removeCampaign_WithClosedCampaign_ShouldOnlyDelete() {
+            // Given
+            Goal goal = new Goal();
+            goal.setStatus(CampaignStatus.CLOSED);
+            testCampaign.setGoal(goal);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            service.executeAction(testReport);
+
+            // Then
+            verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
             verify(campaignRepository).delete(testCampaign);
         }
     }

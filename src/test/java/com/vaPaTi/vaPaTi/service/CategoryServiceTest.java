@@ -533,27 +533,40 @@ class CategoryServiceTest {
                     .hasMessage("Cannot delete category because it would leave campaigns without any category");
 
             verify(categoryRepository, never()).deleteById(any());
-            verify(campaignCategoryRepository, never()).deleteAll(any());
+            verify(campaignCategoryRepository, never()).deleteByCategoryId(any());
         }
 
         @Test
         @DisplayName("Should delete category and disassociate campaigns when no campaign would be orphaned")
         void deleteCategory_WhenNoOrphanWouldResult_ShouldDisassociateAndDelete() {
             // Given
-            com.vaPaTi.vaPaTi.entity.CampaignCategory campaignCategory =
-                    com.vaPaTi.vaPaTi.entity.CampaignCategory.builder().build();
-
             when(categoryRepository.existsById(TEST_CATEGORY_ID)).thenReturn(true);
             when(categoryRepository.isCategoryInUse(TEST_CATEGORY_ID)).thenReturn(false);
             when(categoryRepository.findCampaignIdsThatWouldBeOrphaned(TEST_CATEGORY_ID)).thenReturn(List.of());
-            when(campaignCategoryRepository.findByCategoryId(TEST_CATEGORY_ID)).thenReturn(List.of(campaignCategory));
 
             // When
             categoryService.deleteCategory(TEST_CATEGORY_ID);
 
             // Then
-            verify(campaignCategoryRepository).deleteAll(List.of(campaignCategory));
+            verify(campaignCategoryRepository).deleteByCategoryId(TEST_CATEGORY_ID);
             verify(categoryRepository).deleteById(TEST_CATEGORY_ID);
+        }
+
+        @Test
+        @DisplayName("Should disassociate campaigns with a bulk delete, without loading the rows (deleted campaigns included)")
+        void deleteCategory_ShouldUseBulkDeleteWithoutLoadingCampaignCategories() {
+            // Given
+            when(categoryRepository.existsById(TEST_CATEGORY_ID)).thenReturn(true);
+            when(categoryRepository.isCategoryInUse(TEST_CATEGORY_ID)).thenReturn(false);
+            when(categoryRepository.findCampaignIdsThatWouldBeOrphaned(TEST_CATEGORY_ID)).thenReturn(List.of());
+
+            // When
+            categoryService.deleteCategory(TEST_CATEGORY_ID);
+
+            // Then
+            verify(campaignCategoryRepository).deleteByCategoryId(TEST_CATEGORY_ID);
+            verify(campaignCategoryRepository, never()).deleteAll(any());
+            verifyNoMoreInteractions(campaignCategoryRepository);
         }
     }
 

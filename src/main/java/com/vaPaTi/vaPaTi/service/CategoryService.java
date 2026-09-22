@@ -71,7 +71,7 @@ public class CategoryService {
             throw new MessageException("Cannot delete category because it would leave campaigns without any category");
         }
 
-        campaignCategoryRepository.deleteAll(campaignCategoryRepository.findByCategoryId(id));
+        campaignCategoryRepository.deleteByCategoryId(id);
 
         categoryRepository.deleteById(id);
     }

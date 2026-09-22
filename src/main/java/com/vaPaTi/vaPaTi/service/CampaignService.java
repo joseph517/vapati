@@ -83,11 +83,7 @@ public class CampaignService {
     }
 
     public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
-        List<Long> campaignIds = campaignCategoryRepository.findByCategoryId(categoryId).stream()
-                .map(campaignCategory -> campaignCategory.getCampaign().getId())
-                .toList();
-
-        List<Campaign> campaigns = campaignRepository.findAllById(campaignIds);
+        List<Campaign> campaigns = campaignRepository.findByCategoryIdWithActiveOwner(categoryId);
 
         return campaigns.stream()
                 .map(this::toResponseDTOWithCategories)
@@ -148,17 +144,29 @@ public class CampaignService {
         return toResponseDTOWithCategories(updatedCampaign);
     }
 
+    @Transactional
     public void deleteCampaign(Long campaignId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         campaignAuthorizationService.validateOwnershipOrAdmin(campaignId, userId);
 
         Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
-        // When deleting, also deactivate the goal
-        if (campaign.getGoal() != null && campaign.getGoal().getStatus() != CampaignStatus.CLOSED) {
-            CampaignStatus previousStatus = campaign.getGoal().getStatus();
-            campaign.getGoal().setStatus(CampaignStatus.CLOSED);
-            campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, userId);
+        closeAndSoftDelete(campaign, userId);
+    }
+
+    /**
+     * Closes the campaign goal (recording the transition) if it is not already closed, then soft deletes the campaign.
+     * Shared by the owner/admin delete endpoint and the moderation content removal.
+     */
+    public void closeAndSoftDelete(Campaign campaign, Long changedByUserId) {
+        Goal goal = campaign.getGoal();
+        if (goal != null && goal.getStatus() != CampaignStatus.CLOSED) {
+            CampaignStatus previousStatus = goal.getStatus();
+            goal.setStatus(CampaignStatus.CLOSED);
+            campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, changedByUserId);
+            // Flush before deleting: the delete cascades to the goal, and Hibernate skips
+            // the pending status update of an entity scheduled for removal.
+            campaignRepository.saveAndFlush(campaign);
         }
 
         campaignRepository.delete(campaign);

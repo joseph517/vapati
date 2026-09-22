@@ -640,13 +640,8 @@ class CampaignServiceTest {
             // Given
             Long categoryId = 5L;
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
-            com.vaPaTi.vaPaTi.entity.CampaignCategory campaignCategory =
-                    com.vaPaTi.vaPaTi.entity.CampaignCategory.builder()
-                            .campaign(campaign1)
-                            .build();
 
-            when(campaignCategoryRepository.findByCategoryId(categoryId)).thenReturn(List.of(campaignCategory));
-            when(campaignRepository.findAllById(List.of(1L))).thenReturn(List.of(campaign1));
+            when(campaignRepository.findByCategoryIdWithActiveOwner(categoryId)).thenReturn(List.of(campaign1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
@@ -656,8 +651,7 @@ class CampaignServiceTest {
 
                 // Then
                 assertThat(result).hasSize(1);
-                verify(campaignCategoryRepository).findByCategoryId(categoryId);
-                verify(campaignRepository).findAllById(List.of(1L));
+                verify(campaignRepository).findByCategoryIdWithActiveOwner(categoryId);
             }
         }
 
@@ -666,14 +660,28 @@ class CampaignServiceTest {
         void getCampaignsByCategoryId_WithNoMatches_ShouldReturnEmptyList() {
             // Given
             Long categoryId = 5L;
-            when(campaignCategoryRepository.findByCategoryId(categoryId)).thenReturn(List.of());
-            when(campaignRepository.findAllById(List.of())).thenReturn(List.of());
+            when(campaignRepository.findByCategoryIdWithActiveOwner(categoryId)).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(categoryId);
 
             // Then
             assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should use a single campaign query instead of loading the campaign_category rows")
+        void getCampaignsByCategoryId_ShouldUseSingleCampaignQuery() {
+            // Given
+            Long categoryId = 5L;
+            when(campaignRepository.findByCategoryIdWithActiveOwner(categoryId)).thenReturn(List.of());
+
+            // When
+            campaignService.getCampaignsByCategoryId(categoryId);
+
+            // Then
+            verify(campaignRepository, never()).findAllById(any());
+            verifyNoInteractions(campaignCategoryRepository);
         }
     }
 
@@ -833,6 +841,22 @@ class CampaignServiceTest {
             // Then
             verify(campaignStatusHistoryService, never())
                     .recordTransition(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("Should delegate to closeAndSoftDelete with the authenticated user")
+        void deleteCampaign_ShouldDelegateToCloseAndSoftDelete() {
+            // Given
+            CampaignService spyService = spy(campaignService);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+
+            // When
+            spyService.deleteCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            verify(spyService).closeAndSoftDelete(testCampaign, TEST_USER_ID);
         }
     }
 

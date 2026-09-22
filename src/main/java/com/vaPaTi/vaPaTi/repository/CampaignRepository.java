@@ -20,6 +20,10 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long> {
     @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.goal.status = :status")
     List<Campaign> findByGoalStatusWithActiveOwner(@Param("status") CampaignStatus status);
 
+    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND EXISTS (" +
+            "SELECT 1 FROM CampaignCategory cc WHERE cc.campaign.id = c.id AND cc.category.id = :categoryId)")
+    List<Campaign> findByCategoryIdWithActiveOwner(@Param("categoryId") Long categoryId);
+
     @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.id = :id")
     Optional<Campaign> findByIdWithActiveOwner(@Param("id") Long id);
 }

@@ -22,6 +22,7 @@ public class ReportActionService {
     private final UserRepository userRepository;
     private final PublicationRepository publicationRepository;
     private final CampaignRepository campaignRepository;
+    private final CampaignService campaignService;
 
     /**
      * Execute the action specified in the report
@@ -98,7 +99,7 @@ public class ReportActionService {
                 removePublication(report.getReportedEntityId());
                 break;
             case CAMPAIGN:
-                removeCampaign(report.getReportedEntityId());
+                removeCampaign(report.getReportedEntityId(), report.getReviewedBy().getId());
                 break;
             case USER:
                 // Cannot remove a user directly, only ban/suspend
@@ -118,14 +119,15 @@ public class ReportActionService {
     }
 
     /**
-     * Soft delete a campaign
+     * Close and soft delete a campaign, recording the transition with the reviewing admin.
+     * Uses findById (not the active-owner lookup) so an admin can still resolve a report
+     * after the campaign owner deleted their account.
      */
-    private void removeCampaign(Long campaignId) {
+    private void removeCampaign(Long campaignId, Long adminId) {
         Campaign campaign = campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found"));
 
-        // Soft delete is handled by @SQLDelete annotation
-        campaignRepository.delete(campaign);
+        campaignService.closeAndSoftDelete(campaign, adminId);
     }
 
     /**
