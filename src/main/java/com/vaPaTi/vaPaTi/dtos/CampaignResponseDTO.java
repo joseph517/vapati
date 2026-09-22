@@ -20,5 +20,6 @@ public class CampaignResponseDTO {
     private Long userId;
     private List<CategoryDTO> categories;
     private CampaignStatus status;
+    private String userName;
 }
 
