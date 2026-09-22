@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -96,6 +97,63 @@ public class AuthenticationService {
             tokenBlackListService.revokeToken(jti, expirationDate);
         } catch (DataIntegrityViolationException e) {
             throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
+        }
+    }
+
+    // Not @Transactional: each revocation commits on its own, so a UNIQUE violation from a concurrent logout doesn't roll back the other
+    public void logout(String refreshToken, String accessToken) {
+        validateRefreshToken(refreshToken);
+
+        String refreshJti;
+        LocalDateTime refreshExpiration;
+        Long userId;
+        try {
+            if (!jwtService.isRefreshToken(refreshToken)) {
+                throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
+            }
+            refreshJti = jwtService.extractJti(refreshToken);
+            refreshExpiration = jwtService.extractExpirationDateTime(refreshToken);
+            userId = jwtService.extractUserData(refreshToken).getUserId();
+        } catch (ExpiredJwtException e) {
+            // An expired refresh token can't be used anymore: logout is idempotent
+            return;
+        } catch (MessageException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
+        }
+
+        // Already revoked: logout is idempotent
+        if (tokenBlackListService.isTokenRevoked(refreshJti)) {
+            return;
+        }
+
+        revokeIgnoringDuplicates(refreshJti, refreshExpiration);
+
+        if (accessToken != null) {
+            revokeAccessTokenIfOwnedBy(accessToken, userId);
+        }
+    }
+
+    // The access token is optional: an invalid, expired, foreign or refresh-type token is ignored
+    private void revokeAccessTokenIfOwnedBy(String accessToken, Long userId) {
+        try {
+            if (jwtService.isAccessToken(accessToken)
+                    && userId != null
+                    && userId.equals(jwtService.extractUserData(accessToken).getUserId())) {
+                revokeIgnoringDuplicates(jwtService.extractJti(accessToken), jwtService.extractExpirationDateTime(accessToken));
+            }
+        } catch (RuntimeException e) {
+            // Ignored on purpose: it must not make the logout fail
+        }
+    }
+
+    // A concurrent logout may have revoked the same jti between the check and the insert
+    private void revokeIgnoringDuplicates(String jti, LocalDateTime expirationDate) {
+        try {
+            tokenBlackListService.revokeToken(jti, expirationDate);
+        } catch (DataIntegrityViolationException e) {
+            // Already revoked
         }
     }
 

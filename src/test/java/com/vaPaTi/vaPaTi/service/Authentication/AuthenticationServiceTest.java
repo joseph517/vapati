@@ -9,6 +9,14 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.service.AuthenticationService;
 import com.vaPaTi.vaPaTi.service.JwtService;
+import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
+import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+import org.junit.jupiter.api.Nested;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.security.core.Authentication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +34,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
@@ -44,6 +54,8 @@ class AuthenticationServiceTest {
     private AuthenticationManager authenticationManager;
     @Mock
     private Authentication authentication;
+    @Mock
+    private TokenBlackListService tokenBlackListService;
     @InjectMocks
     private AuthenticationService authenticationService;
 
@@ -460,4 +472,207 @@ class AuthenticationServiceTest {
         verify(jwtService).generateRefreshToken(mockUser);
     }
 
+    @Nested
+    @DisplayName("logout()")
+    class LogoutTests {
+
+        private static final String TEST_SECRET = "mySecretKeyForTestingThatIsLongEnoughForHS256Algorithm";
+        private static final String INVALID_REFRESH_TOKEN_MSG = "Invalid or expired refresh token";
+
+        private JwtService realJwtService;
+        private AuthenticationService logoutService;
+        private User user;
+        private User otherUser;
+
+        @BeforeEach
+        void setUpLogout() {
+            realJwtService = new JwtService();
+            ReflectionTestUtils.setField(realJwtService, "jwtSecret", TEST_SECRET);
+            ReflectionTestUtils.setField(realJwtService, "jwtExpirationMs", 3600000L);
+            ReflectionTestUtils.setField(realJwtService, "jwtRefreshExpirationMs", 604800000L);
+            realJwtService.init();
+            logoutService = new AuthenticationService(userRepository, realJwtService, authenticationManager, tokenBlackListService);
+
+            user = buildUser(1L, "test@example.com");
+            otherUser = buildUser(2L, "other@example.com");
+        }
+
+        private User buildUser(Long id, String email) {
+            UserInfo info = UserInfo.builder()
+                    .email(email)
+                    .firstName("John")
+                    .lastName("Doe")
+                    .userName("user" + id)
+                    .build();
+            User u = User.builder()
+                    .id(id)
+                    .userInfo(info)
+                    .role(Role.builder().id(1L).name("USER").build())
+                    .active(true)
+                    .build();
+            info.setUser(u);
+            return u;
+        }
+
+        private String signedToken(String secret, String type, Date expiration) {
+            var builder = Jwts.builder()
+                    .setSubject("test@example.com")
+                    .setId(UUID.randomUUID().toString())
+                    .claim("userId", 1L)
+                    .setIssuedAt(new Date(expiration.getTime() - 3600000))
+                    .setExpiration(expiration)
+                    .signWith(Keys.hmacShaKeyFor(secret.getBytes()), SignatureAlgorithm.HS256);
+            if (type != null) {
+                builder.claim("type", type);
+            }
+            return builder.compact();
+        }
+
+        private void assertInvalidRefresh(String refreshToken) {
+            assertThatThrownBy(() -> logoutService.logout(refreshToken, null))
+                    .isInstanceOf(InvalidCredentialsException.class)
+                    .hasMessage(INVALID_REFRESH_TOKEN_MSG);
+            verify(tokenBlackListService, never()).revokeToken(any(), any());
+        }
+
+        @Test
+        @DisplayName("Valid refresh and access of the same user: revokes both jtis")
+        void shouldRevokeRefreshAndAccessOfSameUser() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            String accessToken = realJwtService.generateToken(user);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+
+            logoutService.logout(refreshToken, accessToken);
+
+            verify(tokenBlackListService).revokeToken(
+                    realJwtService.extractJti(refreshToken), realJwtService.extractExpirationDateTime(refreshToken));
+            verify(tokenBlackListService).revokeToken(
+                    realJwtService.extractJti(accessToken), realJwtService.extractExpirationDateTime(accessToken));
+        }
+
+        @Test
+        @DisplayName("Without access token: revokes only the refresh")
+        void shouldRevokeOnlyRefreshWithoutAccessToken() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+
+            logoutService.logout(refreshToken, null);
+
+            verify(tokenBlackListService, times(1)).revokeToken(any(), any());
+            verify(tokenBlackListService).revokeToken(eq(realJwtService.extractJti(refreshToken)), any());
+        }
+
+        @Test
+        @DisplayName("Refresh already revoked: does nothing (idempotent)")
+        void shouldDoNothingWhenRefreshAlreadyRevoked() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            String accessToken = realJwtService.generateToken(user);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(true);
+
+            logoutService.logout(refreshToken, accessToken);
+
+            verify(tokenBlackListService, never()).revokeToken(any(), any());
+        }
+
+        @Test
+        @DisplayName("Expired refresh: does nothing (idempotent)")
+        void shouldDoNothingWhenRefreshExpired() {
+            String expiredRefresh = signedToken(TEST_SECRET, JwtService.REFRESH_TOKEN_TYPE,
+                    new Date(System.currentTimeMillis() - 60000));
+
+            logoutService.logout(expiredRefresh, null);
+
+            verifyNoInteractions(tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("Concurrent logout revoking the same jti: does not fail")
+        void shouldNotFailOnConcurrentRevocation() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+            doThrow(new DataIntegrityViolationException("Violation of UNIQUE KEY constraint"))
+                    .when(tokenBlackListService).revokeToken(any(), any());
+
+            logoutService.logout(refreshToken, null);
+
+            verify(tokenBlackListService).revokeToken(any(), any());
+        }
+
+        @Test
+        @DisplayName("Null or blank refresh: 401")
+        void shouldRejectBlankRefresh() {
+            assertInvalidRefresh(null);
+            assertInvalidRefresh("");
+            assertInvalidRefresh("   ");
+            verifyNoInteractions(tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("Malformed refresh: 401")
+        void shouldRejectMalformedRefresh() {
+            assertInvalidRefresh("basura");
+            verifyNoInteractions(tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("Refresh signed with another secret: 401")
+        void shouldRejectRefreshWithInvalidSignature() {
+            String forged = signedToken("anotherSecretKeyForTestingThatIsLongEnoughForHS256", JwtService.REFRESH_TOKEN_TYPE,
+                    new Date(System.currentTimeMillis() + 3600000));
+
+            assertInvalidRefresh(forged);
+            verifyNoInteractions(tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("Access token sent as refresh: 401")
+        void shouldRejectAccessTokenAsRefresh() {
+            assertInvalidRefresh(realJwtService.generateToken(user));
+            verifyNoInteractions(tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("Token without type sent as refresh: 401")
+        void shouldRejectTokenWithoutTypeAsRefresh() {
+            assertInvalidRefresh(signedToken(TEST_SECRET, null, new Date(System.currentTimeMillis() + 3600000)));
+            verifyNoInteractions(tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("Invalid access in header: ignored, refresh still revoked")
+        void shouldIgnoreInvalidAccessToken() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+
+            logoutService.logout(refreshToken, "invalid.jwt.token");
+
+            verify(tokenBlackListService, times(1)).revokeToken(eq(realJwtService.extractJti(refreshToken)), any());
+        }
+
+        @Test
+        @DisplayName("Access of another user in header: ignored")
+        void shouldIgnoreAccessTokenOfAnotherUser() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            String foreignAccess = realJwtService.generateToken(otherUser);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+
+            logoutService.logout(refreshToken, foreignAccess);
+
+            verify(tokenBlackListService, times(1)).revokeToken(any(), any());
+            verify(tokenBlackListService, never()).revokeToken(eq(realJwtService.extractJti(foreignAccess)), any());
+        }
+
+        @Test
+        @DisplayName("Refresh token in the Authorization header: ignored")
+        void shouldIgnoreRefreshTypeTokenInHeader() {
+            String refreshToken = realJwtService.generateRefreshToken(user);
+            String otherRefresh = realJwtService.generateRefreshToken(user);
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+
+            logoutService.logout(refreshToken, otherRefresh);
+
+            verify(tokenBlackListService, times(1)).revokeToken(any(), any());
+            verify(tokenBlackListService, never()).revokeToken(eq(realJwtService.extractJti(otherRefresh)), any());
+        }
+    }
 }
