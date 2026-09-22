@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
@@ -78,7 +79,7 @@ class CampaignServiceValidationTest {
     void findCampaignByIdOrThrow_WhenCampaignExists_ShouldReturnCampaign() {
         // Given
         Long campaignId = 1L;
-        when(campaignRepository.findById(campaignId)).thenReturn(Optional.of(testCampaign));
+        when(campaignRepository.findByIdWithActiveOwner(campaignId)).thenReturn(Optional.of(testCampaign));
 
         // When
         Campaign result = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
@@ -89,7 +90,7 @@ class CampaignServiceValidationTest {
         assertThat(result.getName()).isEqualTo("Test Campaign");
         assertThat(result.getDescription()).isEqualTo("Test Description");
 
-        verify(campaignRepository, times(1)).findById(campaignId);
+        verify(campaignRepository, times(1)).findByIdWithActiveOwner(campaignId);
         verifyNoMoreInteractions(campaignRepository);
     }
 
@@ -98,29 +99,44 @@ class CampaignServiceValidationTest {
     void findCampaignByIdOrThrow_WhenCampaignNotFound_ShouldThrowRuntimeException() {
         // Given
         Long campaignId = 999L;
-        when(campaignRepository.findById(campaignId)).thenReturn(Optional.empty());
+        when(campaignRepository.findByIdWithActiveOwner(campaignId)).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(campaignId))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Campaign not found with id: " + campaignId);
 
-        verify(campaignRepository, times(1)).findById(campaignId);
+        verify(campaignRepository, times(1)).findByIdWithActiveOwner(campaignId);
         verifyNoMoreInteractions(campaignRepository);
+    }
+
+    @DisplayName("findCampaignByIdOrThrow - Should throw ResourceNotFoundException when the owner is deleted")
+    @Test
+    void findCampaignByIdOrThrow_WhenOwnerIsDeleted_ShouldThrowResourceNotFoundException() {
+        // Given: the owner filter excludes the campaign, even though findById would still return it
+        Long campaignId = 1L;
+        when(campaignRepository.findByIdWithActiveOwner(campaignId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(campaignId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Campaign not found with id: " + campaignId);
+
+        verify(campaignRepository, never()).findById(any());
     }
 
     @DisplayName("findCampaignByIdOrThrow - Should handle null campaignId gracefully")
     @Test
     void findCampaignByIdOrThrow_WhenCampaignIdIsNull_ShouldCallRepositoryWithNull() {
         // Given
-        when(campaignRepository.findById(null)).thenReturn(Optional.empty());
+        when(campaignRepository.findByIdWithActiveOwner(null)).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Campaign not found with id: null");
 
-        verify(campaignRepository, times(1)).findById(null);
+        verify(campaignRepository, times(1)).findByIdWithActiveOwner(null);
         verifyNoMoreInteractions(campaignRepository);
     }
 

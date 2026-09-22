@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.*;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
@@ -331,21 +332,21 @@ class ReportValidationServiceTest {
         @DisplayName("Should pass when campaign exists")
         void validateEntityExists_WithValidCampaign_ShouldNotThrowException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
 
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
                     ReportedEntityType.CAMPAIGN, 1L
             ));
 
-            verify(campaignRepository).findById(1L);
+            verify(campaignRepository).findByIdWithActiveOwner(1L);
         }
 
         @Test
         @DisplayName("Should throw MessageException when campaign not found")
         void validateEntityExists_WithNonExistentCampaign_ShouldThrowException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.empty());
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.empty());
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
@@ -356,16 +357,32 @@ class ReportValidationServiceTest {
         }
 
         @Test
+        @DisplayName("Should throw ResourceNotFoundException when the campaign owner is deleted")
+        void validateEntityExists_WithCampaignOfDeletedOwner_ShouldThrowResourceNotFoundException() {
+            // Given: the owner filter excludes the campaign, even though findById would still return it
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertThatThrownBy(() -> reportValidationService.validateEntityExists(
+                    ReportedEntityType.CAMPAIGN, 1L
+            ))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found");
+
+            verify(campaignRepository, never()).findById(any());
+        }
+
+        @Test
         @DisplayName("Should not check deletion status for campaign")
         void validateEntityExists_ForCampaign_ShouldOnlyCheckExistence() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
 
             // When
             reportValidationService.validateEntityExists(ReportedEntityType.CAMPAIGN, 1L);
 
             // Then
-            verify(campaignRepository).findById(1L);
+            verify(campaignRepository).findByIdWithActiveOwner(1L);
             // Campaign doesn't have soft delete check
         }
     }

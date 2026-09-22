@@ -87,7 +87,7 @@ public class ReportValidationService {
                 }
             }
             case CAMPAIGN -> {
-                Optional<Campaign> campaign = campaignRepository.findById(entityId);
+                Optional<Campaign> campaign = campaignRepository.findByIdWithActiveOwner(entityId);
                 if (campaign.isEmpty()) {
                     throw new ResourceNotFoundException(CAMPAIGN_NOT_FOUND);
                 }

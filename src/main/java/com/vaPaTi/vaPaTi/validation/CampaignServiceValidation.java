@@ -23,7 +23,7 @@ public class CampaignServiceValidation {
     private final CategoryRepository categoryRepository;
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
-        return campaignRepository.findById(campaignId)
+        return campaignRepository.findByIdWithActiveOwner(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with id: " + campaignId));
     }
 

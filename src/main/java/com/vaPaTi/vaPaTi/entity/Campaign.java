@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -27,6 +29,7 @@ public class Campaign {
     private Long id;
 
     @ManyToOne(optional = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 

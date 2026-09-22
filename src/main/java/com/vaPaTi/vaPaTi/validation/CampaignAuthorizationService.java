@@ -22,7 +22,7 @@ public class CampaignAuthorizationService {
     private final UserRepository userRepository;
 
     public void validateOwnershipOrAdmin(Long campaignId, Long userId) {
-        Campaign campaign = campaignRepository.findById(campaignId)
+        Campaign campaign = campaignRepository.findByIdWithActiveOwner(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId));
 
         User user = userRepository.findById(userId)
@@ -47,7 +47,7 @@ public class CampaignAuthorizationService {
 
     public Campaign getCampaignIfAuthorized(Long campaignId, Long userId) {
         validateOwnershipOrAdmin(campaignId, userId);
-        return campaignRepository.findById(campaignId)
+        return campaignRepository.findByIdWithActiveOwner(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId));
     }
 }

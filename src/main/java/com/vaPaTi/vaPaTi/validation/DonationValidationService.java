@@ -33,7 +33,7 @@ public class DonationValidationService {
     }
 
     public Campaign validateAndGetCampaign(Long campaignId) {
-        Campaign campaign = campaignRepository.findById(campaignId)
+        Campaign campaign = campaignRepository.findByIdWithActiveOwner(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with id: " + campaignId));
 
         if (campaign.getDeletedAt() != null) {

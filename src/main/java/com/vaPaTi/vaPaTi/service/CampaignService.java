@@ -44,7 +44,7 @@ public class CampaignService {
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
 
     public List<CampaignResponseDTO> getAllCampaigns() {
-        List<Campaign> campaigns = campaignRepository.findAll();
+        List<Campaign> campaigns = campaignRepository.findAllWithActiveOwner();
 
         return campaigns.stream()
                 .map(this::toResponseDTOWithCategories)
@@ -75,7 +75,7 @@ public class CampaignService {
     public List<CampaignResponseDTO> getCampaignsByStatus(String status) {
         CampaignStatus campaignStatus = campaignServiceValidation.parseStatus(status);
 
-        List<Campaign> campaigns = campaignRepository.findByGoal_Status(campaignStatus);
+        List<Campaign> campaigns = campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus);
 
         return campaigns.stream()
                 .map(this::toResponseDTOWithCategories)
@@ -152,8 +152,7 @@ public class CampaignService {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         campaignAuthorizationService.validateOwnershipOrAdmin(campaignId, userId);
 
-        Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new RuntimeException("Campaign not found"));
+        Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
         // When deleting, also deactivate the goal
         if (campaign.getGoal() != null && campaign.getGoal().getStatus() != CampaignStatus.CLOSED) {

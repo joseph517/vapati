@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -84,13 +85,13 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should validate successfully when user is the campaign owner")
         void validateOwnershipOrAdmin_WhenUserIsOwner_ShouldNotThrowException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testOwner));
 
             // When & Then (should not throw exception)
             campaignAuthorizationService.validateOwnershipOrAdmin(1L, 1L);
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(1L);
         }
 
@@ -98,13 +99,13 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should validate successfully when user is admin")
         void validateOwnershipOrAdmin_WhenUserIsAdmin_ShouldNotThrowException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testAdmin));
 
             // When & Then (should not throw exception)
             campaignAuthorizationService.validateOwnershipOrAdmin(1L, 2L);
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(2L);
         }
 
@@ -112,7 +113,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should throw MessageException when user is neither owner nor admin")
         void validateOwnershipOrAdmin_WhenUserIsNeitherOwnerNorAdmin_ShouldThrowMessageException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(3L)).thenReturn(Optional.of(testRegularUser));
 
             // When & Then
@@ -120,7 +121,7 @@ class CampaignAuthorizationServiceTest {
                     .isInstanceOf(MessageException.class)
                     .hasMessage("You are not authorized to perform this action");
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(3L);
         }
 
@@ -128,22 +129,36 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should throw MessageException when campaign not found")
         void validateOwnershipOrAdmin_WhenCampaignNotFound_ShouldThrowMessageException() {
             // Given
-            when(campaignRepository.findById(999L)).thenReturn(Optional.empty());
+            when(campaignRepository.findByIdWithActiveOwner(999L)).thenReturn(Optional.empty());
 
             // When & Then
             assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(999L, 1L))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Campaign not found with id: 999");
 
-            verify(campaignRepository, times(1)).findById(999L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(999L);
             verify(userRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when the campaign owner is deleted")
+        void validateOwnershipOrAdmin_WhenOwnerIsDeleted_ShouldThrowResourceNotFoundException() {
+            // Given: the owner filter excludes the campaign, even though findById would still return it
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 1L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found with id: 1");
+
+            verify(campaignRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("Should throw MessageException when user not found")
         void validateOwnershipOrAdmin_WhenUserNotFound_ShouldThrowMessageException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
             // When & Then
@@ -151,7 +166,7 @@ class CampaignAuthorizationServiceTest {
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User not found with id: 999");
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(999L);
         }
 
@@ -164,7 +179,7 @@ class CampaignAuthorizationServiceTest {
                     .role(null)
                     .build();
 
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(4L)).thenReturn(Optional.of(userWithNullRole));
 
             // When & Then
@@ -172,7 +187,7 @@ class CampaignAuthorizationServiceTest {
                     .isInstanceOf(MessageException.class)
                     .hasMessage("You are not authorized to perform this action");
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(4L);
         }
     }
@@ -185,7 +200,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should return true when user is the campaign owner")
         void canCloseCampaign_WhenUserIsOwner_ShouldReturnTrue() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testOwner));
 
             // When
@@ -194,7 +209,7 @@ class CampaignAuthorizationServiceTest {
             // Then
             assertThat(result).isTrue();
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(1L);
         }
 
@@ -202,7 +217,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should return true when user is admin")
         void canCloseCampaign_WhenUserIsAdmin_ShouldReturnTrue() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testAdmin));
 
             // When
@@ -211,7 +226,7 @@ class CampaignAuthorizationServiceTest {
             // Then
             assertThat(result).isTrue();
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(2L);
         }
 
@@ -219,7 +234,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should return false when user is neither owner nor admin")
         void canCloseCampaign_WhenUserIsUnauthorized_ShouldReturnFalse() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(3L)).thenReturn(Optional.of(testRegularUser));
 
             // When
@@ -228,7 +243,7 @@ class CampaignAuthorizationServiceTest {
             // Then
             assertThat(result).isFalse();
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(3L);
         }
 
@@ -236,7 +251,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should return false when campaign not found")
         void canCloseCampaign_WhenCampaignNotFound_ShouldReturnFalse() {
             // Given
-            when(campaignRepository.findById(999L)).thenReturn(Optional.empty());
+            when(campaignRepository.findByIdWithActiveOwner(999L)).thenReturn(Optional.empty());
 
             // When
             boolean result = campaignAuthorizationService.canCloseCampaign(999L, 1L);
@@ -244,7 +259,7 @@ class CampaignAuthorizationServiceTest {
             // Then
             assertThat(result).isFalse();
 
-            verify(campaignRepository, times(1)).findById(999L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(999L);
         }
     }
 
@@ -256,7 +271,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should return campaign when user is the campaign owner")
         void getCampaignIfAuthorized_WhenUserIsOwner_ShouldReturnCampaign() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(1L)).thenReturn(Optional.of(testOwner));
 
             // When
@@ -267,7 +282,7 @@ class CampaignAuthorizationServiceTest {
             assertThat(result.getId()).isEqualTo(1L);
             assertThat(result.getName()).isEqualTo("Test Campaign");
 
-            verify(campaignRepository, times(2)).findById(1L); // Called once in validateOwnershipOrAdmin, once in getCampaignIfAuthorized
+            verify(campaignRepository, times(2)).findByIdWithActiveOwner(1L); // Called once in validateOwnershipOrAdmin, once in getCampaignIfAuthorized
             verify(userRepository, times(1)).findById(1L);
         }
 
@@ -275,7 +290,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should return campaign when user is admin")
         void getCampaignIfAuthorized_WhenUserIsAdmin_ShouldReturnCampaign() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testAdmin));
 
             // When
@@ -286,7 +301,7 @@ class CampaignAuthorizationServiceTest {
             assertThat(result.getId()).isEqualTo(1L);
             assertThat(result.getName()).isEqualTo("Test Campaign");
 
-            verify(campaignRepository, times(2)).findById(1L); // Called once in validateOwnershipOrAdmin, once in getCampaignIfAuthorized
+            verify(campaignRepository, times(2)).findByIdWithActiveOwner(1L); // Called once in validateOwnershipOrAdmin, once in getCampaignIfAuthorized
             verify(userRepository, times(1)).findById(2L);
         }
 
@@ -294,7 +309,7 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should throw MessageException when user is unauthorized")
         void getCampaignIfAuthorized_WhenUserIsUnauthorized_ShouldThrowMessageException() {
             // Given
-            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findById(3L)).thenReturn(Optional.of(testRegularUser));
 
             // When & Then
@@ -302,7 +317,7 @@ class CampaignAuthorizationServiceTest {
                     .isInstanceOf(MessageException.class)
                     .hasMessage("You are not authorized to perform this action");
 
-            verify(campaignRepository, times(1)).findById(1L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(3L);
         }
 
@@ -310,14 +325,14 @@ class CampaignAuthorizationServiceTest {
         @DisplayName("Should throw MessageException when campaign not found during validation")
         void getCampaignIfAuthorized_WhenCampaignNotFoundDuringValidation_ShouldThrowMessageException() {
             // Given
-            when(campaignRepository.findById(999L)).thenReturn(Optional.empty());
+            when(campaignRepository.findByIdWithActiveOwner(999L)).thenReturn(Optional.empty());
 
             // When & Then
             assertThatThrownBy(() -> campaignAuthorizationService.getCampaignIfAuthorized(999L, 1L))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Campaign not found with id: 999");
 
-            verify(campaignRepository, times(1)).findById(999L);
+            verify(campaignRepository, times(1)).findByIdWithActiveOwner(999L);
             verify(userRepository, never()).findById(any());
         }
     }

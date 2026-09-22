@@ -122,7 +122,7 @@ class CampaignServiceTest {
             CampaignResponseDTO dto2 = createResponseDTO(2L, "Campaign 2");
             CampaignResponseDTO dto3 = createResponseDTO(3L, "Campaign 3");
 
-            when(campaignRepository.findAll()).thenReturn(campaigns);
+            when(campaignRepository.findAllWithActiveOwner()).thenReturn(campaigns);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign1), any())).thenReturn(dto1);
@@ -138,7 +138,7 @@ class CampaignServiceTest {
                         .hasSize(3)
                         .containsExactly(dto1, dto2, dto3);
 
-                verify(campaignRepository).findAll();
+                verify(campaignRepository).findAllWithActiveOwner();
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign1), any()));
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign2), any()));
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign3), any()));
@@ -149,7 +149,7 @@ class CampaignServiceTest {
         @DisplayName("Should return empty list when no campaigns exist")
         void getAllCampaigns_WithNoCampaigns_ShouldReturnEmptyList() {
             // Given
-            when(campaignRepository.findAll()).thenReturn(List.of());
+            when(campaignRepository.findAllWithActiveOwner()).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
@@ -159,20 +159,33 @@ class CampaignServiceTest {
                     .isNotNull()
                     .isEmpty();
 
-            verify(campaignRepository).findAll();
+            verify(campaignRepository).findAllWithActiveOwner();
         }
 
         @Test
-        @DisplayName("Should call repository findAll exactly once")
+        @DisplayName("Should call repository findAllWithActiveOwner exactly once")
         void getAllCampaigns_ShouldCallRepositoryOnce() {
             // Given
-            when(campaignRepository.findAll()).thenReturn(List.of());
+            when(campaignRepository.findAllWithActiveOwner()).thenReturn(List.of());
 
             // When
             campaignService.getAllCampaigns();
 
             // Then
-            verify(campaignRepository, times(1)).findAll();
+            verify(campaignRepository, times(1)).findAllWithActiveOwner();
+        }
+
+        @Test
+        @DisplayName("Should not use the unfiltered findAll, which includes campaigns of deleted owners")
+        void getAllCampaigns_ShouldNotUseUnfilteredFindAll() {
+            // Given
+            when(campaignRepository.findAllWithActiveOwner()).thenReturn(List.of());
+
+            // When
+            campaignService.getAllCampaigns();
+
+            // Then
+            verify(campaignRepository, never()).findAll();
         }
     }
 
@@ -674,7 +687,7 @@ class CampaignServiceTest {
             // Given
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
-            when(campaignRepository.findByGoal_Status(CampaignStatus.CLOSED)).thenReturn(List.of(campaign1));
+            when(campaignRepository.findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED)).thenReturn(List.of(campaign1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
@@ -685,7 +698,7 @@ class CampaignServiceTest {
                 // Then
                 assertThat(result).hasSize(1);
                 verify(campaignServiceValidation).parseStatus("CLOSED");
-                verify(campaignRepository).findByGoal_Status(CampaignStatus.CLOSED);
+                verify(campaignRepository).findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED);
             }
         }
 
@@ -701,7 +714,7 @@ class CampaignServiceTest {
                     .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
                     .hasMessage("Invalid campaign status: FOO");
 
-            verify(campaignRepository, never()).findByGoal_Status(any());
+            verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
         }
 
         @Test
@@ -709,7 +722,7 @@ class CampaignServiceTest {
         void getCampaignsByStatus_WithNoMatches_ShouldReturnEmptyList() {
             // Given
             when(campaignServiceValidation.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
-            when(campaignRepository.findByGoal_Status(CampaignStatus.ACTIVE)).thenReturn(List.of());
+            when(campaignRepository.findByGoalStatusWithActiveOwner(CampaignStatus.ACTIVE)).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("ACTIVE");
@@ -729,7 +742,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -737,21 +750,22 @@ class CampaignServiceTest {
             // Then
             verify(authenticatedUserService).getAuthenticatedUserId();
             verify(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            verify(campaignRepository).findById(TEST_CAMPAIGN_ID);
+            verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
             verify(campaignRepository).delete(testCampaign);
         }
 
         @Test
-        @DisplayName("Should throw RuntimeException when campaign is not found")
+        @DisplayName("Should throw ResourceNotFoundException when campaign is not found")
         void deleteCampaign_WithNonExistentCampaign_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.empty());
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
+                    .thenThrow(new com.vaPaTi.vaPaTi.exception.ResourceNotFoundException(CAMPAIGN_NOT_FOUND_MESSAGE));
 
             // When & Then
             assertThatThrownBy(() -> campaignService.deleteCampaign(TEST_CAMPAIGN_ID))
-                    .isInstanceOf(RuntimeException.class)
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.ResourceNotFoundException.class)
                     .hasMessage(CAMPAIGN_NOT_FOUND_MESSAGE);
 
             verify(campaignRepository, never()).delete(any(Campaign.class));
@@ -763,13 +777,13 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
 
             // Then
-            verify(campaignRepository).findById(TEST_CAMPAIGN_ID);
+            verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
         }
 
         @Test
@@ -778,7 +792,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -794,7 +808,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.ACTIVE);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -811,7 +825,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignRepository.findById(TEST_CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
