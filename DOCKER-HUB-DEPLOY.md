@@ -105,7 +105,9 @@ APP_PORT=
 DB_PORT=
 ```
 
-> ⚠️ `DB_PASSWORD` y `JWT_SECRET` son obligatorios. Sin ellos, la app arranca igual usando valores de desarrollo por defecto, que **no son seguros para producción**.
+> ⚠️ `JWT_SECRET` es obligatorio y necesita al menos 32 bytes. Si falta, Compose no levanta el contenedor (`JWT_SECRET is required`); si está vacío, es el placeholder de ejemplo (`your-512-bit-secret-key-should-be-long-and-random`) o tiene menos de 32 bytes, la app no arranca. Generalo con `openssl rand -base64 64 | tr -d '\n'`.
+>
+> `DB_PASSWORD` también es obligatorio: sin él, la app arranca igual usando la password de desarrollo por defecto, que **no es segura para producción**.
 
 ### 4.2. Copiar los archivos al servidor
 

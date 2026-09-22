@@ -58,7 +58,7 @@ Esto levanta dos contenedores:
 
 Para más detalle (modo producción local, SonarQube, troubleshooting) revisa [`DOCKER-INSTRUCTIONS.md`](DOCKER-INSTRUCTIONS.md).
 
-> Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<tu-password>" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-latest` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos (con `DB_PASSWORD=<tu-password>` en el entorno).
+> Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<tu-password>" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-latest` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos (con `DB_PASSWORD=<tu-password>` en el entorno). `./mvnw spring-boot:run` también necesita `JWT_SECRET` exportado en el entorno, con al menos 32 bytes: por ejemplo `export JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')`. Sin él, la app no arranca.
 
 ### 4. Datos iniciales (roles y categorías)
 
@@ -115,7 +115,7 @@ docker-compose -f docker-compose.prod.yml pull
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-Esto levanta `db_vapati_prod` y `app_vapati_prod` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `DB_PASSWORD` y `JWT_SECRET` son obligatorios: sin ellos, la app cae en los valores de desarrollo por defecto, inseguros para producción.
+Esto levanta `db_vapati_prod` y `app_vapati_prod` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `JWT_SECRET` es obligatorio y necesita al menos 32 bytes: sin él, con el placeholder de ejemplo o con uno más corto, la app no arranca (generalo con `openssl rand -base64 64 | tr -d '\n'`). `DB_PASSWORD` también es obligatorio: sin él, la app cae en la password de desarrollo por defecto, insegura para producción.
 
 Detalle completo (preparación del `.env`, copiar los archivos al servidor, verificación de que levantó bien): ver sección 4 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
