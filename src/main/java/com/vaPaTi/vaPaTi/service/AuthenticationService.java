@@ -10,6 +10,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,6 +28,7 @@ public class AuthenticationService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final TokenBlackListService tokenBlackListService;
 
     @Transactional
     public AuthResponse authenticate(AuthRequest request) {
@@ -64,17 +66,35 @@ public class AuthenticationService {
         try {
             String email = jwtService.extractUsername(refreshToken);
 
-            if (!jwtService.isTokenValid(refreshToken, email)) {
+            // Only non-expired refresh tokens are accepted (access tokens and tokens without "type" are rejected)
+            if (!jwtService.isTokenValid(refreshToken, email) || !jwtService.isRefreshToken(refreshToken)) {
+                throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
+            }
+
+            String jti = jwtService.extractJti(refreshToken);
+            if (tokenBlackListService.isTokenRevoked(jti)) {
                 throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
             }
 
             User user = findUserByEmail(email);
             validateUserStatus(user);
 
+            // Rotation: the used refresh token can't be used again
+            revokeUsedRefreshToken(jti, jwtService.extractExpirationDateTime(refreshToken));
+
             return generateAuthResponse(user);
         } catch (MessageException e) {
             throw e;
         } catch (RuntimeException e) {
+            throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
+        }
+    }
+
+    // Two concurrent refreshes with the same token both pass the blacklist check; the second insert violates the UNIQUE on jti
+    private void revokeUsedRefreshToken(String jti, LocalDateTime expirationDate) {
+        try {
+            tokenBlackListService.revokeToken(jti, expirationDate);
+        } catch (DataIntegrityViolationException e) {
             throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
         }
     }
@@ -85,11 +105,12 @@ public class AuthenticationService {
         }
     }
 
+    // findAllWithDetails doesn't return deleted users, so a deleted account gets 401 as well
     private User findUserByEmail(String email) {
         return userRepository.findAllWithDetails().stream()
                 .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG));
     }
 
     private void validateUserStatus(User user) {
