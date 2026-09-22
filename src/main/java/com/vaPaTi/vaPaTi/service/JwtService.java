@@ -52,7 +52,7 @@ public class JwtService {
             throw new IllegalStateException("JWT secret is empty. Set JWT_SECRET (at least " + MIN_SECRET_BYTES + " bytes)");
         }
         if (PLACEHOLDER_SECRET.equals(secret)) {
-            throw new IllegalStateException("JWT secret is the public placeholder. Set JWT_SECRET to a random value, e.g. openssl rand -base64 64");
+            throw new IllegalStateException("JWT secret is the public placeholder. Set JWT_SECRET to a random value, e.g. openssl rand -base64 64 | tr -d '\\n'");
         }
         if (secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
             throw new IllegalStateException("JWT secret is too short. JWT_SECRET needs at least " + MIN_SECRET_BYTES + " bytes");
