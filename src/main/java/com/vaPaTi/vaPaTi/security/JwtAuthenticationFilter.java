@@ -26,6 +26,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TokenBlackListService tokenBlackListService;
     private final CustomUserDetailsService userDetailsService;
 
+    private static final String AUTH_PATH_PREFIX = "/auth/";
+
+    // /auth/** endpoints read their own tokens (login, refresh, logout)
+    @Override
+    protected boolean shouldNotFilter(@NotNull HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return path.startsWith(AUTH_PATH_PREFIX);
+    }
+
     @Override
     protected void doFilterInternal(
             @NotNull HttpServletRequest request,
@@ -40,14 +49,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // If the token is invalid, returns 401 Unauthorized
+        // Any rejected token leaves the request unauthenticated; the entry point answers 401 if the route requires it
         try {
             final String jwt = authHeader.substring(7);
 
+            // Only access tokens can authenticate requests (tokens without "type" are rejected)
+            if (!jwtService.isAccessToken(jwt)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             // Check if the token is in the blacklist (by its jti)
-            final String jti = jwtService.extractJti(jwt);
-            if (tokenBlackListService.isTokenRevoked(jti)) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token is revoked");
+            if (tokenBlackListService.isTokenRevoked(jwtService.extractJti(jwt))) {
+                filterChain.doFilter(request, response);
                 return;
             }
 
