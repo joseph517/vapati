@@ -1,11 +1,15 @@
 package com.vaPaTi.vaPaTi.security;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
+import com.vaPaTi.vaPaTi.service.CustomUserDetailsService.RequestUser;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -23,13 +27,16 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -61,7 +68,7 @@ class JwtAuthenticationFilterTest {
         ReflectionTestUtils.setField(jwtService, "jwtRefreshExpirationMs", 604800000L);
         jwtService.init();
 
-        filter = new JwtAuthenticationFilter(jwtService, tokenBlackListService, userDetailsService);
+        filter = new JwtAuthenticationFilter(jwtService, tokenBlackListService, userDetailsService, new AccountStatusValidationService());
 
         UserInfo userInfo = UserInfo.builder()
                 .firstName("John")
@@ -158,7 +165,7 @@ class JwtAuthenticationFilterTest {
         void shouldAuthenticateWithAccessToken() throws Exception {
             String accessToken = jwtService.generateToken(user);
             when(tokenBlackListService.isTokenRevoked(jwtService.extractJti(accessToken))).thenReturn(false);
-            when(userDetailsService.loadUserByUsername(EMAIL)).thenReturn(userDetails());
+            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
             MockHttpServletRequest request = requestWithBearer("/api/campaigns/my-campaigns", accessToken);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -206,7 +213,7 @@ class JwtAuthenticationFilterTest {
             filter.doFilter(request, response, filterChain);
 
             verify(filterChain).doFilter(request, response);
-            verify(userDetailsService, never()).loadUserByUsername(anyString());
+            verify(userDetailsService, never()).loadUserForRequest(anyString());
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
             // The entry point writes the 401 later; the filter must not commit an error itself
             assertThat(response.getStatus()).isEqualTo(200);
@@ -224,6 +231,96 @@ class JwtAuthenticationFilterTest {
             verify(filterChain).doFilter(request, response);
             verifyNoInteractions(tokenBlackListService, userDetailsService);
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Account status on every request")
+    class AccountStatusTests {
+
+        private MockHttpServletRequest request;
+        private MockHttpServletResponse response;
+
+        @BeforeEach
+        void setUpRequest() {
+            String accessToken = jwtService.generateToken(user);
+            when(tokenBlackListService.isTokenRevoked(jwtService.extractJti(accessToken))).thenReturn(false);
+            request = requestWithBearer("/api/campaigns/my-campaigns", accessToken);
+            response = new MockHttpServletResponse();
+        }
+
+        @Test
+        @DisplayName("Deleted account: stays unauthenticated (401) and is not restored")
+        void shouldRejectDeletedAccount() throws Exception {
+            when(userDetailsService.loadUserForRequest(EMAIL))
+                    .thenThrow(new UsernameNotFoundException("User account is deleted"));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain).doFilter(request, response);
+            verify(userDetailsService, never()).loadUserByUsername(anyString());
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("Disabled account: stays unauthenticated (401)")
+        void shouldRejectDisabledAccount() throws Exception {
+            when(userDetailsService.loadUserForRequest(EMAIL))
+                    .thenThrow(new UsernameNotFoundException("User account is disabled"));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain).doFilter(request, response);
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        }
+
+        @Test
+        @DisplayName("Banned account: 403 with the login message and the SecurityConfig JSON shape")
+        void shouldCutBannedAccountWith403() throws Exception {
+            user.setBanned(true);
+            user.setBannedReason("Spam \"quoted\"");
+            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain, never()).doFilter(any(), any());
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+            assertThat(response.getStatus()).isEqualTo(403);
+            assertThat(response.getContentType()).startsWith("application/json");
+
+            JsonNode body = new ObjectMapper().readTree(response.getContentAsString());
+            assertThat(body.get("error").asText()).isEqualTo("Forbidden");
+            assertThat(body.get("message").asText()).isEqualTo("Your account has been banned. Reason: Spam \"quoted\"");
+            assertThat(body.get("path").asText()).isEqualTo("/api/campaigns/my-campaigns");
+            assertThat(body.hasNonNull("timestamp")).isTrue();
+        }
+
+        @Test
+        @DisplayName("Suspended account (suspendedUntil in the future): 403")
+        void shouldCutSuspendedAccountWith403() throws Exception {
+            user.setSuspendedUntil(LocalDateTime.now().plusDays(2));
+            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain, never()).doFilter(any(), any());
+            assertThat(response.getStatus()).isEqualTo(403);
+            JsonNode body = new ObjectMapper().readTree(response.getContentAsString());
+            assertThat(body.get("message").asText()).startsWith("Your account is suspended until");
+        }
+
+        @Test
+        @DisplayName("Expired suspension (suspendedUntil in the past): authenticated")
+        void shouldAuthenticateWithExpiredSuspension() throws Exception {
+            user.setSuspendedUntil(LocalDateTime.now().minusDays(1));
+            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain).doFilter(request, response);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
         }
     }
 }

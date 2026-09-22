@@ -1,8 +1,12 @@
 package com.vaPaTi.vaPaTi.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
+import com.vaPaTi.vaPaTi.service.CustomUserDetailsService.RequestUser;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +21,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @RequiredArgsConstructor
 @Component
@@ -25,8 +32,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final TokenBlackListService tokenBlackListService;
     private final CustomUserDetailsService userDetailsService;
+    private final AccountStatusValidationService accountStatusValidationService;
 
     private static final String AUTH_PATH_PREFIX = "/auth/";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     // /auth/** endpoints read their own tokens (login, refresh, logout)
     @Override
@@ -68,8 +77,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             final String userEmail = jwtService.extractUsername(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                // Missing, deleted or disabled accounts throw here and stay unauthenticated (401)
+                RequestUser requestUser = this.userDetailsService.loadUserForRequest(userEmail);
 
+                // Banned or suspended accounts are cut with 403, with the same message as the login
+                try {
+                    accountStatusValidationService.validateNotBlocked(requestUser.user());
+                } catch (ForbiddenActionException e) {
+                    writeForbidden(request, response, e.getMessage());
+                    return;
+                }
+
+                UserDetails userDetails = requestUser.userDetails();
                 if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
@@ -87,5 +106,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    // Same {error, message, timestamp, path} shape as the entry point and access denied handler in SecurityConfig
+    private void writeForbidden(HttpServletRequest request, HttpServletResponse response, String message) throws IOException {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("error", "Forbidden");
+        body.put("message", message);
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("path", request.getRequestURI());
+
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write(OBJECT_MAPPER.writeValueAsString(body));
     }
 }

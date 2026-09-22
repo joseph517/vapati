@@ -32,6 +32,31 @@ public class CustomUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("User account is disabled");
         }
 
+        return toUserDetails(user);
+    }
+
+    // Used by the JWT filter on every request. No side effects: a deleted account is rejected, never restored.
+    // Ban/suspension is checked by the filter itself, since it answers 403 instead of 401.
+    @Transactional
+    public RequestUser loadUserForRequest(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmailIncludingDeleted(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+
+        if (user.getDeletedAt() != null) {
+            throw new UsernameNotFoundException("User account is deleted");
+        }
+
+        if (!user.isActive()) {
+            throw new UsernameNotFoundException("User account is disabled");
+        }
+
+        // Built inside the transaction: userInfo and role are lazy
+        return new RequestUser(user, toUserDetails(user));
+    }
+
+    public record RequestUser(User user, UserDetails userDetails) {}
+
+    private UserDetails toUserDetails(User user) {
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUserInfo().getEmail())
                 .password(user.getUserInfo().getPassword())

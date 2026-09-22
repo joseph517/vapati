@@ -288,4 +288,71 @@ class CustomUserDetailsServiceTest {
                     .containsExactly("ROLE_USER");
         }
     }
+
+    @Nested
+    @DisplayName("loadUserForRequest()")
+    class LoadUserForRequestTests {
+
+        @Test
+        @DisplayName("Active account: returns the user and its UserDetails")
+        void loadUserForRequest_WithActiveUser_ShouldReturnUserAndDetails() {
+            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+
+            CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest("test@example.com");
+
+            assertThat(result.user()).isSameAs(testUser);
+            assertThat(result.userDetails().getUsername()).isEqualTo("test@example.com");
+            assertThat(result.userDetails().getAuthorities())
+                    .extracting(GrantedAuthority::getAuthority)
+                    .containsExactly("ROLE_USER");
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Deleted account: throws and is not restored")
+        void loadUserForRequest_WithDeletedUser_ShouldThrowWithoutRestoring() {
+            LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);
+            testUser.setDeletedAt(deletedAt);
+            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+
+            assertThatThrownBy(() -> userDetailsService.loadUserForRequest("test@example.com"))
+                    .isInstanceOf(UsernameNotFoundException.class)
+                    .hasMessage("User account is deleted");
+
+            assertThat(testUser.getDeletedAt()).isEqualTo(deletedAt);
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Disabled account: throws")
+        void loadUserForRequest_WithInactiveUser_ShouldThrow() {
+            testUser.setActive(false);
+            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+
+            assertThatThrownBy(() -> userDetailsService.loadUserForRequest("test@example.com"))
+                    .isInstanceOf(UsernameNotFoundException.class)
+                    .hasMessage("User account is disabled");
+        }
+
+        @Test
+        @DisplayName("Missing account: throws")
+        void loadUserForRequest_WithMissingUser_ShouldThrow() {
+            when(userRepository.findByEmailIncludingDeleted("nonexistent@example.com")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userDetailsService.loadUserForRequest("nonexistent@example.com"))
+                    .isInstanceOf(UsernameNotFoundException.class)
+                    .hasMessage("User not found with email: nonexistent@example.com");
+        }
+
+        @Test
+        @DisplayName("Banned account: returned as is (the filter answers 403)")
+        void loadUserForRequest_WithBannedUser_ShouldReturnUser() {
+            testUser.setBanned(true);
+            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+
+            CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest("test@example.com");
+
+            assertThat(result.user().getBanned()).isTrue();
+        }
+    }
 }
