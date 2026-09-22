@@ -17,6 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.SecretKey;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.function.Function;
 
@@ -459,6 +461,68 @@ class JwtServiceTest {
         long timeDifference = refreshExpiration.getTime() - normalExpiration.getTime();
         long expectedDifference = TEST_REFRESH_EXPIRATION - TEST_EXPIRATION;
         assertThat(Math.abs(timeDifference - expectedDifference)).isLessThan(1000); // 1-second margin
+    }
+
+    @Test
+    @DisplayName("Access token should carry type=access")
+    void shouldGenerateAccessTokenWithAccessType() {
+        String token = jwtService.generateToken(testUser);
+
+        assertThat(jwtService.extractTokenType(token)).isEqualTo(JwtService.ACCESS_TOKEN_TYPE);
+        assertThat(jwtService.isAccessToken(token)).isTrue();
+        assertThat(jwtService.isRefreshToken(token)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Refresh token should carry type=refresh")
+    void shouldGenerateRefreshTokenWithRefreshType() {
+        String token = jwtService.generateRefreshToken(testUser);
+
+        assertThat(jwtService.extractTokenType(token)).isEqualTo(JwtService.REFRESH_TOKEN_TYPE);
+        assertThat(jwtService.isRefreshToken(token)).isTrue();
+        assertThat(jwtService.isAccessToken(token)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Token without type claim should be neither access nor refresh")
+    void shouldTreatTokenWithoutTypeAsNeitherAccessNorRefresh() {
+        SecretKey key = Keys.hmacShaKeyFor(TEST_SECRET.getBytes());
+        String legacyToken = Jwts.builder()
+                .setSubject(testUser.getUserInfo().getEmail())
+                .setId("legacy-jti")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 3600000))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+
+        assertThat(jwtService.extractTokenType(legacyToken)).isNull();
+        assertThat(jwtService.isAccessToken(legacyToken)).isFalse();
+        assertThat(jwtService.isRefreshToken(legacyToken)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should extract jti and a unique jti per token")
+    void shouldExtractJti() {
+        String token1 = jwtService.generateToken(testUser);
+        String token2 = jwtService.generateRefreshToken(testUser);
+
+        String jti1 = jwtService.extractJti(token1);
+        String jti2 = jwtService.extractJti(token2);
+
+        assertThat(jti1).isNotBlank().hasSize(36);
+        assertThat(jti2).isNotBlank().hasSize(36);
+        assertThat(jti1).isNotEqualTo(jti2);
+    }
+
+    @Test
+    @DisplayName("Should extract expiration as LocalDateTime matching the Date expiration")
+    void shouldExtractExpirationAsLocalDateTime() {
+        String token = jwtService.generateRefreshToken(testUser);
+
+        LocalDateTime expiration = jwtService.extractExpirationDateTime(token);
+        Date expected = jwtService.extractExpiration(token);
+
+        assertThat(expiration.atZone(ZoneId.systemDefault()).toInstant()).isEqualTo(expected.toInstant());
     }
 
 }

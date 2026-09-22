@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +21,10 @@ import java.util.function.Function;
 public class JwtService {
 
     private static final String USER_ID_CLAIM = "userId";
+    private static final String TOKEN_TYPE_CLAIM = "type";
+
+    public static final String ACCESS_TOKEN_TYPE = "access";
+    public static final String REFRESH_TOKEN_TYPE = "refresh";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -48,6 +54,7 @@ public class JwtService {
         claims.put("lastName", user.getUserInfo().getLastName());
         claims.put("userName", user.getUserInfo().getUserName());
         claims.put("email", user.getUserInfo().getEmail());
+        claims.put(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE);
 
         return generateToken(claims, user.getUserInfo().getEmail(), jwtExpirationMs);
     }
@@ -58,6 +65,7 @@ public class JwtService {
         }
         Map<String, Object> refreshClaims = new HashMap<>();
         refreshClaims.put(USER_ID_CLAIM, user.getId());
+        refreshClaims.put(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE);
         return generateToken(refreshClaims, user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
     }
 
@@ -82,6 +90,27 @@ public class JwtService {
 
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    public LocalDateTime extractExpirationDateTime(String token) {
+        return LocalDateTime.ofInstant(extractExpiration(token).toInstant(), ZoneId.systemDefault());
+    }
+
+    public String extractJti(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
+    // Returns null for tokens issued without the "type" claim
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get(TOKEN_TYPE_CLAIM, String.class));
+    }
+
+    public boolean isAccessToken(String token) {
+        return ACCESS_TOKEN_TYPE.equals(extractTokenType(token));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return REFRESH_TOKEN_TYPE.equals(extractTokenType(token));
     }
 
     // Method to extract all user data at once
