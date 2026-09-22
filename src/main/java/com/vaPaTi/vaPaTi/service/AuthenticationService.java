@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,13 +24,13 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-    private static final String DEFAULT_VIOLATION_REASON = "Violation of terms";
     private static final String INVALID_REFRESH_TOKEN_MSG = "Invalid or expired refresh token";
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final TokenBlackListService tokenBlackListService;
+    private final AccountStatusValidationService accountStatusValidationService;
 
     @Transactional
     public AuthResponse authenticate(AuthRequest request) {
@@ -176,15 +177,7 @@ public class AuthenticationService {
             throw new ForbiddenActionException("User account is disabled");
         }
 
-        if (user.getBanned() != null && user.getBanned()) {
-            throw new ForbiddenActionException("Your account has been banned. Reason: " +
-                (user.getBannedReason() != null ? user.getBannedReason() : DEFAULT_VIOLATION_REASON));
-        }
-
-        if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
-            throw new ForbiddenActionException("Your account is suspended until " + user.getSuspendedUntil() +
-                ". Reason: " + (user.getBannedReason() != null ? user.getBannedReason() : DEFAULT_VIOLATION_REASON));
-        }
+        accountStatusValidationService.validateNotBlocked(user);
     }
 
     private AuthResponse generateAuthResponse(User user) {

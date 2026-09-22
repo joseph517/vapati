@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.service.AuthenticationService;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -70,7 +71,7 @@ class RefreshTokenServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthenticationService(userRepository, jwtService, authenticationManager, tokenBlackListService);
+        authService = new AuthenticationService(userRepository, jwtService, authenticationManager, tokenBlackListService, new AccountStatusValidationService());
 
         // Setup test data
         validRefreshToken = "valid.refresh.token";
@@ -562,7 +563,7 @@ class RefreshTokenServiceTest {
             ReflectionTestUtils.setField(realJwtService, "jwtExpirationMs", 3600000L);
             ReflectionTestUtils.setField(realJwtService, "jwtRefreshExpirationMs", 604800000L);
             realJwtService.init();
-            realAuthService = new AuthenticationService(userRepository, realJwtService, authenticationManager, tokenBlackListService);
+            realAuthService = new AuthenticationService(userRepository, realJwtService, authenticationManager, tokenBlackListService, new AccountStatusValidationService());
         }
 
         @Test

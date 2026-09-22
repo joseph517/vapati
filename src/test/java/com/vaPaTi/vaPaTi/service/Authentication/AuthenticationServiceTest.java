@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.service.AuthenticationService;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -26,6 +27,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -56,6 +58,8 @@ class AuthenticationServiceTest {
     private Authentication authentication;
     @Mock
     private TokenBlackListService tokenBlackListService;
+    @Spy
+    private AccountStatusValidationService accountStatusValidationService = new AccountStatusValidationService();
     @InjectMocks
     private AuthenticationService authenticationService;
 
@@ -491,7 +495,7 @@ class AuthenticationServiceTest {
             ReflectionTestUtils.setField(realJwtService, "jwtExpirationMs", 3600000L);
             ReflectionTestUtils.setField(realJwtService, "jwtRefreshExpirationMs", 604800000L);
             realJwtService.init();
-            logoutService = new AuthenticationService(userRepository, realJwtService, authenticationManager, tokenBlackListService);
+            logoutService = new AuthenticationService(userRepository, realJwtService, authenticationManager, tokenBlackListService, new AccountStatusValidationService());
 
             user = buildUser(1L, "test@example.com");
             otherUser = buildUser(2L, "other@example.com");
