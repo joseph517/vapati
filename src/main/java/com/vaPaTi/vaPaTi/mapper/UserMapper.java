@@ -1,8 +1,10 @@
 package com.vaPaTi.vaPaTi.mapper;
 
+import com.vaPaTi.vaPaTi.dtos.PublicUserProfileDTO;
 import com.vaPaTi.vaPaTi.dtos.UserDTO;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserCategory;
+import com.vaPaTi.vaPaTi.entity.UserInfo;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +40,26 @@ public class UserMapper {
                             .map(bankAccountMapper::toDto)
                             .toList()
             );
+        }
+
+        return dto;
+    }
+
+    public PublicUserProfileDTO toPublicUserProfileDTO(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        PublicUserProfileDTO dto = new PublicUserProfileDTO();
+        dto.setId(user.getId());
+        dto.setCategories(mapCategories(user.getUserCategories()));
+        UserInfo userInfo = user.getUserInfo();
+        if (userInfo != null) {
+            dto.setFirstName(userInfo.getFirstName());
+            dto.setLastName(userInfo.getLastName());
+            dto.setUserName(userInfo.getUserName());
+            dto.setDescription(userInfo.getDescription());
+            dto.setProfilePicture(userInfo.getProfilePicture());
         }
 
         return dto;

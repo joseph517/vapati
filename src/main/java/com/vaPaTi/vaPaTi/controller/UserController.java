@@ -46,7 +46,9 @@ public class UserController {
     }
 
     @PutMapping("/update")
-    @Operation(summary = "Update user", description = "Update user by ID")
+    @Operation(summary = "Update user",
+            description = "Updates the authenticated user. Changing the password, or the email to a different one, requires currentPassword "
+                    + "(400 if missing or incorrect) and invalidates every session, including the current one: the user has to log in again")
     public ResponseEntity<UserDTO> updateUser(@RequestBody UpdateUserDTO dto) {
         return ResponseEntity.ok(userService.updateUser(dto));
     }
@@ -61,10 +63,11 @@ public class UserController {
         ));
     }
     @GetMapping("/{id}")
-    @Operation(summary = "Get user by ID", description = "Get user by ID")
-    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
-        UserDTO userDTO = userService.getUserById(id);
-        return ResponseEntity.ok(userDTO);
+    @Operation(summary = "Get user by ID",
+            description = "The user themselves and any ADMIN get the full UserDTO (userInfo with email and phone, verified, bankAccounts). "
+                    + "Anyone else gets a PublicUserProfileDTO: id, categories, firstName, lastName, userName, description and profilePicture")
+    public ResponseEntity<Object> getUserById(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getUserById(id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

@@ -136,14 +136,20 @@ public class UserService {
         userRepository.save(user);
     }
 
-    public UserDTO getUserById(Long id) {
+    // The user themselves and any ADMIN get the full UserDTO; anyone else gets the PublicUserProfileDTO
+    public Object getUserById(Long id) {
         if (id == null || id <= 0) {
             throw new MessageException("ID must be a positive number");
         }
         
         User user = userRepository.findByIdWithFullDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
-        return userMapper.toUserDTO(user);
+
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+        if (id.equals(callerId) || userValidationService.isAdmin(callerId)) {
+            return userMapper.toUserDTO(user);
+        }
+        return userMapper.toPublicUserProfileDTO(user);
     }
 
 }

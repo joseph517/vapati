@@ -494,4 +494,54 @@ class UserValidationServiceUserRetrievalTest {
         }
     }
 
+    @Nested
+    @DisplayName("isAdmin()")
+    class IsAdminTests {
+
+        private User userWithRole(String roleName) {
+            return User.builder()
+                    .id(VALID_USER_ID)
+                    .role(Role.builder().id(1L).name(roleName).build())
+                    .build();
+        }
+
+        @Test
+        @DisplayName("User with ADMIN role: true")
+        void isAdmin_WithAdminRole_ShouldReturnTrue() {
+            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.of(userWithRole("ADMIN")));
+
+            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isTrue();
+        }
+
+        @Test
+        @DisplayName("User with USER role: false")
+        void isAdmin_WithUserRole_ShouldReturnFalse() {
+            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.of(userWithRole("USER")));
+
+            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isFalse();
+        }
+
+        @Test
+        @DisplayName("User without role: false")
+        void isAdmin_WithoutRole_ShouldReturnFalse() {
+            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.of(User.builder().id(VALID_USER_ID).build()));
+
+            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Missing or deleted user: false")
+        void isAdmin_WithMissingUser_ShouldReturnFalse() {
+            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.empty());
+
+            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Null id: false without querying")
+        void isAdmin_WithNullId_ShouldReturnFalse() {
+            assertThat(userValidationService.isAdmin(null)).isFalse();
+            verifyNoInteractions(userRepository);
+        }
+    }
 }

@@ -32,6 +32,7 @@ public class UserValidationService {
     private static final String USER_NOT_FOUND = "User not found";
     private static final String DTO_NULL_ERROR = "DTO must not be null";
     private static final String USER_NULL_ERROR = "User must not be null";
+    private static final String ADMIN_ROLE = "ADMIN";
     private static final Set<Character> SPECIAL_CHARS = Set.of(
             '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
             ',', '.', '?', '"', ':', '{', '}', '|', '<', '>'
@@ -212,6 +213,16 @@ public class UserValidationService {
     public User getUserById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
+    }
+
+    // Read from the database, not from the token claim, which goes stale if the role changes
+    public boolean isAdmin(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        return userRepository.findById(userId)
+                .map(user -> user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName()))
+                .orElse(false);
     }
 
     public boolean existsById(Long id) {
