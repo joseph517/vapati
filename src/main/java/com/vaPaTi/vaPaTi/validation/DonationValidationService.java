@@ -7,7 +7,6 @@ import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
@@ -17,7 +16,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DonationValidationService {
 
-    private final CampaignRepository campaignRepository;
+    private final CampaignServiceValidation campaignServiceValidation;
     private final UserRepository userRepository;
 
     public void validateInput(@NotNull CreateDonationDTO dto) {
@@ -32,9 +31,9 @@ public class DonationValidationService {
         }
     }
 
-    public Campaign validateAndGetCampaign(Long campaignId) {
-        Campaign campaign = campaignRepository.findByIdWithActiveOwner(campaignId)
-                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with id: " + campaignId));
+    // callerId may be null (anonymous). A CLOSED campaign of someone else is reported as not found
+    public Campaign validateAndGetCampaign(Long campaignId, Long callerId) {
+        Campaign campaign = campaignServiceValidation.findVisibleCampaignByIdOrThrow(campaignId, callerId);
 
         if (campaign.getDeletedAt() != null) {
             throw new MessageException("Cannot donate to a deleted campaign");
