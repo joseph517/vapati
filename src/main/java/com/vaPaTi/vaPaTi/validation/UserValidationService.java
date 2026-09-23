@@ -235,6 +235,41 @@ public class UserValidationService {
         userInfo.setUpdatedAt(LocalDateTime.now());
     }
 
+    // Returns true when the request changes credentials: a non-blank password, or an email different from the current one
+    // (trimmed and lowercased). Then the current password is required and must match
+    public boolean validateCredentialChange(User user, UpdateUserDTO dto) {
+        if (dto == null) {
+            throw new MessageException(DTO_NULL_ERROR);
+        }
+
+        UserInfo userInfo = getUserInfoOrThrow(user);
+        if (!changesPassword(dto) && !changesEmail(dto, userInfo)) {
+            return false;
+        }
+
+        if (!isValidString(dto.getCurrentPassword())) {
+            throw new MessageException("Current password is required to change email or password");
+        }
+
+        if (!passwordEncoder.matches(dto.getCurrentPassword(), userInfo.getPassword())) {
+            throw new MessageException("Current password is incorrect");
+        }
+
+        return true;
+    }
+
+    private boolean changesPassword(UpdateUserDTO dto) {
+        return isValidString(dto.getPassword());
+    }
+
+    private boolean changesEmail(UpdateUserDTO dto, UserInfo userInfo) {
+        if (!isValidString(dto.getEmail())) {
+            return false;
+        }
+        String currentEmail = userInfo.getEmail() == null ? null : userInfo.getEmail().trim().toLowerCase();
+        return !dto.getEmail().trim().toLowerCase().equals(currentEmail);
+    }
+
     public void updateUserInfo( User user, UpdateUserDTO dto) {
 
         if (dto == null) {

@@ -10,6 +10,7 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -565,4 +566,104 @@ class UserValidationServiceUserUpdateTest {
         verifyNoInteractions(userInfoRepository);
     }
 
+    @Nested
+    @DisplayName("validateCredentialChange()")
+    class ValidateCredentialChangeTests {
+
+        private static final String REQUIRED_MSG = "Current password is required to change email or password";
+        private static final String INCORRECT_MSG = "Current password is incorrect";
+
+        @BeforeEach
+        void linkUserInfo() {
+            testUser.setUserInfo(testUserInfo);
+        }
+
+        @Test
+        @DisplayName("Without email or password: no credential change, currentPassword not required")
+        void withoutEmailOrPassword_ShouldReturnFalse() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().description("New description").build();
+
+            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isFalse();
+            verifyNoInteractions(passwordEncoder);
+        }
+
+        @Test
+        @DisplayName("Same email in another case and with spaces: no credential change")
+        void withSameEmailOtherCase_ShouldReturnFalse() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().email("  JOHN.Doe@Example.COM ").description("x").build();
+
+            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isFalse();
+            verifyNoInteractions(passwordEncoder);
+        }
+
+        @Test
+        @DisplayName("Blank password: not a credential change")
+        void withBlankPassword_ShouldReturnFalse() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().password("   ").build();
+
+            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isFalse();
+            verifyNoInteractions(passwordEncoder);
+        }
+
+        @Test
+        @DisplayName("New password without currentPassword: required error, nothing modified")
+        void withPasswordWithoutCurrentPassword_ShouldThrowRequired() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").build();
+
+            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, dto))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage(REQUIRED_MSG);
+            assertThat(testUserInfo.getPassword()).isEqualTo("hashedPassword123");
+            verifyNoInteractions(passwordEncoder);
+        }
+
+        @Test
+        @DisplayName("Different email with blank currentPassword: required error, nothing modified")
+        void withDifferentEmailAndBlankCurrentPassword_ShouldThrowRequired() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().email("new@example.com").currentPassword("  ").build();
+
+            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, dto))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage(REQUIRED_MSG);
+            assertThat(testUserInfo.getEmail()).isEqualTo("john.doe@example.com");
+        }
+
+        @Test
+        @DisplayName("Wrong currentPassword: incorrect error")
+        void withWrongCurrentPassword_ShouldThrowIncorrect() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("wrong").build();
+            when(passwordEncoder.matches("wrong", "hashedPassword123")).thenReturn(false);
+
+            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, dto))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage(INCORRECT_MSG);
+            assertThat(testUserInfo.getPassword()).isEqualTo("hashedPassword123");
+        }
+
+        @Test
+        @DisplayName("Correct currentPassword with a new password: credential change")
+        void withCorrectCurrentPasswordAndNewPassword_ShouldReturnTrue() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("Passw0rd!").build();
+            when(passwordEncoder.matches("Passw0rd!", "hashedPassword123")).thenReturn(true);
+
+            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Correct currentPassword with a different email: credential change")
+        void withCorrectCurrentPasswordAndNewEmail_ShouldReturnTrue() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().email("new@example.com").currentPassword("Passw0rd!").build();
+            when(passwordEncoder.matches("Passw0rd!", "hashedPassword123")).thenReturn(true);
+
+            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Null DTO: throws")
+        void withNullDto_ShouldThrow() {
+            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, null))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("DTO must not be null");
+        }
+    }
 }

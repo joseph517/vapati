@@ -35,4 +35,8 @@ public class UpdateUserDTO {
     private String description;
     @Nullable
     private String profilePicture;
+
+    // Required only when the request changes the password or the email
+    @Nullable
+    private String currentPassword;
 }

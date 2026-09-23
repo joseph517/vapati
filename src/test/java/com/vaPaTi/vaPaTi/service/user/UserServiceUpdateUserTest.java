@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.service.UserService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
@@ -479,4 +480,82 @@ class UserServiceUpdateUserTest {
         verify(userMapper).toUserDTO(mockUser);
     }
 
+    @Nested
+    @DisplayName("Credential change (currentPassword and tokensValidAfter)")
+    class CredentialChangeTests {
+
+        @BeforeEach
+        void setUpUser() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+        }
+
+        @Test
+        @DisplayName("Without credential change: tokensValidAfter stays null")
+        void withoutCredentialChange_ShouldNotSetTokensValidAfter() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().description("New description").build();
+            when(userValidationService.validateCredentialChange(mockUser, dto)).thenReturn(false);
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+
+            userService.updateUser(dto);
+
+            assertNull(mockUser.getTokensValidAfter());
+            inOrder.verify(userValidationService).validateCredentialChange(mockUser, dto);
+            inOrder.verify(userValidationService).updateTimestamp(mockUser);
+            inOrder.verify(userValidationService).updateUserInfo(mockUser, dto);
+            inOrder.verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("With credential change: sets tokensValidAfter before saving")
+        void withCredentialChange_ShouldSetTokensValidAfter() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("Passw0rd!").build();
+            when(userValidationService.validateCredentialChange(mockUser, dto)).thenReturn(true);
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            LocalDateTime before = LocalDateTime.now();
+
+            userService.updateUser(dto);
+
+            assertNotNull(mockUser.getTokensValidAfter());
+            assertFalse(mockUser.getTokensValidAfter().isBefore(before));
+            verify(userValidationService).updateUserInfo(mockUser, dto);
+            verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("Missing currentPassword: 400 required and no field is modified")
+        void withoutCurrentPassword_ShouldNotModifyAnything() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").description("x").build();
+            LocalDateTime originalUpdatedAt = mockUser.getUpdatedAt();
+            when(userValidationService.validateCredentialChange(mockUser, dto))
+                    .thenThrow(new MessageException("Current password is required to change email or password"));
+
+            MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
+
+            assertEquals("Current password is required to change email or password", exception.getMessage());
+            assertNull(mockUser.getTokensValidAfter());
+            assertEquals(originalUpdatedAt, mockUser.getUpdatedAt());
+            verify(userValidationService, never()).updateTimestamp(any());
+            verify(userValidationService, never()).updateUserInfo(any(), any());
+            verify(userValidationService, never()).updateUserCategories(any(), any());
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Wrong currentPassword: 400 incorrect and no field is modified")
+        void withWrongCurrentPassword_ShouldNotModifyAnything() {
+            UpdateUserDTO dto = UpdateUserDTO.builder().email("new@example.com").currentPassword("wrong").build();
+            when(userValidationService.validateCredentialChange(mockUser, dto))
+                    .thenThrow(new MessageException("Current password is incorrect"));
+
+            MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
+
+            assertEquals("Current password is incorrect", exception.getMessage());
+            assertNull(mockUser.getTokensValidAfter());
+            verify(userValidationService, never()).updateUserInfo(any(), any());
+            verify(userRepository, never()).save(any());
+        }
+    }
 }

@@ -92,6 +92,10 @@ public class UserService {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
         User user = userValidationService.getUserById(userId);
+
+        // Before any field is modified: changing the email or password requires the current password
+        boolean credentialsChanged = userValidationService.validateCredentialChange(user, dto);
+
         userValidationService.updateTimestamp(user);
 
         // Update user fields
@@ -110,6 +114,11 @@ public class UserService {
             // Process categories (validate that they exist)
             List<Category> categories = userValidationService.processCategories(dto.getCategoryIds());
             userValidationService.updateUserCategories(user, categories);
+        }
+
+        // Invalidates every access and refresh token issued so far, including the current session
+        if (credentialsChanged) {
+            user.setTokensValidAfter(LocalDateTime.now());
         }
 
         User savedUser = userRepository.save(user);
