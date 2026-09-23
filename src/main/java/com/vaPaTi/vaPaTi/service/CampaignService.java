@@ -43,8 +43,12 @@ public class CampaignService {
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
 
+    // Public listings: admins see every campaign, everyone else (anonymous included) only their own CLOSED ones
     public List<CampaignResponseDTO> getAllCampaigns() {
-        List<Campaign> campaigns = campaignRepository.findAllWithActiveOwner();
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+                ? campaignRepository.findAllWithActiveOwner()
+                : campaignRepository.findAllVisibleTo(callerId);
 
         return campaigns.stream()
                 .map(this::toResponseDTOWithCategories)
@@ -76,7 +80,10 @@ public class CampaignService {
     public List<CampaignResponseDTO> getCampaignsByStatus(String status) {
         CampaignStatus campaignStatus = campaignServiceValidation.parseStatus(status);
 
-        List<Campaign> campaigns = campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus);
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+                ? campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus)
+                : campaignRepository.findByGoalStatusVisibleTo(campaignStatus, callerId);
 
         return campaigns.stream()
                 .map(this::toResponseDTOWithCategories)
@@ -84,7 +91,10 @@ public class CampaignService {
     }
 
     public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
-        List<Campaign> campaigns = campaignRepository.findByCategoryIdWithActiveOwner(categoryId);
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+                ? campaignRepository.findByCategoryIdWithActiveOwner(categoryId)
+                : campaignRepository.findByCategoryIdVisibleTo(categoryId, callerId);
 
         return campaigns.stream()
                 .map(this::toResponseDTOWithCategories)
