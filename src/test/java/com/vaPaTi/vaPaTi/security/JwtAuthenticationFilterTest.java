@@ -37,6 +37,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -46,6 +47,7 @@ class JwtAuthenticationFilterTest {
 
     private static final String TEST_SECRET = "mySecretKeyForTestingThatIsLongEnoughForHS256Algorithm";
     private static final String EMAIL = "john.doe@example.com";
+    private static final Long USER_ID = 1L;
 
     @Mock
     private TokenBlackListService tokenBlackListService;
@@ -77,7 +79,7 @@ class JwtAuthenticationFilterTest {
                 .email(EMAIL)
                 .build();
         user = User.builder()
-                .id(1L)
+                .id(USER_ID)
                 .role(Role.builder().id(1L).name("USER").build())
                 .userInfo(userInfo)
                 .active(true)
@@ -101,6 +103,19 @@ class JwtAuthenticationFilterTest {
     private UserDetails userDetails() {
         return new org.springframework.security.core.userdetails.User(
                 EMAIL, "password", List.of(new SimpleGrantedAuthority("ROLE_USER")));
+    }
+
+    // Format before spec 21: access token with the email as subject
+    private String oldFormatAccessToken() {
+        return Jwts.builder()
+                .setSubject(EMAIL)
+                .claim("userId", USER_ID)
+                .claim("type", JwtService.ACCESS_TOKEN_TYPE)
+                .setId(UUID.randomUUID().toString())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 3600000))
+                .signWith(Keys.hmacShaKeyFor(TEST_SECRET.getBytes()), SignatureAlgorithm.HS256)
+                .compact();
     }
 
     private String tokenWithoutType() {
@@ -165,7 +180,7 @@ class JwtAuthenticationFilterTest {
         void shouldAuthenticateWithAccessToken() throws Exception {
             String accessToken = jwtService.generateToken(user);
             when(tokenBlackListService.isTokenRevoked(jwtService.extractJti(accessToken))).thenReturn(false);
-            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+            when(userDetailsService.loadUserForRequest(USER_ID)).thenReturn(new RequestUser(user, userDetails()));
             MockHttpServletRequest request = requestWithBearer("/api/campaigns/my-campaigns", accessToken);
             MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -213,11 +228,27 @@ class JwtAuthenticationFilterTest {
             filter.doFilter(request, response, filterChain);
 
             verify(filterChain).doFilter(request, response);
-            verify(userDetailsService, never()).loadUserForRequest(anyString());
+            verify(userDetailsService, never()).loadUserForRequest(anyLong());
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
             // The entry point writes the 401 later; the filter must not commit an error itself
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getErrorMessage()).isNull();
+        }
+
+        @Test
+        @DisplayName("Old-format access token (sub = email) leaves the request unauthenticated")
+        void shouldRejectOldFormatAccessToken() throws Exception {
+            String oldToken = oldFormatAccessToken();
+            when(tokenBlackListService.isTokenRevoked(jwtService.extractJti(oldToken))).thenReturn(false);
+            MockHttpServletRequest request = requestWithBearer("/api/campaigns/my-campaigns", oldToken);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain).doFilter(request, response);
+            verifyNoInteractions(userDetailsService);
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+            assertThat(response.getStatus()).isEqualTo(200);
         }
 
         @Test
@@ -252,7 +283,7 @@ class JwtAuthenticationFilterTest {
         @Test
         @DisplayName("Deleted account: stays unauthenticated (401) and is not restored")
         void shouldRejectDeletedAccount() throws Exception {
-            when(userDetailsService.loadUserForRequest(EMAIL))
+            when(userDetailsService.loadUserForRequest(USER_ID))
                     .thenThrow(new UsernameNotFoundException("User account is deleted"));
 
             filter.doFilter(request, response, filterChain);
@@ -266,7 +297,7 @@ class JwtAuthenticationFilterTest {
         @Test
         @DisplayName("Disabled account: stays unauthenticated (401)")
         void shouldRejectDisabledAccount() throws Exception {
-            when(userDetailsService.loadUserForRequest(EMAIL))
+            when(userDetailsService.loadUserForRequest(USER_ID))
                     .thenThrow(new UsernameNotFoundException("User account is disabled"));
 
             filter.doFilter(request, response, filterChain);
@@ -280,7 +311,7 @@ class JwtAuthenticationFilterTest {
         void shouldCutBannedAccountWith403() throws Exception {
             user.setBanned(true);
             user.setBannedReason("Spam \"quoted\"");
-            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+            when(userDetailsService.loadUserForRequest(USER_ID)).thenReturn(new RequestUser(user, userDetails()));
 
             filter.doFilter(request, response, filterChain);
 
@@ -300,7 +331,7 @@ class JwtAuthenticationFilterTest {
         @DisplayName("Suspended account (suspendedUntil in the future): 403")
         void shouldCutSuspendedAccountWith403() throws Exception {
             user.setSuspendedUntil(LocalDateTime.now().plusDays(2));
-            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+            when(userDetailsService.loadUserForRequest(USER_ID)).thenReturn(new RequestUser(user, userDetails()));
 
             filter.doFilter(request, response, filterChain);
 
@@ -314,7 +345,7 @@ class JwtAuthenticationFilterTest {
         @DisplayName("Expired suspension (suspendedUntil in the past): authenticated")
         void shouldAuthenticateWithExpiredSuspension() throws Exception {
             user.setSuspendedUntil(LocalDateTime.now().minusDays(1));
-            when(userDetailsService.loadUserForRequest(EMAIL)).thenReturn(new RequestUser(user, userDetails()));
+            when(userDetailsService.loadUserForRequest(USER_ID)).thenReturn(new RequestUser(user, userDetails()));
 
             filter.doFilter(request, response, filterChain);
 

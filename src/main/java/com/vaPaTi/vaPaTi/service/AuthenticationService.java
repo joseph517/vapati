@@ -71,10 +71,11 @@ public class AuthenticationService {
         validateRefreshToken(refreshToken);
 
         try {
-            String email = jwtService.extractUsername(refreshToken);
+            // A non-numeric subject (old tokens, sub = email) throws and ends in 401
+            Long userId = jwtService.extractSubjectUserId(refreshToken);
 
             // Only non-expired refresh tokens are accepted (access tokens and tokens without "type" are rejected)
-            if (!jwtService.isTokenValid(refreshToken, email) || !jwtService.isRefreshToken(refreshToken)) {
+            if (!jwtService.isTokenValid(refreshToken, userId) || !jwtService.isRefreshToken(refreshToken)) {
                 throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
             }
 
@@ -83,7 +84,9 @@ public class AuthenticationService {
                 throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
             }
 
-            User user = findUserByEmail(email);
+            // findById doesn't see deleted accounts, so a deleted account gets 401 as well
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG));
             validateUserStatus(user);
 
             // Rotation: the used refresh token can't be used again
@@ -167,14 +170,6 @@ public class AuthenticationService {
         if (token == null || token.trim().isEmpty()) {
             throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
         }
-    }
-
-    // findAllWithDetails doesn't return deleted users, so a deleted account gets 401 as well
-    private User findUserByEmail(String email) {
-        return userRepository.findAllWithDetails().stream()
-                .filter(u -> u.getUserInfo().getEmail().equalsIgnoreCase(email))
-                .findFirst()
-                .orElseThrow(() -> new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG));
     }
 
     private void validateUserStatus(User user) {

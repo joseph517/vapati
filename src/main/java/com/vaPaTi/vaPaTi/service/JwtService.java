@@ -73,7 +73,7 @@ public class JwtService {
         claims.put("email", user.getUserInfo().getEmail());
         claims.put(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE);
 
-        return generateToken(claims, user.getUserInfo().getEmail(), jwtExpirationMs);
+        return generateToken(claims, String.valueOf(user.getId()), jwtExpirationMs);
     }
 
     public String generateRefreshToken( User user) {
@@ -83,7 +83,7 @@ public class JwtService {
         Map<String, Object> refreshClaims = new HashMap<>();
         refreshClaims.put(USER_ID_CLAIM, user.getId());
         refreshClaims.put(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE);
-        return generateToken(refreshClaims, user.getUserInfo().getEmail(), jwtRefreshExpirationMs);
+        return generateToken(refreshClaims, String.valueOf(user.getId()), jwtRefreshExpirationMs);
     }
 
     private String generateToken(Map<String, Object> extraClaims, String subject, long expirationMs) {
@@ -101,8 +101,9 @@ public class JwtService {
                 .compact();
     }
 
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+    // The subject is the user id. A non-numeric subject (old tokens, sub = email) throws NumberFormatException
+    public Long extractSubjectUserId(String token) {
+        return Long.valueOf(extractClaim(token, Claims::getSubject));
     }
 
     public Date extractExpiration(String token) {
@@ -135,7 +136,7 @@ public class JwtService {
         Claims claims = parseToken(token);
         return UserTokenData.builder()
                 .userId(claims.get(USER_ID_CLAIM, Long.class))
-                .email(claims.getSubject())
+                .email(claims.get("email", String.class))
                 .role(claims.get("role", String.class))
                 .firstName(claims.get("firstName", String.class))
                 .lastName(claims.get("lastName", String.class))
@@ -162,13 +163,13 @@ public class JwtService {
                 .getBody();
     }
 
-    public boolean isTokenValid(String token, String userEmail) {
+    public boolean isTokenValid(String token, Long userId) {
         try {
-            final String username = extractUsername(token);
-            return (username.equals(userEmail) && !isTokenExpired(token));
+            final Long subjectUserId = extractSubjectUserId(token);
+            return (subjectUserId.equals(userId) && !isTokenExpired(token));
         } catch (ExpiredJwtException e) {
             return false;
-        } catch (JwtException e) {
+        } catch (JwtException | NumberFormatException e) {
             return false;
         }
     }

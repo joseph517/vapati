@@ -92,7 +92,7 @@ class JwtServiceTest {
             SecretKey key = Keys.hmacShaKeyFor(TEST_SECRET.getBytes());
             Date pastDate = new Date(System.currentTimeMillis() - 3600000); // 1 hour ago
             expiredToken = Jwts.builder()
-                    .setSubject(testUser.getUserInfo().getEmail())
+                    .setSubject(String.valueOf(testUser.getId()))
                     .setIssuedAt(new Date(System.currentTimeMillis() - 7200000))
                     .setExpiration(pastDate)
                     .signWith(key, SignatureAlgorithm.HS256)
@@ -171,9 +171,9 @@ class JwtServiceTest {
         assertThat(refreshToken).isNotNull();
         assertThat(refreshToken.split("\\.")).hasSize(3);
 
-        // Verify it contains only minimal claims
-        String extractedEmail = jwtService.extractUsername(refreshToken);
-        assertThat(extractedEmail).isEqualTo(testUser.getUserInfo().getEmail());
+        // Verify it contains only minimal claims: the subject is the user id and there is no email claim
+        assertThat(jwtService.extractSubjectUserId(refreshToken)).isEqualTo(testUser.getId());
+        assertThat(jwtService.extractUserData(refreshToken).getEmail()).isNull();
 
         // Refresh token should have a longer expiration
         Date expiration = jwtService.extractExpiration(refreshToken);
@@ -190,21 +190,55 @@ class JwtServiceTest {
     }
 
     @Test
-    @DisplayName("Should correctly extract username from valid token")
-    void shouldExtractUsernameFromValidToken() {
+    @DisplayName("Should use the user id as subject of the access token")
+    void shouldExtractSubjectUserIdFromValidToken() {
         // When
-        String extractedUsername = jwtService.extractUsername(validToken);
+        Long subjectUserId = jwtService.extractSubjectUserId(validToken);
 
         // Then
-        assertThat(extractedUsername).isEqualTo(testUser.getUserInfo().getEmail());
+        assertThat(subjectUserId).isEqualTo(testUser.getId());
+        assertThat(jwtService.extractClaim(validToken, Claims::getSubject)).isEqualTo("1");
     }
 
     @Test
-    @DisplayName("Should throw exception when extracting username from invalid token")
-    void shouldThrowExceptionWhenExtractingUsernameFromInvalidToken() {
+    @DisplayName("Should throw exception when extracting subject user id from invalid token")
+    void shouldThrowExceptionWhenExtractingSubjectUserIdFromInvalidToken() {
         // When & Then
-        assertThatThrownBy(() -> jwtService.extractUsername(invalidToken))
+        assertThatThrownBy(() -> jwtService.extractSubjectUserId(invalidToken))
                 .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    @DisplayName("Should throw NumberFormatException for an old-format token with the email as subject")
+    void shouldThrowWhenExtractingSubjectUserIdFromOldFormatToken() {
+        // Given
+        String oldFormatToken = oldFormatToken();
+
+        // When & Then
+        assertThatThrownBy(() -> jwtService.extractSubjectUserId(oldFormatToken))
+                .isInstanceOf(NumberFormatException.class);
+    }
+
+    @Test
+    @DisplayName("Should reject an old-format token with the email as subject")
+    void shouldRejectOldFormatTokenDuringValidation() {
+        // When
+        boolean isValid = jwtService.isTokenValid(oldFormatToken(), testUser.getId());
+
+        // Then
+        assertThat(isValid).isFalse();
+    }
+
+    private String oldFormatToken() {
+        SecretKey key = Keys.hmacShaKeyFor(TEST_SECRET.getBytes());
+        return Jwts.builder()
+                .setSubject(testUser.getUserInfo().getEmail())
+                .claim("userId", testUser.getId())
+                .claim("type", JwtService.ACCESS_TOKEN_TYPE)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + TEST_EXPIRATION))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     @Test
@@ -249,7 +283,7 @@ class JwtServiceTest {
         // Given - create token with partial claims
         SecretKey key = Keys.hmacShaKeyFor(TEST_SECRET.getBytes());
         String tokenWithPartialClaims = Jwts.builder()
-                .setSubject(testUser.getUserInfo().getEmail())
+                .setSubject(String.valueOf(testUser.getId()))
                 .claim("userId", testUser.getId())
                 // Intentionally omit some claims
                 .setIssuedAt(new Date())
@@ -263,7 +297,7 @@ class JwtServiceTest {
         // Then
         assertThat(userData).isNotNull();
         assertThat(userData.getUserId()).isEqualTo(testUser.getId());
-        assertThat(userData.getEmail()).isEqualTo(testUser.getUserInfo().getEmail());
+        assertThat(userData.getEmail()).isNull();
         assertThat(userData.getRole()).isNull();
         assertThat(userData.getFirstName()).isNull();
         assertThat(userData.getLastName()).isNull();
@@ -288,7 +322,7 @@ class JwtServiceTest {
         String subject = jwtService.extractClaim(validToken, subjectResolver);
 
         // Then
-        assertThat(subject).isEqualTo(testUser.getUserInfo().getEmail());
+        assertThat(subject).isEqualTo(String.valueOf(testUser.getId()));
     }
 
     @Test
@@ -324,20 +358,20 @@ class JwtServiceTest {
     }
 
     @Test
-    @DisplayName("Should validate token correctly with matching email")
-    void shouldValidateTokenWithMatchingEmail() {
+    @DisplayName("Should validate token correctly with matching user id")
+    void shouldValidateTokenWithMatchingUserId() {
         // When
-        boolean isValid = jwtService.isTokenValid(validToken, testUser.getUserInfo().getEmail());
+        boolean isValid = jwtService.isTokenValid(validToken, testUser.getId());
 
         // Then
         assertThat(isValid).isTrue();
     }
 
     @Test
-    @DisplayName("Should reject token with non-matching email")
-    void shouldRejectTokenWithNonMatchingEmail() {
+    @DisplayName("Should reject token with non-matching user id")
+    void shouldRejectTokenWithNonMatchingUserId() {
         // When
-        boolean isValid = jwtService.isTokenValid(validToken, "different@example.com");
+        boolean isValid = jwtService.isTokenValid(validToken, 2L);
 
         // Then
         assertThat(isValid).isFalse();
@@ -347,7 +381,7 @@ class JwtServiceTest {
     @DisplayName("Should reject expired token")
     void shouldRejectExpiredToken() {
         // When
-        boolean isValid = jwtService.isTokenValid(expiredToken, testUser.getUserInfo().getEmail());
+        boolean isValid = jwtService.isTokenValid(expiredToken, testUser.getId());
 
         // Then
         assertThat(isValid).isFalse();
@@ -360,7 +394,7 @@ class JwtServiceTest {
         String invalidToken = "eyJhbGciOiJIUzI1NiJ9.invalid-payload.invalid-signature";
 
         // When
-        boolean isValid = jwtService.isTokenValid(invalidToken, testUser.getUserInfo().getEmail());
+        boolean isValid = jwtService.isTokenValid(invalidToken, testUser.getId());
 
         // Then
         assertThat(isValid).isFalse();
@@ -371,13 +405,13 @@ class JwtServiceTest {
     @DisplayName("Should handle null token during validation")
     void shouldHandleNullTokenDuringValidation() {
         // When & Then
-        assertThatThrownBy(() -> jwtService.isTokenValid(null, testUser.getUserInfo().getEmail()))
+        assertThatThrownBy(() -> jwtService.isTokenValid(null, testUser.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    @DisplayName("Should handle null email during validation")
-    void shouldHandleNullEmailDuringValidation() {
+    @DisplayName("Should handle null user id during validation")
+    void shouldHandleNullUserIdDuringValidation() {
         // When
         boolean isValid = jwtService.isTokenValid(validToken, null);
 
@@ -391,14 +425,14 @@ class JwtServiceTest {
         // Given - token signed with different key
         SecretKey differentKey = Keys.hmacShaKeyFor("differentSecretKeyForTestingPurposes123".getBytes());
         String tokenWithDifferentSignature = Jwts.builder()
-                .setSubject(testUser.getUserInfo().getEmail())
+                .setSubject(String.valueOf(testUser.getId()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + TEST_EXPIRATION))
                 .signWith(differentKey, SignatureAlgorithm.HS256)
                 .compact();
 
         // When & Then
-        assertThatThrownBy(() -> jwtService.extractUsername(tokenWithDifferentSignature))
+        assertThatThrownBy(() -> jwtService.extractSubjectUserId(tokenWithDifferentSignature))
                 .isInstanceOf(SignatureException.class);
     }
 
@@ -409,7 +443,7 @@ class JwtServiceTest {
         String malformedToken = "this.is.malformed";
 
         // When & Then
-        assertThatThrownBy(() -> jwtService.extractUsername(malformedToken))
+        assertThatThrownBy(() -> jwtService.extractSubjectUserId(malformedToken))
                 .isInstanceOf(MalformedJwtException.class);
     }
 
@@ -424,11 +458,9 @@ class JwtServiceTest {
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
 
-        // When
-        String username = jwtService.extractUsername(tokenWithoutClaims);
-
-        // Then
-        assertThat(username).isNull();
+        // When & Then: without subject there is no user id
+        assertThatThrownBy(() -> jwtService.extractSubjectUserId(tokenWithoutClaims))
+                .isInstanceOf(NumberFormatException.class);
     }
 
     @Test
@@ -442,8 +474,8 @@ class JwtServiceTest {
         assertThat(token1).isNotEqualTo(token2);
 
         // But both should be valid for the same user
-        assertThat(jwtService.isTokenValid(token1, testUser.getUserInfo().getEmail())).isTrue();
-        assertThat(jwtService.isTokenValid(token2, testUser.getUserInfo().getEmail())).isTrue();
+        assertThat(jwtService.isTokenValid(token1, testUser.getId())).isTrue();
+        assertThat(jwtService.isTokenValid(token2, testUser.getId())).isTrue();
     }
 
     @Test

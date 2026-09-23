@@ -28,10 +28,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -112,10 +110,10 @@ class RefreshTokenServiceTest {
                 .build();
     }
 
-    // Stubs a signed, non-expired, non-revoked refresh token for the given email
-    private void stubUsableRefreshToken(String email) {
-        when(jwtService.extractUsername(validRefreshToken)).thenReturn(email);
-        when(jwtService.isTokenValid(validRefreshToken, email)).thenReturn(true);
+    // Stubs a signed, non-expired, non-revoked refresh token whose subject is the given user id
+    private void stubUsableRefreshToken(Long userId) {
+        when(jwtService.extractSubjectUserId(validRefreshToken)).thenReturn(userId);
+        when(jwtService.isTokenValid(validRefreshToken, userId)).thenReturn(true);
         when(jwtService.isRefreshToken(validRefreshToken)).thenReturn(true);
         when(jwtService.extractJti(validRefreshToken)).thenReturn(refreshJti);
         when(tokenBlackListService.isTokenRevoked(refreshJti)).thenReturn(false);
@@ -129,9 +127,9 @@ class RefreshTokenServiceTest {
     @DisplayName("Should successfully refresh token and revoke the used one when all conditions are met")
     void shouldSuccessfullyRefreshTokenWhenAllConditionsAreMet() {
         // Given
-        stubUsableRefreshToken(userEmail);
+        stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(activeUser));
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -155,7 +153,7 @@ class RefreshTokenServiceTest {
         InOrder inOrder = inOrder(jwtService, tokenBlackListService, userRepository);
         inOrder.verify(jwtService).isRefreshToken(validRefreshToken);
         inOrder.verify(tokenBlackListService).isTokenRevoked(refreshJti);
-        inOrder.verify(userRepository).findAllWithDetails();
+        inOrder.verify(userRepository).findById(activeUser.getId());
         inOrder.verify(tokenBlackListService).revokeToken(refreshJti, refreshExpiration);
         inOrder.verify(jwtService).generateToken(activeUser);
         inOrder.verify(jwtService).generateRefreshToken(activeUser);
@@ -204,8 +202,8 @@ class RefreshTokenServiceTest {
     @DisplayName("Should throw MessageException when token is invalid")
     void shouldThrowMessageExceptionWhenTokenIsInvalid() {
         // Given
-        when(jwtService.extractUsername(validRefreshToken)).thenReturn(userEmail);
-        when(jwtService.isTokenValid(validRefreshToken, userEmail)).thenReturn(false);
+        when(jwtService.extractSubjectUserId(validRefreshToken)).thenReturn(activeUser.getId());
+        when(jwtService.isTokenValid(validRefreshToken, activeUser.getId())).thenReturn(false);
 
         // When & Then
         MessageException exception = assertThrows(
@@ -221,8 +219,8 @@ class RefreshTokenServiceTest {
     @DisplayName("Should reject a token that is not of type refresh with 401")
     void shouldRejectNonRefreshToken() {
         // Given
-        when(jwtService.extractUsername(validRefreshToken)).thenReturn(userEmail);
-        when(jwtService.isTokenValid(validRefreshToken, userEmail)).thenReturn(true);
+        when(jwtService.extractSubjectUserId(validRefreshToken)).thenReturn(activeUser.getId());
+        when(jwtService.isTokenValid(validRefreshToken, activeUser.getId())).thenReturn(true);
         when(jwtService.isRefreshToken(validRefreshToken)).thenReturn(false);
 
         // When & Then
@@ -240,8 +238,8 @@ class RefreshTokenServiceTest {
     @DisplayName("Should reject a revoked refresh token with 401")
     void shouldRejectRevokedRefreshToken() {
         // Given
-        when(jwtService.extractUsername(validRefreshToken)).thenReturn(userEmail);
-        when(jwtService.isTokenValid(validRefreshToken, userEmail)).thenReturn(true);
+        when(jwtService.extractSubjectUserId(validRefreshToken)).thenReturn(activeUser.getId());
+        when(jwtService.isTokenValid(validRefreshToken, activeUser.getId())).thenReturn(true);
         when(jwtService.isRefreshToken(validRefreshToken)).thenReturn(true);
         when(jwtService.extractJti(validRefreshToken)).thenReturn(refreshJti);
         when(tokenBlackListService.isTokenRevoked(refreshJti)).thenReturn(true);
@@ -261,9 +259,9 @@ class RefreshTokenServiceTest {
     @Test
     @DisplayName("Should respond 401 (not 404) when the user is not found or deleted")
     void shouldThrowInvalidCredentialsWhenUserIsNotFound() {
-        // Given - findAllWithDetails doesn't return deleted users
-        stubUsableRefreshToken(userEmail);
-        when(userRepository.findAllWithDetails()).thenReturn(Collections.emptyList());
+        // Given - findById doesn't return deleted users
+        stubUsableRefreshToken(activeUser.getId());
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.empty());
 
         // When & Then
         InvalidCredentialsException exception = assertThrows(
@@ -276,25 +274,11 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    @DisplayName("Should respond 401 when user email does not match (case insensitive)")
-    void shouldThrowInvalidCredentialsWhenUserEmailDoesNotMatch() {
-        // Given
-        UserInfo differentUserInfo = UserInfo.builder()
-                .email("different@example.com")
-                .firstName("Jane")
-                .lastName("Smith")
-                .userName("janesmith")
-                .build();
-
-        User differentUser = User.builder()
-                .id(3L)
-                .userInfo(differentUserInfo)
-                .role(userRole)
-                .active(true)
-                .build();
-
-        stubUsableRefreshToken(userEmail);
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(differentUser));
+    @DisplayName("Should respond 401 for an old-format refresh token (sub = email)")
+    void shouldThrowInvalidCredentialsForOldFormatSubject() {
+        // Given - the subject is not numeric
+        when(jwtService.extractSubjectUserId(validRefreshToken))
+                .thenThrow(new NumberFormatException("For input string: \"user@example.com\""));
 
         // When & Then
         InvalidCredentialsException exception = assertThrows(
@@ -303,33 +287,19 @@ class RefreshTokenServiceTest {
         );
 
         assertEquals(INVALID_REFRESH_TOKEN_MSG, exception.getMessage());
-        verify(tokenBlackListService, never()).revokeToken(any(), any());
+        verifyNoInteractions(userRepository, tokenBlackListService);
     }
 
     @Test
-    @DisplayName("Should successfully find user with case insensitive email matching")
-    void shouldSuccessfullyFindUserWithCaseInsensitiveEmailMatching() {
-        // Given
-        UserInfo upperCaseUserInfo = UserInfo.builder()
-                .email("USER@EXAMPLE.COM")
-                .firstName("John")
-                .lastName("Doe")
-                .userName("johndoe")
-                .build();
-
-        User upperCaseUser = User.builder()
-                .id(1L)
-                .userInfo(upperCaseUserInfo)
-                .role(userRole)
-                .active(true)
-                .build();
-
-        String lowerCaseEmail = "user@example.com";
-        stubUsableRefreshToken(lowerCaseEmail);
+    @DisplayName("Should refresh by id even if the email changed after the token was issued")
+    void shouldRefreshByIdEvenIfEmailChanged() {
+        // Given - the session doesn't depend on the email
+        userInfo.setEmail("changed@example.com");
+        stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(upperCaseUser));
-        when(jwtService.generateToken(upperCaseUser)).thenReturn(newAccessToken);
-        when(jwtService.generateRefreshToken(upperCaseUser)).thenReturn(newRefreshToken);
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
+        when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
         // When
         AuthResponse result = authService.refreshToken(validRefreshToken);
@@ -338,15 +308,15 @@ class RefreshTokenServiceTest {
         assertNotNull(result);
         assertEquals(newAccessToken, result.getAccessToken());
         assertEquals(newRefreshToken, result.getRefreshToken());
-        assertEquals("USER@EXAMPLE.COM", result.getUserInfo().email);
+        assertEquals("changed@example.com", result.getUserInfo().email);
     }
 
     @Test
     @DisplayName("Should throw MessageException when user account is disabled")
     void shouldThrowMessageExceptionWhenUserAccountIsDisabled() {
         // Given
-        stubUsableRefreshToken(userEmail);
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(inactiveUser));
+        stubUsableRefreshToken(inactiveUser.getId());
+        when(userRepository.findById(inactiveUser.getId())).thenReturn(Optional.of(inactiveUser));
 
         // When & Then
         MessageException exception = assertThrows(
@@ -366,8 +336,8 @@ class RefreshTokenServiceTest {
         // Given
         activeUser.setBanned(true);
         activeUser.setBannedReason("Spam");
-        stubUsableRefreshToken(userEmail);
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(activeUser));
+        stubUsableRefreshToken(activeUser.getId());
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
         // When & Then
         ForbiddenActionException exception = assertThrows(
@@ -385,8 +355,8 @@ class RefreshTokenServiceTest {
     void shouldThrowForbiddenWhenUserIsSuspended() {
         // Given
         activeUser.setSuspendedUntil(LocalDateTime.now().plusDays(3));
-        stubUsableRefreshToken(userEmail);
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(activeUser));
+        stubUsableRefreshToken(activeUser.getId());
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
         // When & Then
         ForbiddenActionException exception = assertThrows(
@@ -402,9 +372,9 @@ class RefreshTokenServiceTest {
     @DisplayName("Should respond 401 when a concurrent refresh already revoked the same jti (UNIQUE violation)")
     void shouldThrowInvalidCredentialsOnConcurrentRevocation() {
         // Given
-        stubUsableRefreshToken(userEmail);
+        stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(activeUser));
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
         doThrow(new DataIntegrityViolationException("Violation of UNIQUE KEY constraint"))
                 .when(tokenBlackListService).revokeToken(refreshJti, refreshExpiration);
 
@@ -423,7 +393,7 @@ class RefreshTokenServiceTest {
     @DisplayName("Should throw MessageException when JWT service throws exception during token extraction")
     void shouldThrowMessageExceptionWhenJwtServiceThrowsExceptionDuringTokenExtraction() {
         // Given
-        when(jwtService.extractUsername(validRefreshToken))
+        when(jwtService.extractSubjectUserId(validRefreshToken))
                 .thenThrow(new RuntimeException("JWT parsing error"));
 
         // When & Then
@@ -440,8 +410,8 @@ class RefreshTokenServiceTest {
     @DisplayName("Should throw MessageException when JWT service throws exception during token validation")
     void shouldThrowMessageExceptionWhenJwtServiceThrowsExceptionDuringTokenValidation() {
         // Given
-        when(jwtService.extractUsername(validRefreshToken)).thenReturn(userEmail);
-        when(jwtService.isTokenValid(validRefreshToken, userEmail))
+        when(jwtService.extractSubjectUserId(validRefreshToken)).thenReturn(activeUser.getId());
+        when(jwtService.isTokenValid(validRefreshToken, activeUser.getId()))
                 .thenThrow(new RuntimeException("Token validation error"));
 
         // When & Then
@@ -458,8 +428,8 @@ class RefreshTokenServiceTest {
     @DisplayName("Should throw MessageException when user repository throws exception")
     void shouldThrowMessageExceptionWhenUserRepositoryThrowsException() {
         // Given
-        stubUsableRefreshToken(userEmail);
-        when(userRepository.findAllWithDetails())
+        stubUsableRefreshToken(activeUser.getId());
+        when(userRepository.findById(activeUser.getId()))
                 .thenThrow(new RuntimeException("Database connection error"));
 
         // When & Then
@@ -476,9 +446,9 @@ class RefreshTokenServiceTest {
     @DisplayName("Should throw MessageException when token generation throws exception")
     void shouldThrowMessageExceptionWhenTokenGenerationThrowsException() {
         // Given
-        stubUsableRefreshToken(userEmail);
+        stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(activeUser));
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser))
                 .thenThrow(new RuntimeException("Token generation error"));
 
@@ -493,26 +463,12 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    @DisplayName("Should handle multiple users and find correct one by email")
-    void shouldHandleMultipleUsersAndFindCorrectOneByEmail() {
+    @DisplayName("Should load the user by id without scanning all users")
+    void shouldLoadUserByIdWithoutScanningAllUsers() {
         // Given
-        UserInfo otherUserInfo = UserInfo.builder()
-                .email("other@example.com")
-                .firstName("Jane")
-                .lastName("Smith")
-                .userName("janesmith")
-                .build();
-
-        User otherUser = User.builder()
-                .id(2L)
-                .userInfo(otherUserInfo)
-                .role(userRole)
-                .active(true)
-                .build();
-
-        stubUsableRefreshToken(userEmail);
+        stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(otherUser, activeUser));
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -522,18 +478,17 @@ class RefreshTokenServiceTest {
         // Then
         assertNotNull(result);
         assertEquals(activeUser.getId(), result.getUserInfo().userId);
-        assertEquals(userEmail, result.getUserInfo().email);
-        verify(jwtService, never()).generateToken(otherUser);
-        verify(jwtService, never()).generateRefreshToken(otherUser);
+        verify(userRepository).findById(activeUser.getId());
+        verify(userRepository, never()).findAllWithDetails();
     }
 
     @Test
     @DisplayName("Should create UserInfo with correct full name concatenation")
     void shouldCreateUserInfoWithCorrectFullNameConcatenation() {
         // Given
-        stubUsableRefreshToken(userEmail);
+        stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findAllWithDetails()).thenReturn(Arrays.asList(activeUser));
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -601,12 +556,34 @@ class RefreshTokenServiceTest {
         }
 
         @Test
+        @DisplayName("An old-format refresh token (sub = email) sent to refresh responds 401")
+        void shouldRejectOldFormatRefreshToken() {
+            String oldFormatToken = Jwts.builder()
+                    .setSubject(userEmail)
+                    .claim("userId", activeUser.getId())
+                    .claim("type", JwtService.REFRESH_TOKEN_TYPE)
+                    .setId(UUID.randomUUID().toString())
+                    .setIssuedAt(new Date())
+                    .setExpiration(new Date(System.currentTimeMillis() + 3600000))
+                    .signWith(Keys.hmacShaKeyFor(TEST_SECRET.getBytes()), SignatureAlgorithm.HS256)
+                    .compact();
+
+            InvalidCredentialsException exception = assertThrows(
+                    InvalidCredentialsException.class,
+                    () -> realAuthService.refreshToken(oldFormatToken)
+            );
+
+            assertEquals(INVALID_REFRESH_TOKEN_MSG, exception.getMessage());
+            verifyNoInteractions(userRepository, tokenBlackListService);
+        }
+
+        @Test
         @DisplayName("A valid refresh token is revoked by its jti and a new pair is issued")
         void shouldRotateRealRefreshToken() {
             String refreshToken = realJwtService.generateRefreshToken(activeUser);
             String jti = realJwtService.extractJti(refreshToken);
             when(tokenBlackListService.isTokenRevoked(jti)).thenReturn(false);
-            when(userRepository.findAllWithDetails()).thenReturn(List.of(activeUser));
+            when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
             AuthResponse result = realAuthService.refreshToken(refreshToken);
 

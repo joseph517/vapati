@@ -294,32 +294,30 @@ class CustomUserDetailsServiceTest {
     class LoadUserForRequestTests {
 
         @Test
-        @DisplayName("Active account: returns the user and its UserDetails")
+        @DisplayName("Active account: returns the user and its UserDetails, looked up by id")
         void loadUserForRequest_WithActiveUser_ShouldReturnUserAndDetails() {
-            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
 
-            CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest("test@example.com");
+            CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest(1L);
 
             assertThat(result.user()).isSameAs(testUser);
             assertThat(result.userDetails().getUsername()).isEqualTo("test@example.com");
             assertThat(result.userDetails().getAuthorities())
                     .extracting(GrantedAuthority::getAuthority)
                     .containsExactly("ROLE_USER");
+            verify(userRepository, never()).findByEmailIncludingDeleted(any());
             verify(userRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("Deleted account: throws and is not restored")
+        @DisplayName("Deleted account: findById doesn't see it, throws and is not restored")
         void loadUserForRequest_WithDeletedUser_ShouldThrowWithoutRestoring() {
-            LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);
-            testUser.setDeletedAt(deletedAt);
-            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+            when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userDetailsService.loadUserForRequest("test@example.com"))
+            assertThatThrownBy(() -> userDetailsService.loadUserForRequest(1L))
                     .isInstanceOf(UsernameNotFoundException.class)
-                    .hasMessage("User account is deleted");
+                    .hasMessage("User not found with id: 1");
 
-            assertThat(testUser.getDeletedAt()).isEqualTo(deletedAt);
             verify(userRepository, never()).save(any());
         }
 
@@ -327,9 +325,9 @@ class CustomUserDetailsServiceTest {
         @DisplayName("Disabled account: throws")
         void loadUserForRequest_WithInactiveUser_ShouldThrow() {
             testUser.setActive(false);
-            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
 
-            assertThatThrownBy(() -> userDetailsService.loadUserForRequest("test@example.com"))
+            assertThatThrownBy(() -> userDetailsService.loadUserForRequest(1L))
                     .isInstanceOf(UsernameNotFoundException.class)
                     .hasMessage("User account is disabled");
         }
@@ -337,20 +335,20 @@ class CustomUserDetailsServiceTest {
         @Test
         @DisplayName("Missing account: throws")
         void loadUserForRequest_WithMissingUser_ShouldThrow() {
-            when(userRepository.findByEmailIncludingDeleted("nonexistent@example.com")).thenReturn(Optional.empty());
+            when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> userDetailsService.loadUserForRequest("nonexistent@example.com"))
+            assertThatThrownBy(() -> userDetailsService.loadUserForRequest(999L))
                     .isInstanceOf(UsernameNotFoundException.class)
-                    .hasMessage("User not found with email: nonexistent@example.com");
+                    .hasMessage("User not found with id: 999");
         }
 
         @Test
         @DisplayName("Banned account: returned as is (the filter answers 403)")
         void loadUserForRequest_WithBannedUser_ShouldReturnUser() {
             testUser.setBanned(true);
-            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
 
-            CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest("test@example.com");
+            CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest(1L);
 
             assertThat(result.user().getBanned()).isTrue();
         }

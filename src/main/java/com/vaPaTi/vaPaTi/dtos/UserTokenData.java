@@ -13,7 +13,7 @@ import org.jetbrains.annotations.NotNull;
 public class UserTokenData {
     @NotNull
     private Long userId;
-    @NotNull
+    // Read from the "email" claim: null for refresh tokens, which don't carry it
     private String email;
     private String role;
     private String firstName;

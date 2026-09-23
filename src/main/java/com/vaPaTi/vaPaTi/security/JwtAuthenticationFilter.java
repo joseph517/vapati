@@ -74,11 +74,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            final String userEmail = jwtService.extractUsername(jwt);
+            // A non-numeric subject (old tokens, sub = email) throws and falls into the catch below (401)
+            final Long userId = jwtService.extractSubjectUserId(jwt);
 
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 // Missing, deleted or disabled accounts throw here and stay unauthenticated (401)
-                RequestUser requestUser = this.userDetailsService.loadUserForRequest(userEmail);
+                RequestUser requestUser = this.userDetailsService.loadUserForRequest(userId);
 
                 // Banned or suspended accounts are cut with 403, with the same message as the login
                 try {
@@ -89,7 +90,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 UserDetails userDetails = requestUser.userDetails();
-                if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                if (jwtService.isTokenValid(jwt, userId)) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
