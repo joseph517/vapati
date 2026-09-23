@@ -1,8 +1,11 @@
 package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.Role;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
@@ -12,6 +15,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -189,6 +194,113 @@ class CampaignAuthorizationServiceTest {
 
             verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
             verify(userRepository, times(1)).findById(4L);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateOwnershipOrAdmin - campaign status Tests")
+    class ValidateOwnershipOrAdminStatusTests {
+
+        private void givenCampaignWithStatus(CampaignStatus status) {
+            testCampaign.setGoal(Goal.builder().id(1L).status(status).build());
+            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when a third party targets a CLOSED campaign")
+        void validateOwnershipOrAdmin_WhenThirdPartyAndCampaignClosed_ShouldThrowResourceNotFoundException() {
+            // Given
+            givenCampaignWithStatus(CampaignStatus.CLOSED);
+            when(userRepository.findById(3L)).thenReturn(Optional.of(testRegularUser));
+
+            // When & Then: same message as a missing campaign, so the CLOSED campaign is not revealed
+            assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 3L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found with id: 1");
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = CampaignStatus.class, names = {"ACTIVE", "COMPLETED"})
+        @DisplayName("Should throw ForbiddenActionException when a third party targets a non-CLOSED campaign")
+        void validateOwnershipOrAdmin_WhenThirdPartyAndCampaignNotClosed_ShouldThrowForbiddenActionException(CampaignStatus status) {
+            // Given
+            givenCampaignWithStatus(status);
+            when(userRepository.findById(3L)).thenReturn(Optional.of(testRegularUser));
+
+            // When & Then
+            assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 3L))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("You are not authorized to perform this action");
+        }
+
+        @ParameterizedTest
+        @EnumSource(CampaignStatus.class)
+        @DisplayName("Should validate successfully when the owner targets a campaign in any status")
+        void validateOwnershipOrAdmin_WhenOwner_ShouldNotThrowForAnyStatus(CampaignStatus status) {
+            // Given
+            givenCampaignWithStatus(status);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(testOwner));
+
+            // When & Then (should not throw exception)
+            campaignAuthorizationService.validateOwnershipOrAdmin(1L, 1L);
+        }
+
+        @ParameterizedTest
+        @EnumSource(CampaignStatus.class)
+        @DisplayName("Should validate successfully when an admin targets a campaign in any status")
+        void validateOwnershipOrAdmin_WhenAdmin_ShouldNotThrowForAnyStatus(CampaignStatus status) {
+            // Given
+            givenCampaignWithStatus(status);
+            when(userRepository.findById(2L)).thenReturn(Optional.of(testAdmin));
+
+            // When & Then (should not throw exception)
+            campaignAuthorizationService.validateOwnershipOrAdmin(1L, 2L);
+        }
+    }
+
+    @Nested
+    @DisplayName("isAdmin Tests")
+    class IsAdminTests {
+
+        @Test
+        @DisplayName("Should return true when the user has the ADMIN role")
+        void isAdmin_WhenUserIsAdmin_ShouldReturnTrue() {
+            when(userRepository.findById(2L)).thenReturn(Optional.of(testAdmin));
+
+            assertThat(campaignAuthorizationService.isAdmin(2L)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Should return false when the user has another role")
+        void isAdmin_WhenUserIsNotAdmin_ShouldReturnFalse() {
+            when(userRepository.findById(3L)).thenReturn(Optional.of(testRegularUser));
+
+            assertThat(campaignAuthorizationService.isAdmin(3L)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Should return false when the user has no role")
+        void isAdmin_WhenUserHasNullRole_ShouldReturnFalse() {
+            User userWithNullRole = User.builder().id(4L).role(null).build();
+            when(userRepository.findById(4L)).thenReturn(Optional.of(userWithNullRole));
+
+            assertThat(campaignAuthorizationService.isAdmin(4L)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Should return false when the user does not exist")
+        void isAdmin_WhenUserNotFound_ShouldReturnFalse() {
+            when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+            assertThat(campaignAuthorizationService.isAdmin(999L)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Should return false without querying the database when the user id is null")
+        void isAdmin_WhenUserIdIsNull_ShouldReturnFalseWithoutQuerying() {
+            assertThat(campaignAuthorizationService.isAdmin(null)).isFalse();
+
+            verifyNoInteractions(userRepository);
         }
     }
 

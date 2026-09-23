@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -29,11 +30,31 @@ public class CampaignAuthorizationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         boolean isOwner = campaign.getUser().getId().equals(userId);
-        boolean isAdmin = user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName());
 
-        if (!isOwner && !isAdmin) {
+        if (!isOwner && !hasAdminRole(user)) {
+            // A third party must not be able to tell a CLOSED campaign apart from a missing one
+            if (isClosed(campaign)) {
+                throw new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId);
+            }
             throw new ForbiddenActionException(UNAUTHORIZED_MESSAGE);
         }
+    }
+
+    public boolean isAdmin(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        return userRepository.findById(userId)
+                .map(this::hasAdminRole)
+                .orElse(false);
+    }
+
+    private boolean hasAdminRole(User user) {
+        return user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName());
+    }
+
+    private boolean isClosed(Campaign campaign) {
+        return campaign.getGoal() != null && campaign.getGoal().getStatus() == CampaignStatus.CLOSED;
     }
 
     public boolean canCloseCampaign(Long campaignId, Long userId) {
