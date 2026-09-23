@@ -2,21 +2,27 @@ package com.vaPaTi.vaPaTi.service.publication;
 
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
+import com.vaPaTi.vaPaTi.entity.Publication;
+import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
+import com.vaPaTi.vaPaTi.repository.PublicationRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.service.PublicationService;
+import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,23 +31,16 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.vaPaTi.vaPaTi.entity.Publication;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.repository.PublicationRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
-import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
-import com.vaPaTi.vaPaTi.service.PublicationService;
-
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Publication Service - Delete Publication")
 class PublicationServiceDeleteTest {
 
-    @Mock
-    private PublicationRepository publicationRepository;
+    private static final Long PUBLICATION_ID = 100L;
+    private static final Long OWNER_ID = 1L;
+    private static final Long OTHER_USER_ID = 2L;
 
     @Mock
-    private UserRepository userRepository;
+    private PublicationRepository publicationRepository;
 
     @Mock
     private PublicationMapper publicationMapper;
@@ -54,53 +53,29 @@ class PublicationServiceDeleteTest {
 
     private PublicationService publicationService;
 
-    private User mockOwnerUser;
-    private User mockOtherUser;
-    private UserInfo mockOwnerUserInfo;
-    private UserInfo mockOtherUserInfo;
     private Publication mockPublication;
-    private LocalDateTime baseDateTime;
 
     @BeforeEach
     void setUp() {
         publicationService = new PublicationService(publicationRepository, publicationMapper,
                 authenticatedUserService, publicationValidationService);
 
-        baseDateTime = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+        LocalDateTime baseDateTime = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
 
-        // Setup owner user
-        mockOwnerUserInfo = UserInfo.builder()
-                .firstName("John")
-                .lastName("Doe")
-                .userName("johndoe")
-                .build();
-
-        mockOwnerUser = User.builder()
-                .id(1L)
+        User mockOwnerUser = User.builder()
+                .id(OWNER_ID)
                 .active(true)
                 .verified(true)
                 .createdAt(baseDateTime)
-                .userInfo(mockOwnerUserInfo)
+                .userInfo(UserInfo.builder()
+                        .firstName("John")
+                        .lastName("Doe")
+                        .userName("johndoe")
+                        .build())
                 .build();
 
-        // Setup other user (not owner)
-        mockOtherUserInfo = UserInfo.builder()
-                .firstName("Jane")
-                .lastName("Smith")
-                .userName("janesmith")
-                .build();
-
-        mockOtherUser = User.builder()
-                .id(2L)
-                .active(true)
-                .verified(true)
-                .createdAt(baseDateTime)
-                .userInfo(mockOtherUserInfo)
-                .build();
-
-        // Setup publication owned by mockOwnerUser
         mockPublication = Publication.builder()
-                .id(100L)
+                .id(PUBLICATION_ID)
                 .description("Test publication")
                 .user(mockOwnerUser)
                 .createdAt(baseDateTime)
@@ -109,349 +84,86 @@ class PublicationServiceDeleteTest {
     }
 
     @Test
-    @DisplayName("Should successfully delete publication when user is the owner")
-    void shouldSuccessfullyDeletePublicationWhenUserIsOwner() {
+    @DisplayName("Should delete the publication when the caller is the owner")
+    void shouldDeletePublicationWhenCallerIsOwner() {
         // Given
-        Long publicationId = 100L;
-        Long ownerId = 1L;
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(mockPublication));
+        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+        when(publicationValidationService.validateAndGetOwnedPublication(PUBLICATION_ID, OWNER_ID))
+                .thenReturn(mockPublication);
 
         // When & Then
-        assertThatNoException().isThrownBy(() ->
-                publicationService.deletePublication(publicationId, ownerId)
-        );
+        assertThatNoException().isThrownBy(() -> publicationService.deletePublication(PUBLICATION_ID));
 
-        // Verify interactions and order
-        InOrder inOrder = inOrder(publicationRepository);
-        inOrder.verify(publicationRepository, times(1)).findById(eq(publicationId));
-        inOrder.verify(publicationRepository, times(1)).delete(eq(mockPublication));
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
+        verify(publicationRepository, times(1)).delete(mockPublication);
+        verifyNoMoreInteractions(publicationRepository);
+        verifyNoInteractions(publicationMapper);
     }
 
     @Test
-    @DisplayName("Should throw ResourceNotFoundException when publication does not exist")
-    void shouldThrowResourceNotFoundExceptionWhenPublicationDoesNotExist() {
+    @DisplayName("Should take the caller id from AuthenticatedUserService before validating ownership")
+    void shouldTakeCallerIdFromAuthenticatedUserService() {
         // Given
-        Long nonExistentPublicationId = 999L;
-        Long userId = 1L;
-
-        when(publicationRepository.findById(nonExistentPublicationId)).thenReturn(Optional.empty());
-
-        // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(nonExistentPublicationId, userId)
-        )
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessage("Publication not found with ID: " + nonExistentPublicationId);
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(nonExistentPublicationId));
-        verify(publicationRepository, never()).delete(null);
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should throw ForbiddenActionException when user is not the owner")
-    void shouldThrowForbiddenActionExceptionWhenUserIsNotOwner() {
-        // Given
-        Long publicationId = 100L;
-        Long nonOwnerId = 2L; // Different from publication owner (ID: 1)
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(mockPublication));
-
-        // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(publicationId, nonOwnerId)
-        )
-                .isInstanceOf(ForbiddenActionException.class)
-                .hasMessage("You don't have permission to delete this publication");
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(publicationId));
-        verify(publicationRepository, never()).delete(null);
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should throw ResourceNotFoundException when publication ID is null")
-    void shouldThrowResourceNotFoundExceptionWhenPublicationIdIsNull() {
-        // Given
-        Long nullPublicationId = null;
-        Long userId = 1L;
-
-        when(publicationRepository.findById(nullPublicationId)).thenReturn(Optional.empty());
-
-        // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(nullPublicationId, userId)
-        )
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessage("Publication not found with ID: null");
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(null);
-        verify(publicationRepository, never()).delete(null);
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should throw ForbiddenActionException when user ID is null")
-    void shouldThrowForbiddenActionExceptionWhenUserIdIsNull() {
-        // Given
-        Long publicationId = 100L;
-        Long nullUserId = null;
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(mockPublication));
-
-        // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(publicationId, nullUserId)
-        )
-                .isInstanceOf(ForbiddenActionException.class)
-                .hasMessage("You don't have permission to delete this publication");
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(publicationId));
-        verify(publicationRepository, never()).delete(null);
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should handle publication with null user gracefully")
-    void shouldHandlePublicationWithNullUserGracefully() {
-        // Given
-        Long publicationId = 100L;
-        Long userId = 1L;
-
-        Publication publicationWithNullUser = Publication.builder()
-                .id(100L)
-                .description("Test publication")
-                .user(null)
-                .createdAt(baseDateTime)
-                .updatedAt(baseDateTime)
-                .build();
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(publicationWithNullUser));
-
-        // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(publicationId, userId)
-        )
-                .isInstanceOf(NullPointerException.class);
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(publicationId));
-        verify(publicationRepository, never()).delete(null);
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should handle publication with user having null ID")
-    void shouldHandlePublicationWithUserHavingNullId() {
-        // Given
-        Long publicationId = 100L;
-        Long userId = 1L;
-
-        User userWithNullId = User.builder()
-                .id(null)
-                .active(true)
-                .verified(true)
-                .createdAt(baseDateTime)
-                .userInfo(mockOwnerUserInfo)
-                .build();
-
-        Publication publicationWithNullUserId = Publication.builder()
-                .id(100L)
-                .description("Test publication")
-                .user(userWithNullId)
-                .createdAt(baseDateTime)
-                .updatedAt(baseDateTime)
-                .build();
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(publicationWithNullUserId));
-
-        // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(publicationId, userId)
-        )
-                .isInstanceOf(ForbiddenActionException.class)
-                .hasMessage("You don't have permission to delete this publication");
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(publicationId));
-        verify(publicationRepository, never()).delete(null);
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should successfully delete publication when both IDs are the same but different objects")
-    void shouldSuccessfullyDeletePublicationWhenBothIdsAreSameButDifferentObjects() {
-        // Given
-        Long publicationId = 100L;
-        Long userId = 1L;
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(mockPublication));
-
-        // When & Then
-        assertThatNoException().isThrownBy(() ->
-                publicationService.deletePublication(publicationId, userId)
-        );
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(publicationId));
-        verify(publicationRepository, times(1)).delete(eq(mockPublication));
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should maintain correct interaction sequence when deleting publication")
-    void shouldMaintainCorrectInteractionSequenceWhenDeletingPublication() {
-        // Given
-        Long publicationId = 100L;
-        Long ownerId = 1L;
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(mockPublication));
+        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+        when(publicationValidationService.validateAndGetOwnedPublication(PUBLICATION_ID, OWNER_ID))
+                .thenReturn(mockPublication);
 
         // When
-        publicationService.deletePublication(publicationId, ownerId);
+        publicationService.deletePublication(PUBLICATION_ID);
 
         // Then - Verify exact sequence of operations
-        InOrder inOrder = inOrder(publicationRepository);
-
-        // Step 1: Find publication
-        inOrder.verify(publicationRepository).findById(publicationId);
-
-        // Step 2: Delete publication (after ownership validation)
+        InOrder inOrder = inOrder(authenticatedUserService, publicationValidationService, publicationRepository);
+        inOrder.verify(authenticatedUserService).getAuthenticatedUserId();
+        inOrder.verify(publicationValidationService).validateAndGetOwnedPublication(PUBLICATION_ID, OWNER_ID);
         inOrder.verify(publicationRepository).delete(mockPublication);
-
-        // Ensure no additional interactions
         inOrder.verifyNoMoreInteractions();
     }
 
     @Test
-    @DisplayName("Should not call delete when publication is not found")
-    void shouldNotCallDeleteWhenPublicationIsNotFound() {
+    @DisplayName("Should not delete when the caller is not the owner")
+    void shouldNotDeleteWhenCallerIsNotOwner() {
+        // Given
+        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OTHER_USER_ID);
+        when(publicationValidationService.validateAndGetOwnedPublication(PUBLICATION_ID, OTHER_USER_ID))
+                .thenThrow(new ForbiddenActionException("You don't have permission to delete this publication"));
+
+        // When & Then
+        assertThatThrownBy(() -> publicationService.deletePublication(PUBLICATION_ID))
+                .isInstanceOf(ForbiddenActionException.class)
+                .hasMessage("You don't have permission to delete this publication");
+
+        verify(publicationRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Should not delete when the publication does not exist")
+    void shouldNotDeleteWhenPublicationDoesNotExist() {
         // Given
         Long nonExistentPublicationId = 999L;
-        Long userId = 1L;
-
-        when(publicationRepository.findById(nonExistentPublicationId)).thenReturn(Optional.empty());
+        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+        when(publicationValidationService.validateAndGetOwnedPublication(nonExistentPublicationId, OWNER_ID))
+                .thenThrow(new ResourceNotFoundException("Publication not found with ID: " + nonExistentPublicationId));
 
         // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(nonExistentPublicationId, userId)
-        )
-                .isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> publicationService.deletePublication(nonExistentPublicationId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Publication not found with ID: " + nonExistentPublicationId);
 
-        // Verify delete is never called
-        verify(publicationRepository, times(1)).findById(eq(nonExistentPublicationId));
-        verify(publicationRepository, never()).delete(org.mockito.ArgumentMatchers.any());
-
-        verifyNoMoreInteractions(publicationRepository);
+        verify(publicationRepository, never()).delete(any());
     }
 
     @Test
-    @DisplayName("Should not call delete when user lacks permission")
-    void shouldNotCallDeleteWhenUserLacksPermission() {
+    @DisplayName("Should not delete when the author of the publication was deleted")
+    void shouldNotDeleteWhenAuthorWasDeleted() {
         // Given
-        Long publicationId = 100L;
-        Long unauthorizedUserId = 999L;
-
-        when(publicationRepository.findById(publicationId)).thenReturn(Optional.of(mockPublication));
+        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+        when(publicationValidationService.validateAndGetOwnedPublication(PUBLICATION_ID, OWNER_ID))
+                .thenThrow(new ResourceNotFoundException("Publication not found with ID: " + PUBLICATION_ID));
 
         // When & Then
-        assertThatThrownBy(() ->
-                publicationService.deletePublication(publicationId, unauthorizedUserId)
-        )
-                .isInstanceOf(ForbiddenActionException.class);
+        assertThatThrownBy(() -> publicationService.deletePublication(PUBLICATION_ID))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Publication not found with ID: " + PUBLICATION_ID);
 
-        // Verify delete is never called
-        verify(publicationRepository, times(1)).findById(eq(publicationId));
-        verify(publicationRepository, never()).delete(org.mockito.ArgumentMatchers.any());
-
-        verifyNoMoreInteractions(publicationRepository);
+        verify(publicationRepository, never()).delete(any());
     }
-
-    @Test
-    @DisplayName("Should handle edge case with zero IDs")
-    void shouldHandleEdgeCaseWithZeroIds() {
-        // Given
-        Long zeroPublicationId = 0L;
-        Long zeroUserId = 0L;
-
-        User userWithZeroId = User.builder()
-                .id(0L)
-                .active(true)
-                .verified(true)
-                .createdAt(baseDateTime)
-                .userInfo(mockOwnerUserInfo)
-                .build();
-
-        Publication publicationWithZeroId = Publication.builder()
-                .id(0L)
-                .description("Test publication with zero ID")
-                .user(userWithZeroId)
-                .createdAt(baseDateTime)
-                .updatedAt(baseDateTime)
-                .build();
-
-        when(publicationRepository.findById(zeroPublicationId)).thenReturn(Optional.of(publicationWithZeroId));
-
-        // When & Then
-        assertThatNoException().isThrownBy(() ->
-                publicationService.deletePublication(zeroPublicationId, zeroUserId)
-        );
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(zeroPublicationId));
-        verify(publicationRepository, times(1)).delete(eq(publicationWithZeroId));
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
-    @Test
-    @DisplayName("Should handle large ID values correctly")
-    void shouldHandleLargeIdValuesCorrectly() {
-        // Given
-        Long largePublicationId = Long.MAX_VALUE;
-        Long largeUserId = Long.MAX_VALUE;
-
-        User userWithLargeId = User.builder()
-                .id(Long.MAX_VALUE)
-                .active(true)
-                .verified(true)
-                .createdAt(baseDateTime)
-                .userInfo(mockOwnerUserInfo)
-                .build();
-
-        Publication publicationWithLargeId = Publication.builder()
-                .id(Long.MAX_VALUE)
-                .description("Test publication with large ID")
-                .user(userWithLargeId)
-                .createdAt(baseDateTime)
-                .updatedAt(baseDateTime)
-                .build();
-
-        when(publicationRepository.findById(largePublicationId)).thenReturn(Optional.of(publicationWithLargeId));
-
-        // When & Then
-        assertThatNoException().isThrownBy(() ->
-                publicationService.deletePublication(largePublicationId, largeUserId)
-        );
-
-        // Verify interactions
-        verify(publicationRepository, times(1)).findById(eq(largePublicationId));
-        verify(publicationRepository, times(1)).delete(eq(publicationWithLargeId));
-
-        verifyNoMoreInteractions(publicationRepository, userRepository, publicationMapper);
-    }
-
 }

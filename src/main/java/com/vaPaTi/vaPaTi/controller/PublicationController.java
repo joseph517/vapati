@@ -22,7 +22,7 @@ public class PublicationController {
     }
 
     @PostMapping("/create")
-    @Operation(summary = "Create a new publication", description = "Create a new publication for a user")
+    @Operation(summary = "Create a new publication", description = "Create a new publication authored by the authenticated user")
     public ResponseEntity<PublicationResponseDTO> createPublication(@RequestBody CreatePublicationDTO dto) {
         PublicationResponseDTO created = publicationService.createPublication(dto);
         return ResponseEntity.ok(created);
@@ -35,13 +35,10 @@ public class PublicationController {
         return ResponseEntity.ok(publications);
     }
 
-    @DeleteMapping("/delete/{publicationId}/user/{userId}")
-    @Operation(summary = "Delete a publication", description = "Delete a publication by ID if it belongs to the user")
-    public ResponseEntity<String> deletePublication(
-            @PathVariable Long publicationId,
-            @PathVariable Long userId
-    ) {
-        publicationService.deletePublication(publicationId, userId);
+    @DeleteMapping("/{publicationId}")
+    @Operation(summary = "Delete a publication", description = "Delete a publication by ID if it belongs to the authenticated user")
+    public ResponseEntity<String> deletePublication(@PathVariable Long publicationId) {
+        publicationService.deletePublication(publicationId);
         return ResponseEntity.ok("Deleted");
     }
 }
