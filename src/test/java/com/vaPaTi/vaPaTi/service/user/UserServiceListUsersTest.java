@@ -47,7 +47,6 @@ class UserServiceListUsersTest {
         // Setup User entities
         user1 = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(true)
                 .userInfo(UserInfo.builder()
                         .firstName("John")
@@ -63,7 +62,6 @@ class UserServiceListUsersTest {
 
         user2 = User.builder()
                 .id(2L)
-                .active(false)
                 .verified(false)
                 .userInfo(UserInfo.builder()
                         .firstName("Jane")
@@ -75,7 +73,6 @@ class UserServiceListUsersTest {
         // Setup UserDTO objects
         userDTO1 = new UserDTO();
         userDTO1.setId(1L);
-        userDTO1.setActive(true);
         userDTO1.setVerified(true);
         userDTO1.setCategories(List.of("PREMIUM", "VERIFIED"));
         userDTO1.setUserInfo(UserInfoDTO.builder()
@@ -91,7 +88,6 @@ class UserServiceListUsersTest {
 
         userDTO2 = new UserDTO();
         userDTO2.setId(2L);
-        userDTO2.setActive(false);
         userDTO2.setVerified(false);
         userDTO2.setCategories(new ArrayList<>());
         userDTO2.setUserInfo(UserInfoDTO.builder()
@@ -209,13 +205,11 @@ class UserServiceListUsersTest {
         for (int i = 1; i <= 100; i++) {
             User user = User.builder()
                     .id((long) i)
-                    .active(i % 2 == 0)
                     .verified(i % 3 == 0)
                     .build();
 
             UserDTO dto = new UserDTO();
             dto.setId((long) i);
-            dto.setActive(i % 2 == 0);
             dto.setVerified(i % 3 == 0);
 
             largeUserList.add(user);

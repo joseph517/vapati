@@ -63,7 +63,6 @@ class RefreshTokenServiceTest {
     private String newAccessToken;
     private String newRefreshToken;
     private User activeUser;
-    private User inactiveUser;
     private UserInfo userInfo;
     private Role userRole;
 
@@ -98,15 +97,6 @@ class RefreshTokenServiceTest {
                 .id(1L)
                 .userInfo(userInfo)
                 .role(userRole)
-                .active(true)
-                .build();
-
-        // Create inactive user
-        inactiveUser = User.builder()
-                .id(2L)
-                .userInfo(userInfo)
-                .role(userRole)
-                .active(false)
                 .build();
     }
 
@@ -331,25 +321,6 @@ class RefreshTokenServiceTest {
         assertEquals(newAccessToken, result.getAccessToken());
         assertEquals(newRefreshToken, result.getRefreshToken());
         assertEquals("changed@example.com", result.getUserInfo().email);
-    }
-
-    @Test
-    @DisplayName("Should throw MessageException when user account is disabled")
-    void shouldThrowMessageExceptionWhenUserAccountIsDisabled() {
-        // Given
-        stubUsableRefreshToken(inactiveUser.getId());
-        when(userRepository.findById(inactiveUser.getId())).thenReturn(Optional.of(inactiveUser));
-
-        // When & Then
-        MessageException exception = assertThrows(
-                MessageException.class,
-                () -> authService.refreshToken(validRefreshToken)
-        );
-
-        assertEquals("User account is disabled", exception.getMessage());
-        verify(tokenBlackListService, never()).revokeToken(any(), any());
-        verify(jwtService, never()).generateToken(any(User.class));
-        verify(jwtService, never()).generateRefreshToken(any(User.class));
     }
 
     @Test

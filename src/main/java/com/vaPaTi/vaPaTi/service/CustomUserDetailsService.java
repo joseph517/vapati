@@ -28,10 +28,6 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmailIncludingDeleted(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        if (!user.isActive()) {
-            throw new UsernameNotFoundException("User account is disabled");
-        }
-
         return toUserDetails(user);
     }
 
@@ -42,10 +38,6 @@ public class CustomUserDetailsService implements UserDetailsService {
     public RequestUser loadUserForRequest(Long userId) throws UsernameNotFoundException {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
-
-        if (!user.isActive()) {
-            throw new UsernameNotFoundException("User account is disabled");
-        }
 
         // Built inside the transaction: userInfo and role are lazy
         return new RequestUser(user, toUserDetails(user));
@@ -58,7 +50,6 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .username(user.getUserInfo().getEmail())
                 .password(user.getUserInfo().getPassword())
                 .authorities(getAuthorities(user))
-                .disabled(!user.isActive())
                 .build();
     }
 

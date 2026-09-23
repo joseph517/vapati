@@ -98,11 +98,6 @@ public class UserService {
 
         userValidationService.updateTimestamp(user);
 
-        // Update user fields
-        if (dto.getActive() != null) {
-            user.setActive(dto.getActive());
-        }
-
         // Update user info with full validations (only fields sent)
         userValidationService.updateUserInfo(user, dto);
 

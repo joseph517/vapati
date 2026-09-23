@@ -14,7 +14,6 @@ import java.util.List;
 @AllArgsConstructor
 public class UserDTO {
     private Long id;
-    private Boolean active;
     private Boolean verified;
     private List<String> categories = new ArrayList<>();
     private UserInfoDTO userInfo;

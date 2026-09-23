@@ -6,7 +6,6 @@ import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
 import com.vaPaTi.vaPaTi.entity.Follower;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
-import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.FollowerMapper;
@@ -37,12 +36,11 @@ public class FollowerService {
     /**
      * Follows a user by creating a new follower relationship.
      *
-     * This method first validates that the current user is not trying to follow themselves, and that both the current user and the user to follow are active. It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
+     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found). It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
      *
      * @param userToFollowId the ID of the user to follow
      * @return a FollowResponseDto with the result of the follow operation
-     * @throws MessageException if the current user is trying to follow themselves, or if the user to follow is inactive
-     * @throws ForbiddenActionException if the current user is inactive
+     * @throws MessageException if the current user is trying to follow themselves
      * @throws ConflictException if the current user is already following the user to follow
      * @throws ResourceNotFoundException if the current user or the user to follow is not found
      */
@@ -59,19 +57,9 @@ public class FollowerService {
         User currentUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Current user not found with ID: " + userId));
 
-        // Validate current user is active
-        if (!currentUser.isActive()) {
-            throw new ForbiddenActionException("Inactive users cannot follow other users");
-        }
-
         // Get user to follow
         User userToFollow = userRepository.findById(userToFollowId)
                 .orElseThrow(() -> new ResourceNotFoundException("User to follow not found with ID: " + userToFollowId));
-
-        // Validate user to follow is active
-        if (!userToFollow.isActive()) {
-            throw new MessageException("Cannot follow inactive users");
-        }
 
         // Check if already following
         if (followerRepository.existsByUserAndFollower(userToFollow, currentUser)) {

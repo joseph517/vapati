@@ -55,7 +55,6 @@ class CustomUserDetailsServiceTest {
         testUser.setId(1L);
         testUser.setUserInfo(testUserInfo);
         testUser.setRole(testRole);
-        testUser.setActive(true);
         testUser.setDeletedAt(null);
     }
 
@@ -146,24 +145,6 @@ class CustomUserDetailsServiceTest {
         }
 
         @Test
-        @DisplayName("Should throw for a deleted and inactive user without restoring it")
-        void loadUserByUsername_WithInactiveDeletedUser_ShouldThrowWithoutRestoring() {
-            // Given
-            LocalDateTime deletedAt = LocalDateTime.now().minusDays(1);
-            testUser.setActive(false);
-            testUser.setDeletedAt(deletedAt);
-            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
-
-            // When & Then
-            assertThatThrownBy(() -> userDetailsService.loadUserByUsername("test@example.com"))
-                    .isInstanceOf(UsernameNotFoundException.class)
-                    .hasMessage("User account is disabled");
-
-            assertThat(testUser.getDeletedAt()).isEqualTo(deletedAt);
-            verify(userRepository, never()).save(any());
-        }
-
-        @Test
         @DisplayName("Never calls save with any user")
         void loadUserByUsername_NeverSaves() {
             // Given
@@ -195,21 +176,6 @@ class CustomUserDetailsServiceTest {
             assertThatThrownBy(() -> userDetailsService.loadUserByUsername("nonexistent@example.com"))
                     .isInstanceOf(UsernameNotFoundException.class)
                     .hasMessage("User not found with email: nonexistent@example.com");
-        }
-
-        @Test
-        @DisplayName("Should throw UsernameNotFoundException when user is inactive")
-        void loadUserByUsername_WithInactiveUser_ShouldThrowException() {
-            // Given
-            testUser.setActive(false);
-            when(userRepository.findByEmailIncludingDeleted("test@example.com")).thenReturn(Optional.of(testUser));
-
-            // When & Then
-            assertThatThrownBy(() -> userDetailsService.loadUserByUsername("test@example.com"))
-                    .isInstanceOf(UsernameNotFoundException.class)
-                    .hasMessage("User account is disabled");
-
-            verify(userRepository, never()).save(any());
         }
 
         @Test
@@ -319,17 +285,6 @@ class CustomUserDetailsServiceTest {
                     .hasMessage("User not found with id: 1");
 
             verify(userRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Disabled account: throws")
-        void loadUserForRequest_WithInactiveUser_ShouldThrow() {
-            testUser.setActive(false);
-            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-
-            assertThatThrownBy(() -> userDetailsService.loadUserForRequest(1L))
-                    .isInstanceOf(UsernameNotFoundException.class)
-                    .hasMessage("User account is disabled");
         }
 
         @Test

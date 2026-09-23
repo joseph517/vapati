@@ -29,7 +29,6 @@ public class UserMapper {
 
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());
-        dto.setActive(user.isActive());
         dto.setVerified(user.isVerified());
         dto.setCategories(mapCategories(user.getUserCategories()));
         dto.setUserInfo(userInfoMapper.toUserInfoDTO(user.getUserInfo()));

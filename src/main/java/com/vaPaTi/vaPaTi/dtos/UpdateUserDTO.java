@@ -15,7 +15,6 @@ import java.util.List;
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class UpdateUserDTO {
-    private Boolean active;
     @Nullable
     private List<Long> categoryIds;
 

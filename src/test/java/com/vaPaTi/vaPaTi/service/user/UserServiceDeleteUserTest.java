@@ -69,7 +69,6 @@ class UserServiceDeleteUserTest {
 
         activeUser = User.builder()
                 .id(authenticatedUserId)
-                .active(true)
                 .verified(true)
                 .deletedAt(null)
                 .createdAt(LocalDateTime.now().minusDays(30))
@@ -77,7 +76,6 @@ class UserServiceDeleteUserTest {
 
         alreadyDeletedUser = User.builder()
                 .id(authenticatedUserId)
-                .active(false)
                 .verified(true)
                 .deletedAt(LocalDateTime.now().minusDays(1))
                 .createdAt(LocalDateTime.now().minusDays(30))
@@ -194,7 +192,6 @@ class UserServiceDeleteUserTest {
         // Given
         User userDeletedAtMidnight = User.builder()
                 .id(authenticatedUserId)
-                .active(false)
                 .deletedAt(LocalDateTime.of(2024, 1, 1, 0, 0, 0))
                 .build();
 
@@ -214,7 +211,6 @@ class UserServiceDeleteUserTest {
     @DisplayName("Should not modify any other user fields during deletion")
     void deleteUser_WhenSuccessful_ShouldOnlyModifyDeletedAtField() {
         // Given
-        boolean originalActive = activeUser.isActive();
         boolean originalVerified = activeUser.isVerified();
         LocalDateTime originalCreatedAt = activeUser.getCreatedAt();
         LocalDateTime originalUpdatedAt = activeUser.getUpdatedAt();
@@ -227,7 +223,6 @@ class UserServiceDeleteUserTest {
         userService.deleteUser();
 
         // Then
-        assertEquals(originalActive, activeUser.isActive());
         assertEquals(originalVerified, activeUser.isVerified());
         assertEquals(originalCreatedAt, activeUser.getCreatedAt());
         assertEquals(originalUpdatedAt, activeUser.getUpdatedAt());

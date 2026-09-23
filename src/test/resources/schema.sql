@@ -40,7 +40,6 @@ CREATE TABLE category (
 CREATE TABLE [user] (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     role_id BIGINT NOT NULL,
-    is_active BIT NOT NULL DEFAULT 1,
     is_verified BIT NOT NULL DEFAULT 0,
     banned BIT DEFAULT 0,
     banned_at DATETIME2 NULL,
@@ -244,7 +243,6 @@ INSERT INTO category (name, description) VALUES
 -- Create indexes for better performance
 CREATE INDEX idx_user_email ON user_info(email);
 CREATE INDEX idx_user_username ON user_info(user_name);
-CREATE INDEX idx_user_active ON [user](is_active);
 CREATE INDEX idx_user_verified ON [user](is_verified);
 CREATE INDEX idx_user_deleted ON [user](deleted_at);
 CREATE INDEX idx_campaign_user ON campaign(user_id);

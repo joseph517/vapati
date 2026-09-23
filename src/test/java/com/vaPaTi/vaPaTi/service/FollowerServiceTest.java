@@ -80,12 +80,10 @@ class FollowerServiceTest {
 
         currentUser = new User();
         currentUser.setId(CURRENT_USER_ID);
-        currentUser.setActive(true);
         currentUser.setUserInfo(currentUserInfo);
 
         userToFollow = new User();
         userToFollow.setId(OTHER_USER_ID);
-        userToFollow.setActive(true);
         userToFollow.setUserInfo(otherUserInfo);
 
         followerRelationship = new Follower();
@@ -194,39 +192,6 @@ class FollowerServiceTest {
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID);
-
-            verify(followerRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Should throw exception when current user is inactive")
-        void followUser_WithInactiveCurrentUser_ShouldThrowException() {
-            // Given
-            currentUser.setActive(false);
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-
-            // When & Then
-            assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(ForbiddenActionException.class)
-                    .hasMessage("Inactive users cannot follow other users");
-
-            verify(followerRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("Should throw exception when user to follow is inactive")
-        void followUser_WithInactiveUserToFollow_ShouldThrowException() {
-            // Given
-            userToFollow.setActive(false);
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-
-            // When & Then
-            assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
-                    .isInstanceOf(MessageException.class)
-                    .hasMessage("Cannot follow inactive users");
 
             verify(followerRepository, never()).save(any());
         }

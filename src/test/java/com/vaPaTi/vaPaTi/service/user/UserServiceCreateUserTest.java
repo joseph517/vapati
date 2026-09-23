@@ -91,7 +91,6 @@ class UserServiceCreateUserTest {
         // Setup mock user
         mockUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(false)
                 .createdAt(LocalDateTime.now())
                 .userCategories(new HashSet<>())
@@ -121,7 +120,6 @@ class UserServiceCreateUserTest {
         // Setup saved user (what repository returns after save)
         savedUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(false)
                 .createdAt(LocalDateTime.now())
                 .role(mockRole)
@@ -133,7 +131,6 @@ class UserServiceCreateUserTest {
         // Setup expected UserDTO
         expectedUserDTO = new UserDTO();
         expectedUserDTO.setId(1L);
-        expectedUserDTO.setActive(true);
         expectedUserDTO.setVerified(false);
     }
 
@@ -154,7 +151,6 @@ class UserServiceCreateUserTest {
         // Then
         assertNotNull(result);
         assertEquals(expectedUserDTO.getId(), result.getId());
-        assertEquals(expectedUserDTO.getActive(), result.getActive());
         assertEquals(expectedUserDTO.getVerified(), result.getVerified());
 
         // Verify interaction order and calls

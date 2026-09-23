@@ -55,7 +55,6 @@ class UserServiceUpdateUserTest {
 
         mockUser = User.builder()
                 .id(authenticatedUserId)
-                .active(true)
                 .verified(false)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -64,7 +63,6 @@ class UserServiceUpdateUserTest {
                 .build();
 
         updateUserDTO = UpdateUserDTO.builder()
-                .active(false)
                 .firstName("John")
                 .lastName("Doe")
                 .email("john.doe@example.com")
@@ -73,7 +71,6 @@ class UserServiceUpdateUserTest {
 
         expectedUserDTO = UserDTO.builder()
                 .id(authenticatedUserId)
-                .active(false)
                 .verified(false)
                 .build();
 
@@ -123,7 +120,6 @@ class UserServiceUpdateUserTest {
         // Then
         assertNotNull(result);
         assertEquals(expectedUserDTO, result);
-        assertEquals(false, mockUser.isActive()); // Verify user active status was updated
 
         // Verify method calls in order
         inOrder.verify(authenticatedUserService).getAuthenticatedUserId();
@@ -142,7 +138,6 @@ class UserServiceUpdateUserTest {
     void shouldSuccessfullyUpdateUserWithoutCategoriesWhenCategoryIdsIsNull() {
         // Given
         UpdateUserDTO dtoWithoutCategories = UpdateUserDTO.builder()
-                .active(false)
                 .firstName("John")
                 .lastName("Doe")
                 .email("john.doe@example.com")
@@ -171,39 +166,6 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
         verify(userValidationService).updateUserInfo(mockUser, dtoWithoutCategories);
-        verify(userRepository).save(mockUser);
-        verify(userMapper).toUserDTO(mockUser);
-    }
-
-    @Test
-    @DisplayName("Should successfully update user with active field null")
-    void shouldSuccessfullyUpdateUserWithActiveFieldNull() {
-        // Given
-        boolean originalActiveStatus = true;
-        mockUser.setActive(originalActiveStatus);
-
-        UpdateUserDTO dtoWithNullActive = UpdateUserDTO.builder()
-                .active(null) // Active is null - should not change
-                .firstName("John")
-                .build();
-
-        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
-        when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
-        when(userRepository.save(mockUser)).thenReturn(mockUser);
-        when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
-
-        // When
-        UserDTO result = userService.updateUser(dtoWithNullActive);
-
-        // Then
-        assertNotNull(result);
-        assertEquals(expectedUserDTO, result);
-        assertEquals(originalActiveStatus, mockUser.isActive()); // Should remain unchanged
-
-        verify(authenticatedUserService).getAuthenticatedUserId();
-        verify(userValidationService).getUserById(authenticatedUserId);
-        verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, dtoWithNullActive);
         verify(userRepository).save(mockUser);
         verify(userMapper).toUserDTO(mockUser);
     }
@@ -238,7 +200,6 @@ class UserServiceUpdateUserTest {
     void shouldThrowIllegalArgumentExceptionWhenCategoryListIsEmpty() {
         // Given
         UpdateUserDTO dtoWithEmptyCategories = UpdateUserDTO.builder()
-                .active(false)
                 .firstName("John")
                 .categoryIds(List.of()) // Empty list
                 .build();
@@ -276,7 +237,6 @@ class UserServiceUpdateUserTest {
         // Given
         List<Long> tooManyCategoryIds = List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L); // More than 6
         UpdateUserDTO dtoWithTooManyCategories = UpdateUserDTO.builder()
-                .active(false)
                 .categoryIds(tooManyCategoryIds)
                 .build();
 
@@ -313,7 +273,6 @@ class UserServiceUpdateUserTest {
         // Given
         List<Long> categoryIds = List.of(1L, 999L); // 999L doesn't exist
         UpdateUserDTO dtoWithInvalidCategories = UpdateUserDTO.builder()
-                .active(false)
                 .categoryIds(categoryIds)
                 .build();
 
@@ -383,7 +342,6 @@ class UserServiceUpdateUserTest {
         List<Category> singleCategory = List.of(Category.builder().id(1L).name("Category1").build());
 
         UpdateUserDTO dtoWithSingleCategory = UpdateUserDTO.builder()
-                .active(true)
                 .categoryIds(singleCategoryId)
                 .build();
 
@@ -422,7 +380,6 @@ class UserServiceUpdateUserTest {
                 .toList();
 
         UpdateUserDTO dtoWithMaxCategories = UpdateUserDTO.builder()
-                .active(true)
                 .categoryIds(maxCategoryIds)
                 .build();
 
@@ -443,41 +400,6 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).validateCategoryLimit(maxCategoryIds);
         verify(userValidationService).processCategories(maxCategoryIds);
         verify(userValidationService).updateUserCategories(mockUser, maxCategories);
-    }
-
-    @Test
-    @DisplayName("Should update user with minimal DTO containing only active field")
-    void shouldUpdateUserWithMinimalDtoContainingOnlyActiveField() {
-        // Given
-        UpdateUserDTO minimalDto = UpdateUserDTO.builder()
-                .active(false)
-                .build();
-
-        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
-        when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
-        when(userRepository.save(mockUser)).thenReturn(mockUser);
-        when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
-
-        // When
-        UserDTO result = userService.updateUser(minimalDto);
-
-        // Then
-        assertNotNull(result);
-        assertEquals(expectedUserDTO, result);
-        assertEquals(false, mockUser.isActive());
-
-        // Verify no category operations
-        verify(userValidationService, never()).validateCategoryLimit(any());
-        verify(userValidationService, never()).processCategories(any());
-        verify(userValidationService, never()).updateUserCategories(any(), any());
-
-        // Verify core operations
-        verify(authenticatedUserService).getAuthenticatedUserId();
-        verify(userValidationService).getUserById(authenticatedUserId);
-        verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, minimalDto);
-        verify(userRepository).save(mockUser);
-        verify(userMapper).toUserDTO(mockUser);
     }
 
     @Nested

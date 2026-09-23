@@ -3,7 +3,6 @@ package com.vaPaTi.vaPaTi.service;
 import com.vaPaTi.vaPaTi.dtos.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
 import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
@@ -179,10 +178,6 @@ public class AuthenticationService {
     }
 
     private void validateUserStatus(User user) {
-        if (!user.isActive()) {
-            throw new ForbiddenActionException("User account is disabled");
-        }
-
         accountStatusValidationService.validateNotBlocked(user);
     }
 

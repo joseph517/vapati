@@ -78,7 +78,6 @@ class UserServiceGetUserByIdTest {
 
         existingUser = User.builder()
                 .id(validUserId)
-                .active(true)
                 .verified(true)
                 .deletedAt(null)
                 .createdAt(LocalDateTime.now().minusDays(30))
@@ -91,7 +90,6 @@ class UserServiceGetUserByIdTest {
 
         expectedUserDTO = UserDTO.builder()
                 .id(validUserId)
-                .active(true)
                 .verified(true)
                 .categories(new ArrayList<>())
                 .userInfo(userInfoDTO)
@@ -113,7 +111,6 @@ class UserServiceGetUserByIdTest {
         assertNotNull(result);
         assertEquals(expectedUserDTO, result);
         assertEquals(validUserId, result.getId());
-        assertTrue(result.getActive());
         assertTrue(result.getVerified());
         assertNotNull(result.getUserInfo());
         assertEquals("John", result.getUserInfo().getFirstName());
@@ -221,7 +218,6 @@ class UserServiceGetUserByIdTest {
         Long minValidId = 1L;
         User userWithMinId = User.builder()
                 .id(minValidId)
-                .active(true)
                 .verified(false)
                 .role(userRole)
                 .userInfo(userInfo)
@@ -229,7 +225,6 @@ class UserServiceGetUserByIdTest {
 
         UserDTO expectedDTO = UserDTO.builder()
                 .id(minValidId)
-                .active(true)
                 .verified(false)
                 .categories(new ArrayList<>())
                 .bankAccounts(new ArrayList<>())
@@ -301,7 +296,6 @@ class UserServiceGetUserByIdTest {
         verify(userMapper).toUserDTO(existingUser);
         verify(userMapper).toUserDTO(argThat(user ->
                 user.getId().equals(validUserId) &&
-                        user.isActive() &&
                         user.isVerified()
         ));
 
@@ -314,14 +308,12 @@ class UserServiceGetUserByIdTest {
         // Given
         User minimalUser = User.builder()
                 .id(validUserId)
-                .active(false)
                 .verified(false)
                 .deletedAt(null)
                 .build();
 
         UserDTO minimalDTO = UserDTO.builder()
                 .id(validUserId)
-                .active(false)
                 .verified(false)
                 .categories(new ArrayList<>())
                 .bankAccounts(new ArrayList<>())
@@ -336,7 +328,6 @@ class UserServiceGetUserByIdTest {
         // Then
         assertNotNull(result);
         assertEquals(validUserId, result.getId());
-        assertFalse(result.getActive());
         assertFalse(result.getVerified());
 
         verify(userRepository).findByIdWithFullDetails(validUserId);

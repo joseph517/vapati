@@ -76,7 +76,6 @@ public class UserValidationService {
         }
 
         return User.builder()
-                .active(true)
                 .verified(false)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())

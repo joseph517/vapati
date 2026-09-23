@@ -56,7 +56,6 @@ class ReportActionServiceTest {
     void setUp() {
         testUser = new User();
         testUser.setId(1L);
-        testUser.setActive(true);
 
         testPublication = new Publication();
         testPublication.setId(1L);

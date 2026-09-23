@@ -93,7 +93,6 @@ class UserValidationServiceUserCreationTest {
             LocalDateTime afterExecution = LocalDateTime.now().plusSeconds(1);
 
             assertNotNull(result);
-            assertTrue(result.isActive(), "User should be active by default");
             assertFalse(result.isVerified(), "User should not be verified by default");
             assertNotNull(result.getCreatedAt(), "CreatedAt should be set");
             assertNotNull(result.getUpdatedAt(), "UpdatedAt should be set");
@@ -119,7 +118,6 @@ class UserValidationServiceUserCreationTest {
 
             // Then
             assertNotNull(result);
-            assertTrue(result.isActive());
             assertFalse(result.isVerified());
         }
 

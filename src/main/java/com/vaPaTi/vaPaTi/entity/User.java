@@ -26,9 +26,6 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "is_active")
-    private boolean active;
-
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 

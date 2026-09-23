@@ -75,7 +75,6 @@ class JwtServiceTest {
                 .id(1L)
                 .role(testRole)
                 .userInfo(testUserInfo)
-                .active(true)
                 .verified(true)
                 .build();
 

@@ -82,7 +82,6 @@ class JwtAuthenticationFilterTest {
                 .id(USER_ID)
                 .role(Role.builder().id(1L).name("USER").build())
                 .userInfo(userInfo)
-                .active(true)
                 .build();
         userInfo.setUser(user);
 
@@ -318,18 +317,6 @@ class JwtAuthenticationFilterTest {
 
             verify(filterChain).doFilter(request, response);
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Disabled account: stays unauthenticated (401)")
-        void shouldRejectDisabledAccount() throws Exception {
-            when(userDetailsService.loadUserForRequest(USER_ID))
-                    .thenThrow(new UsernameNotFoundException("User account is disabled"));
-
-            filter.doFilter(request, response, filterChain);
-
-            verify(filterChain).doFilter(request, response);
-            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         }
 
         @Test

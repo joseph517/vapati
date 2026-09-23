@@ -45,7 +45,6 @@ public class VerificationRequestValitationTest {
         mockUser = User.builder()
                 .id(1L)
                 .verified(false)
-                .active(true)
                 .createdAt(LocalDateTime.now().minusDays(1))
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -443,7 +442,6 @@ public class VerificationRequestValitationTest {
         void shouldMaintainUserStateIntegrityDuringApproval() {
             // Given
             Long originalId = mockUser.getId();
-            boolean originalActiveState = mockUser.isActive();
             LocalDateTime originalCreatedAt = mockUser.getCreatedAt();
 
             when(userRepository.save(any(User.class))).thenReturn(mockUser);
@@ -453,7 +451,6 @@ public class VerificationRequestValitationTest {
 
             // Then
             assertThat(mockUser.getId()).isEqualTo(originalId);
-            assertThat(mockUser.isActive()).isEqualTo(originalActiveState);
             assertThat(mockUser.getCreatedAt()).isEqualTo(originalCreatedAt);
             assertThat(mockUser.isVerified()).isTrue();
 

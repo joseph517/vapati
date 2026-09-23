@@ -74,7 +74,6 @@ class PublicationServiceCreateTest {
 
         mockUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(true)
                 .createdAt(LocalDateTime.now())
                 .userInfo(mockUserInfo)

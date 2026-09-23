@@ -61,11 +61,9 @@ class BankAccountServiceTest {
         // Setup User
         mockUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(true)
                 .build();
         mockUser.setId(1L);
-        mockUser.setActive(true);
         mockUser.setVerified(true);
 
         // Setup BankAccount entity

@@ -23,7 +23,6 @@ class AccountStatusValidationServiceTest {
         accountStatusValidationService = new AccountStatusValidationService();
         user = User.builder()
                 .id(1L)
-                .active(true)
                 .build();
     }
 
@@ -113,13 +112,5 @@ class AccountStatusValidationServiceTest {
                     .hasMessageStartingWith("Your account has been banned");
         }
 
-        @Test
-        @DisplayName("Does not check the active flag (kept in AuthenticationService)")
-        void shouldNotCheckActiveFlag() {
-            user.setActive(false);
-
-            assertThatCode(() -> accountStatusValidationService.validateNotBlocked(user))
-                    .doesNotThrowAnyException();
-        }
     }
 }

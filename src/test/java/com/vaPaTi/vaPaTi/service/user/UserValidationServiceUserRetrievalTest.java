@@ -73,7 +73,6 @@ class UserValidationServiceUserRetrievalTest {
         // Setup User with all relationships
         mockUser = User.builder()
                 .id(VALID_USER_ID)
-                .active(true)
                 .verified(true)
                 .createdAt(LocalDateTime.now().minusDays(30))
                 .updatedAt(LocalDateTime.now().minusDays(1))
@@ -104,7 +103,6 @@ class UserValidationServiceUserRetrievalTest {
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(VALID_USER_ID);
-            assertThat(result.isActive()).isTrue();
             assertThat(result.isVerified()).isTrue();
             assertThat(result.getDeletedAt()).isNull();
 
@@ -215,7 +213,6 @@ class UserValidationServiceUserRetrievalTest {
 
             User minimalUser = User.builder()
                     .id(VALID_USER_ID)
-                    .active(false)  // Can be inactive
                     .verified(false)  // Can be unverified
                     .createdAt(LocalDateTime.now())
                     .userInfo(minimalUserInfo)
@@ -234,7 +231,6 @@ class UserValidationServiceUserRetrievalTest {
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(VALID_USER_ID);
-            assertThat(result.isActive()).isFalse();
             assertThat(result.isVerified()).isFalse();
             assertThat(result.getUserInfo()).isNotNull();
             assertThat(result.getUserInfo().getFirstName()).isEqualTo("Jane");
@@ -265,7 +261,6 @@ class UserValidationServiceUserRetrievalTest {
 
             User completeUser = User.builder()
                     .id(VALID_USER_ID)
-                    .active(true)
                     .verified(true)
                     .createdAt(LocalDateTime.now().minusMonths(6))
                     .updatedAt(LocalDateTime.now().minusHours(2))
@@ -285,7 +280,6 @@ class UserValidationServiceUserRetrievalTest {
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(VALID_USER_ID);
-            assertThat(result.isActive()).isTrue();
             assertThat(result.isVerified()).isTrue();
 
             // Verify complete UserInfo

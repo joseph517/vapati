@@ -77,7 +77,6 @@ class PublicationServiceGetByUserIdTest {
 
         mockUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(true)
                 .createdAt(baseDateTime)
                 .userInfo(mockUserInfo)

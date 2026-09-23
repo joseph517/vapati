@@ -85,7 +85,6 @@ class AuthenticationServiceTest {
         Role mockRole = mock(Role.class);
 
         // Configure mocks behavior
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getId()).thenReturn(1L);
         when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
         when(mockUser.getRole()).thenReturn(mockRole);
@@ -183,31 +182,6 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw MessageException when user account is disabled")
-    void authenticate_WithInactiveUser_ShouldThrowMessageException() {
-        // Given
-        User mockUser = mock(User.class);
-        Authentication mockAuth = mock(Authentication.class);
-
-        when(mockUser.isActive()).thenReturn(false);
-
-        when(authenticationManager.authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class)))
-                .thenReturn(mockAuth);
-        when(userRepository.findByEmailIncludingDeleted("test@example.com"))
-                .thenReturn(Optional.of(mockUser));
-
-        // When & Then
-        assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
-                .isInstanceOf(MessageException.class)
-                .hasMessage("User account is disabled");
-
-        // Verify interactions
-        verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-        verify(userRepository).findByEmailIncludingDeleted("test@example.com");
-        verifyNoInteractions(jwtService);
-    }
-
-    @Test
     @DisplayName("Should look up the user with the email as received (the DB collation is case insensitive)")
     void authenticate_WithCaseInsensitiveEmail_ShouldAuthenticateSuccessfully() {
         // Given
@@ -217,7 +191,6 @@ class AuthenticationServiceTest {
         Role mockRole = mock(Role.class);
         Authentication mockAuth = mock(Authentication.class);
 
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getId()).thenReturn(1L);
         when(mockUser.getUserInfo()).thenReturn(mockUserInfo);
         when(mockUser.getRole()).thenReturn(mockRole);
@@ -259,7 +232,6 @@ class AuthenticationServiceTest {
         User mockUser = mock(User.class);
         Authentication mockAuth = mock(Authentication.class);
 
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(true);
         when(mockUser.getBannedReason()).thenReturn("Custom ban reason");
 
@@ -286,7 +258,6 @@ class AuthenticationServiceTest {
         User mockUser = mock(User.class);
         Authentication mockAuth = mock(Authentication.class);
 
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(true);
         when(mockUser.getBannedReason()).thenReturn(null);
 
@@ -314,7 +285,6 @@ class AuthenticationServiceTest {
         Authentication mockAuth = mock(Authentication.class);
         LocalDateTime suspensionEnd = LocalDateTime.now().plusDays(7);
 
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(null);
         when(mockUser.getSuspendedUntil()).thenReturn(suspensionEnd);
         when(mockUser.getBannedReason()).thenReturn("Custom suspension reason");
@@ -344,7 +314,6 @@ class AuthenticationServiceTest {
         Authentication mockAuth = mock(Authentication.class);
         LocalDateTime suspensionEnd = LocalDateTime.now().plusDays(7);
 
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(null);
         when(mockUser.getSuspendedUntil()).thenReturn(suspensionEnd);
         when(mockUser.getBannedReason()).thenReturn(null);
@@ -376,7 +345,6 @@ class AuthenticationServiceTest {
         Authentication mockAuth = mock(Authentication.class);
         LocalDateTime expiredSuspension = LocalDateTime.now().minusDays(1);
 
-        when(mockUser.isActive()).thenReturn(true);
         when(mockUser.getBanned()).thenReturn(null);
         when(mockUser.getSuspendedUntil()).thenReturn(expiredSuspension);
         when(mockUser.getId()).thenReturn(1L);
@@ -432,7 +400,6 @@ class AuthenticationServiceTest {
                     .id(1L)
                     .userInfo(info)
                     .role(Role.builder().id(1L).name("USER").build())
-                    .active(true)
                     .build();
             deletedUser.setDeletedAt(deletedAt);
             info.setUser(deletedUser);
@@ -492,19 +459,6 @@ class AuthenticationServiceTest {
         }
 
         @Test
-        @DisplayName("Deleted and disabled account: 403, not restored")
-        void shouldNotRestoreDeletedAndDisabledAccount() {
-            deletedUser.setActive(false);
-
-            assertThatThrownBy(() -> authenticationService.authenticate(validAuthRequest))
-                    .isInstanceOf(ForbiddenActionException.class)
-                    .hasMessage("User account is disabled");
-
-            assertThat(deletedUser.getDeletedAt()).isEqualTo(deletedAt);
-            verify(userRepository, never()).save(ArgumentMatchers.any());
-        }
-
-        @Test
         @DisplayName("Account that is not deleted: nothing is saved")
         void shouldNotSaveWhenAccountIsNotDeleted() {
             deletedUser.setDeletedAt(null);
@@ -553,7 +507,6 @@ class AuthenticationServiceTest {
                     .id(id)
                     .userInfo(info)
                     .role(Role.builder().id(1L).name("USER").build())
-                    .active(true)
                     .build();
             info.setUser(u);
             return u;

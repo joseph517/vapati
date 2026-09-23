@@ -34,7 +34,6 @@ class BankAccountRepositoryTest extends AbstractIntegrationTest {
         String accountNumber = "1234567890";
 
         User user = User.builder()
-                .active(true)
                 .verified(true)
                 .build();
 
@@ -703,7 +702,6 @@ class BankAccountRepositoryTest extends AbstractIntegrationTest {
                         .build()));
 
         User user = User.builder()
-                .active(true)
                 .verified(true)
                 .role(role)
                 .build();

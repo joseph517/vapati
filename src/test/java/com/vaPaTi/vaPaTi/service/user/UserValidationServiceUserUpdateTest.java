@@ -56,7 +56,6 @@ class UserValidationServiceUserUpdateTest {
 
         testUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(false)
                 .createdAt(LocalDateTime.of(2024, 1, 1, 10, 0, 0))
                 .updatedAt(LocalDateTime.of(2024, 1, 10, 15, 30, 0))
@@ -284,7 +283,6 @@ class UserValidationServiceUserUpdateTest {
     void updateTimestamp_ShouldOnlyUpdateTimestamp() {
         // Given
         Long originalId = testUser.getId();
-        boolean originalActive = testUser.isActive();
         boolean originalVerified = testUser.isVerified();
         LocalDateTime originalCreatedAt = testUser.getCreatedAt();
         LocalDateTime originalDeletedAt = testUser.getDeletedAt();
@@ -298,7 +296,6 @@ class UserValidationServiceUserUpdateTest {
             // Then - verify only updatedAt changed
             assertThat(testUser.getUpdatedAt()).isEqualTo(fixedDateTime);
             assertThat(testUser.getId()).isEqualTo(originalId);
-            assertThat(testUser.isActive()).isEqualTo(originalActive);
             assertThat(testUser.isVerified()).isEqualTo(originalVerified);
             assertThat(testUser.getCreatedAt()).isEqualTo(originalCreatedAt);
             assertThat(testUser.getDeletedAt()).isEqualTo(originalDeletedAt);
@@ -438,7 +435,6 @@ class UserValidationServiceUserUpdateTest {
         // Arrange
         User userWithoutInfo = User.builder()
                 .id(2L)
-                .active(true)
                 .verified(false)
                 .build();
 

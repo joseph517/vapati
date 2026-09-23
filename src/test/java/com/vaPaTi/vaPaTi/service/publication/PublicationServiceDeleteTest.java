@@ -64,7 +64,6 @@ class PublicationServiceDeleteTest {
 
         User mockOwnerUser = User.builder()
                 .id(OWNER_ID)
-                .active(true)
                 .verified(true)
                 .createdAt(baseDateTime)
                 .userInfo(UserInfo.builder()

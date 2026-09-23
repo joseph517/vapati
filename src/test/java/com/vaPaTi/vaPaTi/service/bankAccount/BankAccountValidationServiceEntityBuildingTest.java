@@ -53,7 +53,6 @@ class BankAccountValidationServiceEntityBuildingTest {
         // Setup valid User
         validUser = User.builder()
                 .id(1L)
-                .active(true)
                 .verified(true)
                 .createdAt(LocalDateTime.now().minusDays(30))
                 .updatedAt(LocalDateTime.now().minusDays(1))
@@ -225,7 +224,6 @@ class BankAccountValidationServiceEntityBuildingTest {
             // Given
             User fullUser = User.builder()
                     .id(999L)
-                    .active(false)
                     .verified(false)
                     .createdAt(LocalDateTime.now().minusYears(1))
                     .updatedAt(LocalDateTime.now().minusMonths(1))
@@ -240,7 +238,6 @@ class BankAccountValidationServiceEntityBuildingTest {
             assertNotNull(result);
             assertSame(fullUser, result.getUser());
             assertEquals(999L, result.getUser().getId());
-            assertFalse(result.getUser().isActive());
             assertFalse(result.getUser().isVerified());
         }
 
@@ -250,7 +247,6 @@ class BankAccountValidationServiceEntityBuildingTest {
             // Given
             User minimalUser = User.builder()
                     .id(1L)
-                    .active(true)
                     .verified(true)
                     .build();
 
@@ -261,7 +257,6 @@ class BankAccountValidationServiceEntityBuildingTest {
             assertNotNull(result);
             assertSame(minimalUser, result.getUser());
             assertEquals(1L, result.getUser().getId());
-            assertTrue(result.getUser().isActive());
             assertTrue(result.getUser().isVerified());
         }
 
@@ -271,7 +266,6 @@ class BankAccountValidationServiceEntityBuildingTest {
             // Given
             User userWithNulls = User.builder()
                     .id(1L)
-                    .active(true)
                     .verified(true)
                     .userInfo(null)
                     .deletedAt(null)
@@ -298,13 +292,11 @@ class BankAccountValidationServiceEntityBuildingTest {
             BankAccount result = validationService.buildBankAccountEntity(validDto, originalUser);
 
             // Modify original user after building
-            originalUser.setActive(false);
             originalUser.setVerified(false);
 
             // Then
             assertSame(originalUser, result.getUser());
             // Changes to original user should be reflected in the bank account's user reference
-            assertFalse(result.getUser().isActive());
             assertFalse(result.getUser().isVerified());
         }
 
@@ -312,8 +304,8 @@ class BankAccountValidationServiceEntityBuildingTest {
         @DisplayName("should handle different User instances with same ID")
         void shouldHandleDifferentUserInstances_WithSameId() {
             // Given
-            User user1 = User.builder().id(1L).active(true).verified(true).build();
-            User user2 = User.builder().id(1L).active(false).verified(false).build();
+            User user1 = User.builder().id(1L).verified(true).build();
+            User user2 = User.builder().id(1L).verified(false).build();
 
             // When
             BankAccount result1 = validationService.buildBankAccountEntity(validDto, user1);
@@ -322,7 +314,6 @@ class BankAccountValidationServiceEntityBuildingTest {
             // Then
             assertNotSame(result1.getUser(), result2.getUser());
             assertEquals(result1.getUser().getId(), result2.getUser().getId());
-            assertNotEquals(result1.getUser().isActive(), result2.getUser().isActive());
             assertNotEquals(result1.getUser().isVerified(), result2.getUser().isVerified());
         }
     }
@@ -548,12 +539,10 @@ class BankAccountValidationServiceEntityBuildingTest {
             // Given
             User originalUser = User.builder()
                     .id(1L)
-                    .active(true)
                     .verified(true)
                     .build();
 
             Long originalId = originalUser.getId();
-            boolean originalActive = originalUser.isActive();
             boolean originalVerified = originalUser.isVerified();
 
             // When
@@ -561,7 +550,6 @@ class BankAccountValidationServiceEntityBuildingTest {
 
             // Then
             assertEquals(originalId, originalUser.getId());
-            assertEquals(originalActive, originalUser.isActive());
             assertEquals(originalVerified, originalUser.isVerified());
         }
 
@@ -581,8 +569,8 @@ class BankAccountValidationServiceEntityBuildingTest {
             // Given
             CreateBankAccountDTO dto1 = validDto.toBuilder().bankName("Bank 1").build();
             CreateBankAccountDTO dto2 = validDto.toBuilder().bankName("Bank 2").build();
-            User user1 = User.builder().id(1L).active(true).verified(true).build();
-            User user2 = User.builder().id(2L).active(false).verified(false).build();
+            User user1 = User.builder().id(1L).verified(true).build();
+            User user2 = User.builder().id(2L).verified(false).build();
 
             // When - Simulate concurrent access
             BankAccount result1 = validationService.buildBankAccountEntity(dto1, user1);

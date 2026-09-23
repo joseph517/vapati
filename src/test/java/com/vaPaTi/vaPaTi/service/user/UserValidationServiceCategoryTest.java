@@ -64,7 +64,6 @@ class UserValidationServiceCategoryTest {
         // Setup mock user with empty user categories initially
         mockUser = User.builder()
                 .id(1L)
-                .active(true)
                 .userCategories(new HashSet<>())
                 .build();
     }
