@@ -8,6 +8,7 @@ import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
@@ -28,6 +29,26 @@ class GlobalExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         handler = new GlobalExceptionHandler();
+    }
+
+    @Nested
+    @DisplayName("handleAccessDeniedException()")
+    class AccessDeniedTests {
+
+        @Test
+        @DisplayName("Returns 403 with the same message as SecurityConfig and without the original exception message")
+        void shouldReturnForbidden() {
+            AccessDeniedException ex = new AccessDeniedException("Access Denied by PreAuthorize");
+
+            ResponseEntity<Map<String, String>> response = handler.handleAccessDeniedException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Forbidden")
+                    .containsEntry("message", "You don't have permission to access this resource")
+                    .containsKey("timestamp");
+            assertThat(response.getBody().values()).noneMatch(value -> value.contains("PreAuthorize"));
+        }
     }
 
     @Nested

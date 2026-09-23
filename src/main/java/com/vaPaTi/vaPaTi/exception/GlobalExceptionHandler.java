@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -82,6 +83,15 @@ public class GlobalExceptionHandler {
         Map<String, String> error = new HashMap<>();
         error.put(ERROR_MESSAGE, "Forbidden");
         error.put(MESSAGE, ex.getMessage());
+        error.put(TIMESTAMP, LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> handleAccessDeniedException(AccessDeniedException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put(ERROR_MESSAGE, "Forbidden");
+        error.put(MESSAGE, "You don't have permission to access this resource");
         error.put(TIMESTAMP, LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
