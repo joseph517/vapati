@@ -21,10 +21,23 @@ public class CampaignServiceValidation {
 
     private final CampaignRepository campaignRepository;
     private final CategoryRepository categoryRepository;
+    private final CampaignAuthorizationService campaignAuthorizationService;
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
         return campaignRepository.findByIdWithActiveOwner(campaignId)
-                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with id: " + campaignId));
+                .orElseThrow(() -> campaignNotFound(campaignId));
+    }
+
+    // callerId may be null (anonymous). A CLOSED campaign of someone else gets the same 404 as a missing one
+    public Campaign findVisibleCampaignByIdOrThrow(Long campaignId, Long callerId) {
+        Optional<Campaign> campaign = campaignAuthorizationService.isAdmin(callerId)
+                ? campaignRepository.findByIdWithActiveOwner(campaignId)
+                : campaignRepository.findByIdVisibleTo(campaignId, callerId);
+        return campaign.orElseThrow(() -> campaignNotFound(campaignId));
+    }
+
+    private ResourceNotFoundException campaignNotFound(Long campaignId) {
+        return new ResourceNotFoundException("Campaign not found with id: " + campaignId);
     }
 
     public void updateCampaignFields(@NotNull Campaign campaign, @NotNull UpdateCampaignRequestDTO dto) {

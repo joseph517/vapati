@@ -52,7 +52,8 @@ public class CampaignService {
     }
 
     public CampaignResponseDTO getCampaignById(Long campaignId) {
-        Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        Campaign campaign = campaignServiceValidation.findVisibleCampaignByIdOrThrow(campaignId, callerId);
 
         return toResponseDTOWithCategories(campaign);
     }

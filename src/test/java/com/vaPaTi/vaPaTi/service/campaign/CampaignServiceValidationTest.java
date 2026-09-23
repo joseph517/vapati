@@ -9,9 +9,11 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CategoryRepository;
+import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,6 +37,8 @@ class CampaignServiceValidationTest {
     private CampaignRepository campaignRepository;
     @Mock
     private CategoryRepository categoryRepository;
+    @Mock
+    private CampaignAuthorizationService campaignAuthorizationService;
 
     @InjectMocks
     private CampaignServiceValidation campaignServiceValidation;
@@ -437,4 +441,82 @@ class CampaignServiceValidationTest {
                 .hasMessage("Category not found with id: 999");
     }
 
+    @Nested
+    @DisplayName("findVisibleCampaignByIdOrThrow Tests")
+    class FindVisibleCampaignByIdOrThrowTests {
+
+        private static final Long CAMPAIGN_ID = 1L;
+        private static final Long CALLER_ID = 3L;
+
+        @Test
+        @DisplayName("Should use the unrestricted query when the caller is an admin")
+        void findVisibleCampaignByIdOrThrow_WhenAdmin_ShouldUseFindByIdWithActiveOwner() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            Campaign result = campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
+
+            // Then
+            assertThat(result).isSameAs(testCampaign);
+            verify(campaignRepository, never()).findByIdVisibleTo(any(), any());
+        }
+
+        @Test
+        @DisplayName("Should use the visibility query with the caller id when the caller is not an admin")
+        void findVisibleCampaignByIdOrThrow_WhenNotAdmin_ShouldUseFindByIdVisibleTo() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            Campaign result = campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
+
+            // Then
+            assertThat(result).isSameAs(testCampaign);
+            verify(campaignRepository, never()).findByIdWithActiveOwner(any());
+        }
+
+        @Test
+        @DisplayName("Should use the visibility query with a null caller id when the caller is anonymous")
+        void findVisibleCampaignByIdOrThrow_WhenAnonymous_ShouldUseFindByIdVisibleToWithNull() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(null)).thenReturn(false);
+            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, null)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            Campaign result = campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, null);
+
+            // Then
+            assertThat(result).isSameAs(testCampaign);
+            verify(campaignRepository, never()).findByIdWithActiveOwner(any());
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException with the not-found message when the campaign is not visible")
+        void findVisibleCampaignByIdOrThrow_WhenNotVisible_ShouldThrowResourceNotFoundException() {
+            // Given: a CLOSED campaign of someone else is filtered out by the query
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.empty());
+
+            // When & Then: same message as findCampaignByIdOrThrow for a missing id
+            assertThatThrownBy(() -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found with id: " + CAMPAIGN_ID);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when an admin looks up a missing campaign")
+        void findVisibleCampaignByIdOrThrow_WhenAdminAndMissing_ShouldThrowResourceNotFoundException() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertThatThrownBy(() -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found with id: " + CAMPAIGN_ID);
+        }
+    }
 }

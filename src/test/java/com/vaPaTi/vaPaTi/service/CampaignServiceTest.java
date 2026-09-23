@@ -194,10 +194,11 @@ class CampaignServiceTest {
     class GetCampaignByIdTests {
 
         @Test
-        @DisplayName("Should return mapped campaign DTO when campaign exists")
+        @DisplayName("Should return mapped campaign DTO looked up with the caller id")
         void getCampaignById_WithExistingCampaign_ShouldReturnMappedDTO() {
             // Given
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
@@ -210,21 +211,43 @@ class CampaignServiceTest {
                         .isNotNull()
                         .isEqualTo(campaignResponseDTO);
 
-                verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+                verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID);
+                verify(campaignServiceValidation, never()).findCampaignByIdOrThrow(any());
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()));
             }
         }
 
         @Test
-        @DisplayName("Should throw MessageException when campaign does not exist")
-        void getCampaignById_WithNonExistentCampaign_ShouldThrowException() {
+        @DisplayName("Should look up the campaign with a null caller id when the caller is anonymous")
+        void getCampaignById_WhenAnonymous_ShouldLookUpWithNullCallerId() {
             // Given
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
-                    .thenThrow(new com.vaPaTi.vaPaTi.exception.MessageException(CAMPAIGN_NOT_FOUND_MESSAGE));
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
+
+                // When
+                CampaignResponseDTO result = campaignService.getCampaignById(TEST_CAMPAIGN_ID);
+
+                // Then
+                assertThat(result).isEqualTo(campaignResponseDTO);
+                verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null);
+                verify(authenticatedUserService, never()).getAuthenticatedUserId();
+            }
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when the campaign is not visible or does not exist")
+        void getCampaignById_WithNonVisibleCampaign_ShouldThrowException() {
+            // Given
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenThrow(new com.vaPaTi.vaPaTi.exception.ResourceNotFoundException(CAMPAIGN_NOT_FOUND_MESSAGE));
 
             // When & Then
             assertThatThrownBy(() -> campaignService.getCampaignById(TEST_CAMPAIGN_ID))
-                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.ResourceNotFoundException.class)
                     .hasMessage(CAMPAIGN_NOT_FOUND_MESSAGE);
         }
     }
