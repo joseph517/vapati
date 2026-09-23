@@ -624,6 +624,22 @@ class FollowerServiceTest {
 
             verify(followerRepository, never()).countByUser(any());
         }
+
+        @Test
+        @DisplayName("Should return the repository count, which excludes deleted followers like the followers list")
+        void getFollowerCount_WithDeletedFollower_ShouldReturnOnlyActiveFollowersCount() {
+            // Given: two follow relations, one from a deleted user; countByUser filters deletedAt IS NULL
+            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerRepository.countByUser(currentUser)).thenReturn(1L);
+
+            // When
+            long result = followerService.getFollowerCount(CURRENT_USER_ID);
+
+            // Then
+            assertThat(result).isEqualTo(1L);
+            verify(followerRepository).countByUser(currentUser);
+            verifyNoMoreInteractions(followerRepository);
+        }
     }
 
     @Nested
@@ -671,6 +687,22 @@ class FollowerServiceTest {
                     .hasMessage(USER_NOT_FOUND + CURRENT_USER_ID);
 
             verify(followerRepository, never()).countByFollower(any());
+        }
+
+        @Test
+        @DisplayName("Should return the repository count, which excludes deleted followed users like the following list")
+        void getFollowingCount_WithDeletedFollowedUser_ShouldReturnOnlyActiveFollowingCount() {
+            // Given: follows two users, one of them deleted; countByFollower filters deletedAt IS NULL
+            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerRepository.countByFollower(currentUser)).thenReturn(1L);
+
+            // When
+            long result = followerService.getFollowingCount(CURRENT_USER_ID);
+
+            // Then
+            assertThat(result).isEqualTo(1L);
+            verify(followerRepository).countByFollower(currentUser);
+            verifyNoMoreInteractions(followerRepository);
         }
     }
 

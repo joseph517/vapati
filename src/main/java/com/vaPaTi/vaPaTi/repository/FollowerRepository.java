@@ -27,10 +27,12 @@ public interface FollowerRepository extends JpaRepository<Follower, Long> {
     @Query("SELECT f FROM Follower f JOIN FETCH f.user JOIN FETCH f.user.userInfo WHERE f.follower = :follower")
     List<Follower> findFollowingsByFollower(@Param("follower") User follower);
 
-    // Count followers
-    long countByUser(User user);
+    // Count followers, excluding deleted ones (same rule as findFollowersByUser)
+    @Query("SELECT COUNT(f) FROM Follower f JOIN f.follower u WHERE f.user = :user AND u.deletedAt IS NULL")
+    long countByUser(@Param("user") User user);
 
-    // Count following
-    long countByFollower(User follower);
+    // Count following, excluding deleted users (same rule as findFollowingsByFollower)
+    @Query("SELECT COUNT(f) FROM Follower f JOIN f.user u WHERE f.follower = :follower AND u.deletedAt IS NULL")
+    long countByFollower(@Param("follower") User follower);
 
 }
