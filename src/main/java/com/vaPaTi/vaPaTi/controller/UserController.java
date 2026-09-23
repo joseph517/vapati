@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +46,7 @@ public class UserController {
 
     @PostMapping("/create")
     @Operation(summary = "Create user", description = "Create a new user")
-    public ResponseEntity<UserDTO> createUser(@RequestBody UserUserInfoRequestDTO dto) {
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserUserInfoRequestDTO dto) {
         return ResponseEntity.ok(userService.createUser(dto));
     }
 
@@ -53,7 +54,7 @@ public class UserController {
     @Operation(summary = "Update user",
             description = "Updates the authenticated user. Changing the password, or the email to a different one, requires currentPassword "
                     + "(400 if missing or incorrect) and invalidates every session, including the current one: the user has to log in again")
-    public ResponseEntity<UserDTO> updateUser(@RequestBody UpdateUserDTO dto) {
+    public ResponseEntity<UserDTO> updateUser(@Valid @RequestBody UpdateUserDTO dto) {
         return ResponseEntity.ok(userService.updateUser(dto));
     }
 
