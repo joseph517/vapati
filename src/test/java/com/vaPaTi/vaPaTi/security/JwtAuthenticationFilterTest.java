@@ -295,6 +295,32 @@ class JwtAuthenticationFilterTest {
         }
 
         @Test
+        @DisplayName("Token issued before tokensValidAfter: stays unauthenticated (401), even if banned")
+        void shouldRejectTokenIssuedBeforeTokensValidAfter() throws Exception {
+            user.setTokensValidAfter(LocalDateTime.now().plusMinutes(1));
+            user.setBanned(true);
+            when(userDetailsService.loadUserForRequest(USER_ID)).thenReturn(new RequestUser(user, userDetails()));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain).doFilter(request, response);
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("Token issued after tokensValidAfter: authenticated")
+        void shouldAuthenticateTokenIssuedAfterTokensValidAfter() throws Exception {
+            user.setTokensValidAfter(LocalDateTime.now().minusMinutes(1));
+            when(userDetailsService.loadUserForRequest(USER_ID)).thenReturn(new RequestUser(user, userDetails()));
+
+            filter.doFilter(request, response, filterChain);
+
+            verify(filterChain).doFilter(request, response);
+            assertThat(SecurityContextHolder.getContext().getAuthentication()).isNotNull();
+        }
+
+        @Test
         @DisplayName("Disabled account: stays unauthenticated (401)")
         void shouldRejectDisabledAccount() throws Exception {
             when(userDetailsService.loadUserForRequest(USER_ID))

@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -112,6 +114,20 @@ public class JwtService {
 
     public LocalDateTime extractExpirationDateTime(String token) {
         return LocalDateTime.ofInstant(extractExpiration(token).toInstant(), ZoneId.systemDefault());
+    }
+
+    public Date extractIssuedAt(String token) {
+        return extractClaim(token, Claims::getIssuedAt);
+    }
+
+    // The iat has second precision, so tokensValidAfter is truncated to seconds: a login in the same second
+    // as the credential change stays valid
+    public boolean isIssuedBefore(String token, LocalDateTime tokensValidAfter) {
+        if (tokensValidAfter == null) {
+            return false;
+        }
+        Instant validAfter = tokensValidAfter.truncatedTo(ChronoUnit.SECONDS).atZone(ZoneId.systemDefault()).toInstant();
+        return extractIssuedAt(token).toInstant().isBefore(validAfter);
     }
 
     public String extractJti(String token) {

@@ -81,6 +81,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Missing, deleted or disabled accounts throw here and stay unauthenticated (401)
                 RequestUser requestUser = this.userDetailsService.loadUserForRequest(userId);
 
+                // Tokens issued before the last email or password change stay unauthenticated (401)
+                if (jwtService.isIssuedBefore(jwt, requestUser.user().getTokensValidAfter())) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 // Banned or suspended accounts are cut with 403, with the same message as the login
                 try {
                     accountStatusValidationService.validateNotBlocked(requestUser.user());

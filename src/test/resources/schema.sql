@@ -46,6 +46,7 @@ CREATE TABLE [user] (
     banned_at DATETIME2 NULL,
     suspended_until DATETIME2 NULL,
     banned_reason VARCHAR(500) NULL,
+    tokens_valid_after DATETIME2 NULL,
     deleted_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),

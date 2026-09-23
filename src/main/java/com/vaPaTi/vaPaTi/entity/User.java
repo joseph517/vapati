@@ -47,6 +47,10 @@ public class User {
     @Column(name = "banned_reason", length = 500)
     private String bannedReason;
 
+    // Tokens issued before this moment are rejected (set when the email or password changes). null = no restriction
+    @Column(name = "tokens_valid_after")
+    private LocalDateTime tokensValidAfter;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

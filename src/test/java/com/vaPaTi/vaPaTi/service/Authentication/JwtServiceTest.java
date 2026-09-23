@@ -560,6 +560,45 @@ class JwtServiceTest {
     }
 
     @Nested
+    @DisplayName("isIssuedBefore()")
+    class IsIssuedBeforeTests {
+
+        private LocalDateTime issuedAt(String token) {
+            return LocalDateTime.ofInstant(jwtService.extractIssuedAt(token).toInstant(), ZoneId.systemDefault());
+        }
+
+        @Test
+        @DisplayName("tokensValidAfter null: never issued before (no restriction)")
+        void shouldReturnFalseWhenTokensValidAfterIsNull() {
+            assertThat(jwtService.isIssuedBefore(validToken, null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("iat before tokensValidAfter: true")
+        void shouldReturnTrueWhenIssuedBefore() {
+            LocalDateTime tokensValidAfter = issuedAt(validToken).plusSeconds(1);
+
+            assertThat(jwtService.isIssuedBefore(validToken, tokensValidAfter)).isTrue();
+        }
+
+        @Test
+        @DisplayName("iat in the same second as tokensValidAfter: false (truncated to seconds)")
+        void shouldReturnFalseWhenIssuedInTheSameSecond() {
+            LocalDateTime tokensValidAfter = issuedAt(validToken).plusNanos(999_000_000);
+
+            assertThat(jwtService.isIssuedBefore(validToken, tokensValidAfter)).isFalse();
+        }
+
+        @Test
+        @DisplayName("iat after tokensValidAfter: false")
+        void shouldReturnFalseWhenIssuedAfter() {
+            LocalDateTime tokensValidAfter = issuedAt(validToken).minusSeconds(10);
+
+            assertThat(jwtService.isIssuedBefore(validToken, tokensValidAfter)).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("init() secret validation")
     class SecretValidationTests {
 

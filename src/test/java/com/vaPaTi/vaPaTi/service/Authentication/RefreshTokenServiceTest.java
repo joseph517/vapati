@@ -274,6 +274,28 @@ class RefreshTokenServiceTest {
     }
 
     @Test
+    @DisplayName("Should respond 401 when the refresh token was issued before tokensValidAfter")
+    void shouldThrowInvalidCredentialsWhenIssuedBeforeTokensValidAfter() {
+        // Given - the email or password changed after the token was issued
+        LocalDateTime tokensValidAfter = LocalDateTime.now();
+        activeUser.setTokensValidAfter(tokensValidAfter);
+        stubUsableRefreshToken(activeUser.getId());
+        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(jwtService.isIssuedBefore(validRefreshToken, tokensValidAfter)).thenReturn(true);
+
+        // When & Then
+        InvalidCredentialsException exception = assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.refreshToken(validRefreshToken)
+        );
+
+        assertEquals(INVALID_REFRESH_TOKEN_MSG, exception.getMessage());
+        verify(tokenBlackListService, never()).revokeToken(any(), any());
+        verify(jwtService, never()).generateToken(any(User.class));
+        verify(jwtService, never()).generateRefreshToken(any(User.class));
+    }
+
+    @Test
     @DisplayName("Should respond 401 for an old-format refresh token (sub = email)")
     void shouldThrowInvalidCredentialsForOldFormatSubject() {
         // Given - the subject is not numeric
@@ -575,6 +597,23 @@ class RefreshTokenServiceTest {
 
             assertEquals(INVALID_REFRESH_TOKEN_MSG, exception.getMessage());
             verifyNoInteractions(userRepository, tokenBlackListService);
+        }
+
+        @Test
+        @DisplayName("A real refresh token issued before tokensValidAfter responds 401 and is not rotated")
+        void shouldRejectRealRefreshTokenIssuedBeforeTokensValidAfter() {
+            String refreshToken = realJwtService.generateRefreshToken(activeUser);
+            activeUser.setTokensValidAfter(LocalDateTime.now().plusSeconds(2));
+            when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
+            when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+
+            InvalidCredentialsException exception = assertThrows(
+                    InvalidCredentialsException.class,
+                    () -> realAuthService.refreshToken(refreshToken)
+            );
+
+            assertEquals(INVALID_REFRESH_TOKEN_MSG, exception.getMessage());
+            verify(tokenBlackListService, never()).revokeToken(any(), any());
         }
 
         @Test

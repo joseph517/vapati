@@ -87,6 +87,12 @@ public class AuthenticationService {
             // findById doesn't see deleted accounts, so a deleted account gets 401 as well
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG));
+
+            // Refresh tokens issued before the last email or password change are rejected
+            if (jwtService.isIssuedBefore(refreshToken, user.getTokensValidAfter())) {
+                throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
+            }
+
             validateUserStatus(user);
 
             // Rotation: the used refresh token can't be used again
