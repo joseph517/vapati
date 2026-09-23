@@ -51,7 +51,6 @@ services:
     volumes:
       - ./src:/app/src:rw
       - ./pom.xml:/app/pom.xml:ro
-      - /app/target
       - maven-cache-dev:/root/.m2
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:

@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/publications")
@@ -22,7 +23,7 @@ public class PublicationController {
     }
 
     @PostMapping("/create")
-    @Operation(summary = "Create a new publication", description = "Create a new publication for a user")
+    @Operation(summary = "Create a new publication", description = "Create a new publication authored by the authenticated user")
     public ResponseEntity<PublicationResponseDTO> createPublication(@RequestBody CreatePublicationDTO dto) {
         PublicationResponseDTO created = publicationService.createPublication(dto);
         return ResponseEntity.ok(created);
@@ -35,14 +36,14 @@ public class PublicationController {
         return ResponseEntity.ok(publications);
     }
 
-    @DeleteMapping("/delete/{publicationId}/user/{userId}")
-    @Operation(summary = "Delete a publication", description = "Delete a publication by ID if it belongs to the user")
-    public ResponseEntity<String> deletePublication(
-            @PathVariable Long publicationId,
-            @PathVariable Long userId
-    ) {
-        publicationService.deletePublication(publicationId, userId);
-        return ResponseEntity.ok("Deleted");
+    @DeleteMapping("/{publicationId}")
+    @Operation(summary = "Delete a publication", description = "Delete a publication by ID if it belongs to the authenticated user")
+    public ResponseEntity<Map<String, Object>> deletePublication(@PathVariable Long publicationId) {
+        publicationService.deletePublication(publicationId);
+        return ResponseEntity.ok(Map.of(
+                "message", "Publication deleted successfully",
+                "publicationId", publicationId
+        ));
     }
 }
 
