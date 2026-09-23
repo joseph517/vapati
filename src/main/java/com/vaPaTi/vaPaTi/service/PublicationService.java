@@ -8,7 +8,8 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,12 +20,13 @@ import java.util.List;
 public class PublicationService {
 
     private final PublicationRepository publicationRepository;
-    private final UserRepository userRepository;
     private final PublicationMapper publicationMapper;
+    private final AuthenticatedUserService authenticatedUserService;
+    private final PublicationValidationService publicationValidationService;
 
     public PublicationResponseDTO createPublication(CreatePublicationDTO dto) {
-        User user = userRepository.findById(dto.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + dto.getUserId()));
+        Long authorId = authenticatedUserService.getAuthenticatedUserId();
+        User user = publicationValidationService.validateAndGetAuthor(authorId);
 
         Publication publication = publicationMapper.toEntity(dto, user);
         publication = publicationRepository.save(publication);

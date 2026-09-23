@@ -7,6 +7,5 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreatePublicationDTO {
-    private Long userId;
     private String description;
 }

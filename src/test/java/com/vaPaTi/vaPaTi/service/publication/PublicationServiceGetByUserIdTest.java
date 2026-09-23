@@ -30,7 +30,8 @@ import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Publication Service - Get Publications By User ID")
@@ -40,7 +41,10 @@ class PublicationServiceGetByUserIdTest {
     private PublicationRepository publicationRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private PublicationValidationService publicationValidationService;
 
     @Mock
     private PublicationMapper publicationMapper;
@@ -59,7 +63,8 @@ class PublicationServiceGetByUserIdTest {
 
     @BeforeEach
     void setUp() {
-        publicationService = new PublicationService(publicationRepository, userRepository, publicationMapper);
+        publicationService = new PublicationService(publicationRepository, publicationMapper,
+                authenticatedUserService, publicationValidationService);
 
         baseDateTime = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
 

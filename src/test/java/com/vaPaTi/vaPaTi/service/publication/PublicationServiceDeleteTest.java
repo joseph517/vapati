@@ -29,6 +29,8 @@ import com.vaPaTi.vaPaTi.entity.Publication;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
 import com.vaPaTi.vaPaTi.service.PublicationService;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +46,12 @@ class PublicationServiceDeleteTest {
     @Mock
     private PublicationMapper publicationMapper;
 
+    @Mock
+    private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private PublicationValidationService publicationValidationService;
+
     private PublicationService publicationService;
 
     private User mockOwnerUser;
@@ -55,7 +63,8 @@ class PublicationServiceDeleteTest {
 
     @BeforeEach
     void setUp() {
-        publicationService = new PublicationService(publicationRepository, userRepository, publicationMapper);
+        publicationService = new PublicationService(publicationRepository, publicationMapper,
+                authenticatedUserService, publicationValidationService);
 
         baseDateTime = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
 
