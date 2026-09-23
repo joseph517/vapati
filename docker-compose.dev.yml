@@ -43,16 +43,28 @@ services:
       SERVER_PORT: ${SERVER_PORT:-8080}
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
       SPRING_DEVTOOLS_LIVERELOAD_ENABLED: "true"
+      # DevTools only restarts when this file changes, i.e. after a full compile (see develop.watch)
+      SPRING_DEVTOOLS_RESTART_TRIGGER_FILE: .reloadtrigger
       DOCKER_HOST: unix:///var/run/docker.sock
       TESTCONTAINERS_RYUK_DISABLED: "false"
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
-      - ./src:/app/src:rw
-      - ./pom.xml:/app/pom.xml:ro
       - maven-cache-dev:/root/.m2
       - /var/run/docker.sock:/var/run/docker.sock
+    # Hot reload: start with `docker compose -f docker-compose.dev.yml up --watch`.
+    # Source changes are synced into the container and compiled there; DevTools picks up the new classes.
+    develop:
+      watch:
+        - path: ./src/main
+          target: /app/src/main
+          action: sync+exec
+          initial_sync: true
+          exec:
+            command: sh -c "./mvnw -q -o compile && touch target/classes/.reloadtrigger"
+        - path: ./pom.xml
+          action: rebuild
     depends_on:
       sqlserver:
         condition: service_healthy
