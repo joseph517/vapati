@@ -4,17 +4,16 @@ import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.service.UserService;
-import org.jetbrains.annotations.NotNull;
+import com.vaPaTi.vaPaTi.validation.SortValidationService;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -24,12 +23,18 @@ import java.util.Map;
 @Tag(name = "Users", description = "User API")
 public class UserController {
 
+    // Only User columns: the paginated query uses SELECT DISTINCT, and SQL Server rejects ORDER BY on joined columns
+    private static final List<String> USER_SORT_FIELDS = List.of("id", "createdAt");
+
     private final UserService userService;
+    private final SortValidationService sortValidationService;
 
     public UserController(
-            UserService userService
+            UserService userService,
+            SortValidationService sortValidationService
     ) {
         this.userService = userService;
+        this.sortValidationService = sortValidationService;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -41,7 +46,7 @@ public class UserController {
 
     @PostMapping("/create")
     @Operation(summary = "Create user", description = "Create a new user")
-    public ResponseEntity<UserDTO> createUser(@RequestBody UserUserInfoRequestDTO dto) {
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserUserInfoRequestDTO dto) {
         return ResponseEntity.ok(userService.createUser(dto));
     }
 
@@ -49,7 +54,7 @@ public class UserController {
     @Operation(summary = "Update user",
             description = "Updates the authenticated user. Changing the password, or the email to a different one, requires currentPassword "
                     + "(400 if missing or incorrect) and invalidates every session, including the current one: the user has to log in again")
-    public ResponseEntity<UserDTO> updateUser(@RequestBody UpdateUserDTO dto) {
+    public ResponseEntity<UserDTO> updateUser(@Valid @RequestBody UpdateUserDTO dto) {
         return ResponseEntity.ok(userService.updateUser(dto));
     }
 
@@ -77,13 +82,10 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") @NotNull String sortDirection) {
+            @RequestParam(defaultValue = "asc") String sortDirection) {
 
-        Sort sort = sortDirection.equalsIgnoreCase("desc") ?
-                Sort.by(sortBy).descending() :
-                Sort.by(sortBy).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = sortValidationService.validateAndGetPageable(
+                page, size, sortBy, sortDirection, USER_SORT_FIELDS);
         return ResponseEntity.ok(userService.listUsersWithPagination(pageable));
     }
 

@@ -112,6 +112,7 @@ public class UserValidationService {
         // Validations
         validateEmail(dto.getEmail(), null);
         validateUserName(dto.getUserName(), null);
+        validatePhone(dto.getPhone(), null);
         validatePassword(dto.getPassword());
 
         UserInfo userInfo = userInfoMapper.fromCreateUserInfoDTO(dto);
@@ -155,6 +156,20 @@ public class UserValidationService {
         // check if username already exists (excluding the current user)
         if (userInfoRepository.existsByUserNameAndUserIdNot(userName, userIdToExclude)) {
             throw new ConflictException("Username already exists");
+        }
+    }
+
+    private void validatePhone(String phone, Long currentUserId) {
+        // A missing phone is rejected by the DTO validation; querying with null would match users without phone
+        if (!isValidString(phone)) {
+            return;
+        }
+
+        Long userIdToExclude = (currentUserId != null) ? currentUserId : -1L;
+
+        // check if phone already exists (excluding the current user)
+        if (userInfoRepository.existsByPhoneAndUserIdNot(phone, userIdToExclude)) {
+            throw new ConflictException("Phone already exists");
         }
     }
 
@@ -295,7 +310,7 @@ public class UserValidationService {
         updateEmail(dto, userInfo, user.getId());
         updateUserName(dto, userInfo, user.getId());
         updatePassword(dto, userInfo);
-        updateOptionalFields(dto, userInfo);
+        updateOptionalFields(dto, userInfo, user.getId());
         updateUserInfoTimestamp(userInfo);
     }
 
@@ -338,8 +353,11 @@ public class UserValidationService {
         }
     }
 
-    private void updateOptionalFields(@NotNull UpdateUserDTO dto, @NotNull UserInfo userInfo) {
-        updateIfValid(dto.getPhone(), userInfo::setPhone);
+    private void updateOptionalFields(@NotNull UpdateUserDTO dto, @NotNull UserInfo userInfo, Long userId) {
+        if (isValidString(dto.getPhone())) {
+            validatePhone(dto.getPhone().trim(), userId);
+            userInfo.setPhone(dto.getPhone().trim());
+        }
         updateIfNotNull(dto.getDescription(), userInfo::setDescription);
         updateIfNotNull(dto.getProfilePicture(), userInfo::setProfilePicture);
     }

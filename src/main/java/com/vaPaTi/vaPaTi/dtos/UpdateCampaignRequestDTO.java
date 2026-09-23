@@ -13,7 +13,9 @@ import java.util.List;
 @NoArgsConstructor
 public class UpdateCampaignRequestDTO {
 
+    @Size(max = 255)
     private String name;
+    @Size(max = 255)
     private String description;
     private Double amountGoal;
 

@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.service.PublicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,7 +25,7 @@ public class PublicationController {
 
     @PostMapping("/create")
     @Operation(summary = "Create a new publication", description = "Create a new publication authored by the authenticated user")
-    public ResponseEntity<PublicationResponseDTO> createPublication(@RequestBody CreatePublicationDTO dto) {
+    public ResponseEntity<PublicationResponseDTO> createPublication(@Valid @RequestBody CreatePublicationDTO dto) {
         PublicationResponseDTO created = publicationService.createPublication(dto);
         return ResponseEntity.ok(created);
     }

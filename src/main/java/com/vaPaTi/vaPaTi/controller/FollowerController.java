@@ -7,14 +7,11 @@ import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
 import com.vaPaTi.vaPaTi.service.FollowerService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users/{userId}/followers")
-@Validated
 public class FollowerController {
 
     private final FollowerService followerService;
@@ -25,14 +22,14 @@ public class FollowerController {
 
     @PostMapping("/follow")
     @Operation(summary = "Follow user", description = "Current user follows another user")
-    public ResponseEntity<FollowResponseDto> followUser(@Valid @RequestBody @NotNull FollowRequestDto followRequestDto) {
+    public ResponseEntity<FollowResponseDto> followUser(@Valid @RequestBody FollowRequestDto followRequestDto) {
         FollowResponseDto response = followerService.followUser(followRequestDto.getUserToFollowId());
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/unfollow")
     @Operation(summary = "Unfollow user", description = "Current user unfollows another user")
-    public ResponseEntity<UnfollowResponseDto> unfollowUser(@Valid @RequestBody @NotNull FollowRequestDto followRequestDto) {
+    public ResponseEntity<UnfollowResponseDto> unfollowUser(@Valid @RequestBody FollowRequestDto followRequestDto) {
         UnfollowResponseDto response = followerService.unfollowUser(followRequestDto.getUserToFollowId());
         return ResponseEntity.ok(response);
     }

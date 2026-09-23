@@ -2,16 +2,18 @@ package com.vaPaTi.vaPaTi.controller;
 
 import com.vaPaTi.vaPaTi.dtos.*;
 import com.vaPaTi.vaPaTi.service.ReportService;
+import com.vaPaTi.vaPaTi.validation.SortValidationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -19,11 +21,14 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Reports", description = "Report management API")
 public class ReportController {
 
+    private static final List<String> REPORT_SORT_FIELDS = List.of("createdAt", "status");
+
     private final ReportService reportService;
+    private final SortValidationService sortValidationService;
 
     @PostMapping
     @Operation(summary = "Create a report", description = "Create a new report for a user, publication, or campaign")
-    public ResponseEntity<ReportResponseDTO> createReport(@RequestBody CreateReportDTO dto) {
+    public ResponseEntity<ReportResponseDTO> createReport(@Valid @RequestBody CreateReportDTO dto) {
         ReportResponseDTO response = reportService.createReport(dto);
         return ResponseEntity.ok(response);
     }
@@ -37,11 +42,8 @@ public class ReportController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection
     ) {
-        Sort sort = sortDirection.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = sortValidationService.validateAndGetPageable(
+                page, size, sortBy, sortDirection, REPORT_SORT_FIELDS);
         Page<ReportDTO> reports = reportService.getAllReports(pageable);
         return ResponseEntity.ok(reports);
     }
@@ -59,7 +61,7 @@ public class ReportController {
     @Operation(summary = "Review a report", description = "Review and update the status of a report (ADMIN only)")
     public ResponseEntity<ReportDTO> reviewReport(
             @PathVariable Long id,
-            @RequestBody ReviewReportDTO dto
+            @Valid @RequestBody ReviewReportDTO dto
     ) {
         ReportDTO report = reportService.reviewReport(id, dto);
         return ResponseEntity.ok(report);
@@ -73,11 +75,8 @@ public class ReportController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection
     ) {
-        Sort sort = sortDirection.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = sortValidationService.validateAndGetPageable(
+                page, size, sortBy, sortDirection, REPORT_SORT_FIELDS);
         Page<ReportDTO> reports = reportService.getMyReports(pageable);
         return ResponseEntity.ok(reports);
     }
