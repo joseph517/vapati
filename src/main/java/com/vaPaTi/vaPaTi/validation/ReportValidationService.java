@@ -5,7 +5,6 @@ import com.vaPaTi.vaPaTi.entity.*;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -22,12 +21,11 @@ public class ReportValidationService {
     private static final int MAX_REPORTS_PER_DAY = 10;
     private static final String USER_NOT_FOUND = "User not found";
     private static final String PUBLICATION_NOT_FOUND = "Publication not found";
-    private static final String CAMPAIGN_NOT_FOUND = "Campaign not found";
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final PublicationRepository publicationRepository;
-    private final CampaignRepository campaignRepository;
+    private final CampaignServiceValidation campaignServiceValidation;
 
     /**
      * Validate the input DTO
@@ -66,7 +64,7 @@ public class ReportValidationService {
     /**
      * Validate that the reported entity exists and is not deleted
      */
-    public void validateEntityExists(ReportedEntityType entityType, Long entityId) {
+    public void validateEntityExists(ReportedEntityType entityType, Long entityId, Long reporterId) {
         switch (entityType) {
             case USER -> {
                 Optional<User> user = userRepository.findById(entityId);
@@ -86,13 +84,8 @@ public class ReportValidationService {
                     throw new MessageException("Cannot report a deleted publication");
                 }
             }
-            case CAMPAIGN -> {
-                Optional<Campaign> campaign = campaignRepository.findByIdWithActiveOwner(entityId);
-                if (campaign.isEmpty()) {
-                    throw new ResourceNotFoundException(CAMPAIGN_NOT_FOUND);
-                }
-                // Campaign doesn't have soft delete yet, but we check if it exists
-            }
+            // A CLOSED campaign of someone else is reported as not found, same as a missing one
+            case CAMPAIGN -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(entityId, reporterId);
             default -> throw new MessageException("Invalid entity type");
         }
     }

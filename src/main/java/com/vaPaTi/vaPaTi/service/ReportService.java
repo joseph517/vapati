@@ -41,7 +41,7 @@ public class ReportService {
         reportValidationService.validateNotSelfReport(reporterId, dto.getReportedEntityType(), dto.getReportedEntityId());
 
         // Validate entity exists and is not deleted
-        reportValidationService.validateEntityExists(dto.getReportedEntityType(), dto.getReportedEntityId());
+        reportValidationService.validateEntityExists(dto.getReportedEntityType(), dto.getReportedEntityId(), reporterId);
 
         // Validate no duplicate report
         reportValidationService.validateNoDuplicateReport(reporterId, dto.getReportedEntityType(), dto.getReportedEntityId());

@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.*;
 import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.ReportMapper;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -111,7 +113,7 @@ class ReportServiceTest {
 
             verify(reportValidationService).validateInput(createReportDTO);
             verify(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.USER, 2L);
-            verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L);
+            verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L, 1L);
             verify(reportValidationService).validateNoDuplicateReport(1L, ReportedEntityType.USER, 2L);
             verify(reportValidationService).validateDailyReportLimit(1L);
             verify(reportRepository).save(any(Report.class));
@@ -156,7 +158,7 @@ class ReportServiceTest {
             reportService.createReport(createReportDTO);
 
             // Then
-            verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L);
+            verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L, 1L);
         }
 
         @Test
@@ -220,9 +222,27 @@ class ReportServiceTest {
             // Then
             inOrder.verify(reportValidationService).validateInput(createReportDTO);
             inOrder.verify(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.USER, 2L);
-            inOrder.verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L);
+            inOrder.verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L, 1L);
             inOrder.verify(reportValidationService).validateNoDuplicateReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateDailyReportLimit(1L);
+        }
+
+        @Test
+        @DisplayName("Should not save the report when the campaign is not visible to the reporter")
+        void createReport_WhenCampaignNotVisible_ShouldThrowNotFoundAndNotSave() {
+            // Given: a CLOSED campaign of someone else
+            createReportDTO.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+            createReportDTO.setReportedEntityId(5L);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            doThrow(new ResourceNotFoundException("Campaign not found with id: 5"))
+                    .when(reportValidationService).validateEntityExists(ReportedEntityType.CAMPAIGN, 5L, 1L);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.createReport(createReportDTO))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found with id: 5");
+
+            verify(reportRepository, never()).save(any());
         }
     }
 

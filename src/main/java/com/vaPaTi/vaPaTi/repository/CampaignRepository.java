@@ -24,8 +24,26 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long> {
             "SELECT 1 FROM CampaignCategory cc WHERE cc.campaign.id = c.id AND cc.category.id = :categoryId)")
     List<Campaign> findByCategoryIdWithActiveOwner(@Param("categoryId") Long categoryId);
 
+    // *VisibleTo queries are for non-admins: CLOSED campaigns only for their owner. A null callerId (anonymous) never matches u.id
+    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL " +
+            "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
+    List<Campaign> findAllVisibleTo(@Param("callerId") Long callerId);
+
+    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.goal.status = :status " +
+            "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
+    List<Campaign> findByGoalStatusVisibleTo(@Param("status") CampaignStatus status, @Param("callerId") Long callerId);
+
+    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND EXISTS (" +
+            "SELECT 1 FROM CampaignCategory cc WHERE cc.campaign.id = c.id AND cc.category.id = :categoryId) " +
+            "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
+    List<Campaign> findByCategoryIdVisibleTo(@Param("categoryId") Long categoryId, @Param("callerId") Long callerId);
+
     @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.id = :id")
     Optional<Campaign> findByIdWithActiveOwner(@Param("id") Long id);
+
+    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.id = :id " +
+            "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
+    Optional<Campaign> findByIdVisibleTo(@Param("id") Long id, @Param("callerId") Long callerId);
 
     @Query(value = "SELECT id, name FROM campaign WHERE id IN (:ids)", nativeQuery = true)
     List<CampaignNameProjection> findNamesByIdsIncludingDeleted(@Param("ids") List<Long> ids);

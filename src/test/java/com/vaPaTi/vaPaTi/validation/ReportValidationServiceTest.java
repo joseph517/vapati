@@ -4,7 +4,6 @@ import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.*;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -31,6 +30,8 @@ import static org.mockito.Mockito.*;
 @DisplayName("ReportValidationService Tests")
 class ReportValidationServiceTest {
 
+    private static final Long REPORTER_ID = 1L;
+
     @Mock
     private ReportRepository reportRepository;
     @Mock
@@ -38,7 +39,7 @@ class ReportValidationServiceTest {
     @Mock
     private PublicationRepository publicationRepository;
     @Mock
-    private CampaignRepository campaignRepository;
+    private CampaignServiceValidation campaignServiceValidation;
 
     @InjectMocks
     private ReportValidationService reportValidationService;
@@ -212,7 +213,7 @@ class ReportValidationServiceTest {
 
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.USER, 2L
+                    ReportedEntityType.USER, 2L, REPORTER_ID
             ));
 
             verify(userRepository).findById(2L);
@@ -226,7 +227,7 @@ class ReportValidationServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.USER, 2L
+                    ReportedEntityType.USER, 2L, REPORTER_ID
             ))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User not found");
@@ -241,7 +242,7 @@ class ReportValidationServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.USER, 2L
+                    ReportedEntityType.USER, 2L, REPORTER_ID
             ))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot report a deleted user");
@@ -254,7 +255,7 @@ class ReportValidationServiceTest {
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
 
             // When
-            reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L);
+            reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, REPORTER_ID);
 
             // Then
             verify(userRepository).findById(2L);
@@ -274,7 +275,7 @@ class ReportValidationServiceTest {
 
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.PUBLICATION, 1L
+                    ReportedEntityType.PUBLICATION, 1L, REPORTER_ID
             ));
 
             verify(publicationRepository).findById(1L);
@@ -288,7 +289,7 @@ class ReportValidationServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.PUBLICATION, 1L
+                    ReportedEntityType.PUBLICATION, 1L, REPORTER_ID
             ))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Publication not found");
@@ -303,7 +304,7 @@ class ReportValidationServiceTest {
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.PUBLICATION, 1L
+                    ReportedEntityType.PUBLICATION, 1L, REPORTER_ID
             ))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot report a deleted publication");
@@ -316,7 +317,7 @@ class ReportValidationServiceTest {
             when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
 
             // When
-            reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L);
+            reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L, REPORTER_ID);
 
             // Then
             verify(publicationRepository).findById(1L);
@@ -329,61 +330,45 @@ class ReportValidationServiceTest {
     class ValidateEntityExistsCampaignTests {
 
         @Test
-        @DisplayName("Should pass when campaign exists")
-        void validateEntityExists_WithValidCampaign_ShouldNotThrowException() {
+        @DisplayName("Should pass when the campaign is visible to the reporter")
+        void validateEntityExists_WithVisibleCampaign_ShouldNotThrowException() {
             // Given
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
 
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.CAMPAIGN, 1L
+                    ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID
             ));
 
-            verify(campaignRepository).findByIdWithActiveOwner(1L);
+            verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(1L, REPORTER_ID);
         }
 
         @Test
-        @DisplayName("Should throw MessageException when campaign not found")
-        void validateEntityExists_WithNonExistentCampaign_ShouldThrowException() {
-            // Given
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.empty());
+        @DisplayName("Should throw ResourceNotFoundException when the campaign does not exist or is not visible")
+        void validateEntityExists_WithNonVisibleCampaign_ShouldThrowResourceNotFoundException() {
+            // Given: a missing id, a deleted owner and a CLOSED campaign of someone else all end here
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID))
+                    .thenThrow(new ResourceNotFoundException("Campaign not found with id: 1"));
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.CAMPAIGN, 1L
-            ))
-                    .isInstanceOf(MessageException.class)
-                    .hasMessage("Campaign not found");
-        }
-
-        @Test
-        @DisplayName("Should throw ResourceNotFoundException when the campaign owner is deleted")
-        void validateEntityExists_WithCampaignOfDeletedOwner_ShouldThrowResourceNotFoundException() {
-            // Given: the owner filter excludes the campaign, even though findById would still return it
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.empty());
-
-            // When & Then
-            assertThatThrownBy(() -> reportValidationService.validateEntityExists(
-                    ReportedEntityType.CAMPAIGN, 1L
+                    ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID
             ))
                     .isInstanceOf(ResourceNotFoundException.class)
-                    .hasMessage("Campaign not found");
-
-            verify(campaignRepository, never()).findById(any());
+                    .hasMessage("Campaign not found with id: 1");
         }
 
         @Test
-        @DisplayName("Should not check deletion status for campaign")
-        void validateEntityExists_ForCampaign_ShouldOnlyCheckExistence() {
+        @DisplayName("Should not query the other repositories for a campaign")
+        void validateEntityExists_ForCampaign_ShouldOnlyUseVisibleLookup() {
             // Given
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
 
             // When
-            reportValidationService.validateEntityExists(ReportedEntityType.CAMPAIGN, 1L);
+            reportValidationService.validateEntityExists(ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID);
 
             // Then
-            verify(campaignRepository).findByIdWithActiveOwner(1L);
-            // Campaign doesn't have soft delete check
+            verifyNoInteractions(userRepository, publicationRepository);
         }
     }
 

@@ -46,6 +46,14 @@ public class SecurityConfig {
             "/error"                  // Error page
     };
 
+    // Public GET-only URLs. The services resolve the caller as optional and hide CLOSED campaigns of others
+    private static final String[] PUBLIC_GET_URLS = {
+            "/api/campaigns/list",
+            "/api/campaigns/*",
+            "/api/donations/campaign/*",
+            "/api/donations/campaign/*/statistics"
+    };
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
 
@@ -65,6 +73,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Allow public access to the defined URLs
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        // my-campaigns also matches /api/campaigns/*, so it must stay authenticated before the public GET rule
+                        .requestMatchers(HttpMethod.GET, "/api/campaigns/my-campaigns").authenticated()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_URLS).permitAll()
                         // Specific configuration for users
                         .requestMatchers(HttpMethod.GET, USER_PATERNS).hasAnyRole(USER, ADMIN)
                         .requestMatchers(HttpMethod.POST, USER_PATERNS).hasRole(ADMIN)

@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
@@ -26,8 +27,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -122,7 +125,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -136,7 +139,7 @@ class DonationServiceTest {
             assertThat(result).isNotNull().isEqualTo(donationResponseDTO);
             verify(authenticatedUserService).getAuthenticatedUserId();
             verify(donationValidationService).validateInput(createDonationDTO);
-            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID);
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID);
             verify(donationValidationService).validateGoalIsActive(testGoal);
             verify(donationValidationService).validateAndGetDonor(TEST_DONOR_ID);
             verify(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -150,7 +153,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -174,7 +177,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -199,7 +202,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -221,7 +224,7 @@ class DonationServiceTest {
             testGoal.setAmountRaised(GOAL_AMOUNT - TEST_AMOUNT);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -242,7 +245,7 @@ class DonationServiceTest {
             testGoal.setAmountRaised(GOAL_AMOUNT - TEST_AMOUNT);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -263,7 +266,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -283,7 +286,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -305,7 +308,7 @@ class DonationServiceTest {
             testGoal.setStatus(CampaignStatus.COMPLETED);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -328,7 +331,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
@@ -340,6 +343,24 @@ class DonationServiceTest {
 
             // Then
             verify(donationValidationService).validateInput(createDonationDTO);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException before the status check when the campaign is not visible to the donor")
+        void createDonation_WhenCampaignNotVisible_ShouldThrowNotFoundBeforeGoalStatusCheck() {
+            // Given: a CLOSED campaign of someone else is not visible to the donor
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID))
+                    .thenThrow(new ResourceNotFoundException("Campaign not found with id: " + TEST_CAMPAIGN_ID));
+
+            // When & Then: 404 instead of the 400 "Campaign goal is not active"
+            assertThatThrownBy(() -> donationService.createDonation(createDonationDTO))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Campaign not found with id: " + TEST_CAMPAIGN_ID);
+
+            verify(donationValidationService, never()).validateGoalIsActive(any());
+            verify(donationRepository, never()).save(any());
         }
     }
 
@@ -452,7 +473,8 @@ class DonationServiceTest {
             List<Donation> donations = List.of(testDonation);
             List<DonationResponseDTO> expectedDTOs = List.of(donationResponseDTO);
 
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(donations);
             when(donationMapper.toDTOList(donations)).thenReturn(expectedDTOs);
 
@@ -461,7 +483,7 @@ class DonationServiceTest {
 
             // Then
             assertThat(result).isNotNull().hasSize(1).isEqualTo(expectedDTOs);
-            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID);
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID);
             verify(donationRepository).findByCampaignOrderByCreatedAtDesc(testCampaign);
             verify(donationMapper).toDTOList(donations);
         }
@@ -470,7 +492,8 @@ class DonationServiceTest {
         @DisplayName("Should return empty list when campaign has no donations")
         void getDonationsByCampaign_WithNoDonations_ShouldReturnEmptyList() {
             // Given
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(List.of());
             when(donationMapper.toDTOList(List.of())).thenReturn(List.of());
 
@@ -486,7 +509,8 @@ class DonationServiceTest {
         @DisplayName("Should validate campaign exists before retrieving donations")
         void getDonationsByCampaign_ShouldValidateCampaign() {
             // Given
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(List.of());
             when(donationMapper.toDTOList(any())).thenReturn(List.of());
 
@@ -494,7 +518,64 @@ class DonationServiceTest {
             donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
 
             // Then
-            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID);
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID);
+        }
+
+        @Test
+        @DisplayName("Should keep the transaction id for an authenticated caller")
+        void getDonationsByCampaign_WhenAuthenticated_ShouldKeepTransactionId() {
+            // Given
+            List<Donation> donations = List.of(testDonation);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
+            when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations)).thenReturn(List.of(donationResponseDTO));
+
+            // When
+            List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(result).singleElement()
+                    .extracting(DonationResponseDTO::getTransactionId)
+                    .isEqualTo("TXN-12345678");
+        }
+
+        @Test
+        @DisplayName("Should look up the campaign with a null caller id and hide the transaction id for an anonymous caller")
+        void getDonationsByCampaign_WhenAnonymous_ShouldHideTransactionId() {
+            // Given
+            donationResponseDTO.setDonorUserName("donor");
+            List<Donation> donations = List.of(testDonation);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
+            when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations)).thenReturn(List.of(donationResponseDTO));
+
+            // When
+            List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
+
+            // Then: transactionId is hidden, the donor stays visible
+            assertThat(result).singleElement().satisfies(dto -> {
+                assertThat(dto.getTransactionId()).isNull();
+                assertThat(dto.getDonorUserId()).isEqualTo(TEST_DONOR_ID);
+                assertThat(dto.getDonorUserName()).isEqualTo("donor");
+            });
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, null);
+            verify(authenticatedUserService, never()).getAuthenticatedUserId();
+        }
+
+        @Test
+        @DisplayName("Should propagate ResourceNotFoundException when the campaign is not visible to the caller")
+        void getDonationsByCampaign_WhenCampaignNotVisible_ShouldThrowNotFound() {
+            // Given
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID))
+                    .thenThrow(new ResourceNotFoundException("Campaign not found with id: " + TEST_CAMPAIGN_ID));
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verify(donationRepository, never()).findByCampaignOrderByCreatedAtDesc(any());
         }
     }
 
@@ -509,7 +590,8 @@ class DonationServiceTest {
             Double totalRaised = 600.0;
             Long uniqueDonors = 5L;
 
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(totalRaised);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(uniqueDonors);
 
@@ -532,7 +614,8 @@ class DonationServiceTest {
         @DisplayName("Should handle null total raised from repository")
         void getCampaignStatistics_WithNullTotalRaised_ShouldDefaultToZero() {
             // Given
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(null);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
 
@@ -548,7 +631,8 @@ class DonationServiceTest {
         @DisplayName("Should handle null unique donors from repository")
         void getCampaignStatistics_WithNullUniqueDonors_ShouldDefaultToZero() {
             // Given
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0.0);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(null);
 
@@ -564,7 +648,8 @@ class DonationServiceTest {
         void getCampaignStatistics_WithGoalReached_ShouldMarkAsReached() {
             // Given
             Double totalRaised = GOAL_AMOUNT;
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(totalRaised);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(5L);
 
@@ -581,7 +666,8 @@ class DonationServiceTest {
         void getCampaignStatistics_WithNoGoal_ShouldHandleGracefully() {
             // Given
             testCampaign.setGoal(null);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(100.0);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(2L);
 
@@ -598,7 +684,8 @@ class DonationServiceTest {
         @DisplayName("Should validate campaign exists before calculating statistics")
         void getCampaignStatistics_ShouldValidateCampaign() {
             // Given
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
             when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0.0);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
 
@@ -606,7 +693,39 @@ class DonationServiceTest {
             donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
 
             // Then
-            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID);
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID);
+        }
+
+        @Test
+        @DisplayName("Should look up the campaign with a null caller id for an anonymous caller")
+        void getCampaignStatistics_WhenAnonymous_ShouldPassNullCallerId() {
+            // Given
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
+            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0.0);
+            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
+
+            // When
+            CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(result.getCampaignId()).isEqualTo(TEST_CAMPAIGN_ID);
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, null);
+            verify(authenticatedUserService, never()).getAuthenticatedUserId();
+        }
+
+        @Test
+        @DisplayName("Should propagate ResourceNotFoundException when the campaign is not visible to the caller")
+        void getCampaignStatistics_WhenCampaignNotVisible_ShouldThrowNotFound() {
+            // Given
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID))
+                    .thenThrow(new ResourceNotFoundException("Campaign not found with id: " + TEST_CAMPAIGN_ID));
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.getCampaignStatistics(TEST_CAMPAIGN_ID))
+                    .isInstanceOf(ResourceNotFoundException.class);
+            verifyNoInteractions(donationRepository);
         }
     }
 }

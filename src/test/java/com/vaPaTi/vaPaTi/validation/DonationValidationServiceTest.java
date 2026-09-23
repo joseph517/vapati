@@ -7,7 +7,6 @@ import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +29,7 @@ import static org.mockito.Mockito.*;
 class DonationValidationServiceTest {
 
     @Mock
-    private CampaignRepository campaignRepository;
+    private CampaignServiceValidation campaignServiceValidation;
 
     @Mock
     private UserRepository userRepository;
@@ -147,14 +146,16 @@ class DonationValidationServiceTest {
     @DisplayName("validateAndGetCampaign Tests")
     class ValidateAndGetCampaignTests {
 
+        private static final Long CALLER_ID = 3L;
+
         @Test
-        @DisplayName("Should return campaign when campaign exists and is not deleted")
-        void validateAndGetCampaign_WhenCampaignExistsAndNotDeleted_ShouldReturnCampaign() {
+        @DisplayName("Should return campaign when it is visible to the caller and not deleted")
+        void validateAndGetCampaign_WhenCampaignVisibleAndNotDeleted_ShouldReturnCampaign() {
             // Given
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, CALLER_ID)).thenReturn(testCampaign);
 
             // When
-            Campaign result = donationValidationService.validateAndGetCampaign(1L);
+            Campaign result = donationValidationService.validateAndGetCampaign(1L, CALLER_ID);
 
             // Then
             assertThat(result).isNotNull();
@@ -162,35 +163,34 @@ class DonationValidationServiceTest {
             assertThat(result.getName()).isEqualTo("Test Campaign");
             assertThat(result.getDeletedAt()).isNull();
 
-            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
+            verify(campaignServiceValidation, times(1)).findVisibleCampaignByIdOrThrow(1L, CALLER_ID);
         }
 
         @Test
-        @DisplayName("Should throw MessageException when campaign not found")
-        void validateAndGetCampaign_WhenCampaignNotFound_ShouldThrowMessageException() {
+        @DisplayName("Should look up the campaign with a null caller id when the caller is anonymous")
+        void validateAndGetCampaign_WhenAnonymous_ShouldPassNullCallerId() {
             // Given
-            when(campaignRepository.findByIdWithActiveOwner(999L)).thenReturn(Optional.empty());
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, null)).thenReturn(testCampaign);
 
-            // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateAndGetCampaign(999L))
-                    .isInstanceOf(MessageException.class)
-                    .hasMessage("Campaign not found with id: 999");
+            // When
+            Campaign result = donationValidationService.validateAndGetCampaign(1L, null);
 
-            verify(campaignRepository, times(1)).findByIdWithActiveOwner(999L);
+            // Then
+            assertThat(result).isSameAs(testCampaign);
+            verify(campaignServiceValidation, times(1)).findVisibleCampaignByIdOrThrow(1L, null);
         }
 
         @Test
-        @DisplayName("Should throw ResourceNotFoundException when the campaign owner is deleted")
-        void validateAndGetCampaign_WhenOwnerIsDeleted_ShouldThrowResourceNotFoundException() {
-            // Given: the owner filter excludes the campaign, even though findById would still return it
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.empty());
+        @DisplayName("Should propagate ResourceNotFoundException when the campaign does not exist or is not visible")
+        void validateAndGetCampaign_WhenCampaignNotVisible_ShouldThrowResourceNotFoundException() {
+            // Given: a missing id, a deleted owner and a CLOSED campaign of someone else all end here
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(999L, CALLER_ID))
+                    .thenThrow(new ResourceNotFoundException("Campaign not found with id: 999"));
 
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateAndGetCampaign(1L))
+            assertThatThrownBy(() -> donationValidationService.validateAndGetCampaign(999L, CALLER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
-                    .hasMessage("Campaign not found with id: 1");
-
-            verify(campaignRepository, never()).findById(any());
+                    .hasMessage("Campaign not found with id: 999");
         }
 
         @Test
@@ -198,14 +198,12 @@ class DonationValidationServiceTest {
         void validateAndGetCampaign_WhenCampaignIsDeleted_ShouldThrowMessageException() {
             // Given
             testCampaign.setDeletedAt(LocalDateTime.now());
-            when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, CALLER_ID)).thenReturn(testCampaign);
 
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateAndGetCampaign(1L))
+            assertThatThrownBy(() -> donationValidationService.validateAndGetCampaign(1L, CALLER_ID))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot donate to a deleted campaign");
-
-            verify(campaignRepository, times(1)).findByIdWithActiveOwner(1L);
         }
     }
 

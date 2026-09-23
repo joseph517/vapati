@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -43,8 +44,8 @@ public class DonationService {
         // Validate input
         donationValidationService.validateInput(dto);
 
-        // Validate campaign exists and is not deleted
-        Campaign campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId());
+        // Validate campaign exists, is visible to the donor and is not deleted (before the status check)
+        Campaign campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId(), donorUserId);
 
         // Validate goal is active
         Goal goal = campaign.getGoal();
@@ -112,13 +113,21 @@ public class DonationService {
     }
 
     public List<DonationResponseDTO> getDonationsByCampaign(Long campaignId) {
-        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId);
+        Optional<Long> callerId = authenticatedUserService.findAuthenticatedUserId();
+        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId.orElse(null));
         List<Donation> donations = donationRepository.findByCampaignOrderByCreatedAtDesc(campaign);
-        return donationMapper.toDTOList(donations);
+        List<DonationResponseDTO> dtos = donationMapper.toDTOList(donations);
+
+        // The transaction id has no public use, so anonymous callers do not get it
+        if (callerId.isEmpty()) {
+            dtos.forEach(dto -> dto.setTransactionId(null));
+        }
+        return dtos;
     }
 
     public CampaignStatisticsDTO getCampaignStatistics(Long campaignId) {
-        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId);
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
 
         Double totalRaised = donationRepository.sumCompletedDonationsByCampaignId(campaignId);
         Long uniqueDonors = donationRepository.countUniqueDonorsByCampaignId(campaignId);

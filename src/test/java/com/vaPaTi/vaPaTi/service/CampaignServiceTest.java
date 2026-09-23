@@ -105,6 +105,12 @@ class CampaignServiceTest {
         campaignResponseDTO.setName("Test Campaign");
     }
 
+    // callerId null means anonymous
+    private void givenCaller(Long callerId, boolean isAdmin) {
+        when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.ofNullable(callerId));
+        when(campaignAuthorizationService.isAdmin(callerId)).thenReturn(isAdmin);
+    }
+
     @Nested
     @DisplayName("getAllCampaigns() tests")
     class GetAllCampaignsTests {
@@ -122,7 +128,8 @@ class CampaignServiceTest {
             CampaignResponseDTO dto2 = createResponseDTO(2L, "Campaign 2");
             CampaignResponseDTO dto3 = createResponseDTO(3L, "Campaign 3");
 
-            when(campaignRepository.findAllWithActiveOwner()).thenReturn(campaigns);
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(campaigns);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign1), any())).thenReturn(dto1);
@@ -138,7 +145,6 @@ class CampaignServiceTest {
                         .hasSize(3)
                         .containsExactly(dto1, dto2, dto3);
 
-                verify(campaignRepository).findAllWithActiveOwner();
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign1), any()));
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign2), any()));
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(campaign3), any()));
@@ -149,7 +155,8 @@ class CampaignServiceTest {
         @DisplayName("Should return empty list when no campaigns exist")
         void getAllCampaigns_WithNoCampaigns_ShouldReturnEmptyList() {
             // Given
-            when(campaignRepository.findAllWithActiveOwner()).thenReturn(List.of());
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
@@ -158,14 +165,44 @@ class CampaignServiceTest {
             assertThat(result)
                     .isNotNull()
                     .isEmpty();
-
-            verify(campaignRepository).findAllWithActiveOwner();
         }
 
         @Test
-        @DisplayName("Should call repository findAllWithActiveOwner exactly once")
-        void getAllCampaigns_ShouldCallRepositoryOnce() {
+        @DisplayName("Should use the visibility query with the caller id for a regular user")
+        void getAllCampaigns_WhenRegularUser_ShouldUseFindAllVisibleTo() {
             // Given
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of());
+
+            // When
+            campaignService.getAllCampaigns();
+
+            // Then
+            verify(campaignRepository, times(1)).findAllVisibleTo(TEST_USER_ID);
+            verify(campaignRepository, never()).findAllWithActiveOwner();
+        }
+
+        @Test
+        @DisplayName("Should use the visibility query with a null caller id for an anonymous caller")
+        void getAllCampaigns_WhenAnonymous_ShouldUseFindAllVisibleToWithNull() {
+            // Given
+            givenCaller(null, false);
+            when(campaignRepository.findAllVisibleTo(null)).thenReturn(List.of());
+
+            // When
+            campaignService.getAllCampaigns();
+
+            // Then
+            verify(campaignRepository, times(1)).findAllVisibleTo(null);
+            verify(campaignRepository, never()).findAllWithActiveOwner();
+            verify(authenticatedUserService, never()).getAuthenticatedUserId();
+        }
+
+        @Test
+        @DisplayName("Should use findAllWithActiveOwner for an admin")
+        void getAllCampaigns_WhenAdmin_ShouldUseFindAllWithActiveOwner() {
+            // Given
+            givenCaller(TEST_USER_ID, true);
             when(campaignRepository.findAllWithActiveOwner()).thenReturn(List.of());
 
             // When
@@ -173,13 +210,15 @@ class CampaignServiceTest {
 
             // Then
             verify(campaignRepository, times(1)).findAllWithActiveOwner();
+            verify(campaignRepository, never()).findAllVisibleTo(any());
         }
 
         @Test
         @DisplayName("Should not use the unfiltered findAll, which includes campaigns of deleted owners")
         void getAllCampaigns_ShouldNotUseUnfilteredFindAll() {
             // Given
-            when(campaignRepository.findAllWithActiveOwner()).thenReturn(List.of());
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of());
 
             // When
             campaignService.getAllCampaigns();
@@ -194,10 +233,11 @@ class CampaignServiceTest {
     class GetCampaignByIdTests {
 
         @Test
-        @DisplayName("Should return mapped campaign DTO when campaign exists")
+        @DisplayName("Should return mapped campaign DTO looked up with the caller id")
         void getCampaignById_WithExistingCampaign_ShouldReturnMappedDTO() {
             // Given
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
@@ -210,21 +250,43 @@ class CampaignServiceTest {
                         .isNotNull()
                         .isEqualTo(campaignResponseDTO);
 
-                verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+                verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID);
+                verify(campaignServiceValidation, never()).findCampaignByIdOrThrow(any());
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()));
             }
         }
 
         @Test
-        @DisplayName("Should throw MessageException when campaign does not exist")
-        void getCampaignById_WithNonExistentCampaign_ShouldThrowException() {
+        @DisplayName("Should look up the campaign with a null caller id when the caller is anonymous")
+        void getCampaignById_WhenAnonymous_ShouldLookUpWithNullCallerId() {
             // Given
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
-                    .thenThrow(new com.vaPaTi.vaPaTi.exception.MessageException(CAMPAIGN_NOT_FOUND_MESSAGE));
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
+
+            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
+                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
+
+                // When
+                CampaignResponseDTO result = campaignService.getCampaignById(TEST_CAMPAIGN_ID);
+
+                // Then
+                assertThat(result).isEqualTo(campaignResponseDTO);
+                verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null);
+                verify(authenticatedUserService, never()).getAuthenticatedUserId();
+            }
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when the campaign is not visible or does not exist")
+        void getCampaignById_WithNonVisibleCampaign_ShouldThrowException() {
+            // Given
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID))
+                    .thenThrow(new com.vaPaTi.vaPaTi.exception.ResourceNotFoundException(CAMPAIGN_NOT_FOUND_MESSAGE));
 
             // When & Then
             assertThatThrownBy(() -> campaignService.getCampaignById(TEST_CAMPAIGN_ID))
-                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.MessageException.class)
+                    .isInstanceOf(com.vaPaTi.vaPaTi.exception.ResourceNotFoundException.class)
                     .hasMessage(CAMPAIGN_NOT_FOUND_MESSAGE);
         }
     }
@@ -634,24 +696,26 @@ class CampaignServiceTest {
     @DisplayName("getCampaignsByCategoryId() tests")
     class GetCampaignsByCategoryIdTests {
 
+        private static final Long CATEGORY_ID = 5L;
+
         @Test
         @DisplayName("Should return only campaigns associated with the given category")
         void getCampaignsByCategoryId_WithMatchingCampaigns_ShouldReturnFilteredList() {
             // Given
-            Long categoryId = 5L;
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
-
-            when(campaignRepository.findByCategoryIdWithActiveOwner(categoryId)).thenReturn(List.of(campaign1));
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID)).thenReturn(List.of(campaign1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
 
                 // When
-                List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(categoryId);
+                List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(CATEGORY_ID);
 
                 // Then
                 assertThat(result).hasSize(1);
-                verify(campaignRepository).findByCategoryIdWithActiveOwner(categoryId);
+                verify(campaignRepository).findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID);
+                verify(campaignRepository, never()).findByCategoryIdWithActiveOwner(any());
             }
         }
 
@@ -659,25 +723,55 @@ class CampaignServiceTest {
         @DisplayName("Should return empty list when no campaign is associated with the category")
         void getCampaignsByCategoryId_WithNoMatches_ShouldReturnEmptyList() {
             // Given
-            Long categoryId = 5L;
-            when(campaignRepository.findByCategoryIdWithActiveOwner(categoryId)).thenReturn(List.of());
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID)).thenReturn(List.of());
 
             // When
-            List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(categoryId);
+            List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(CATEGORY_ID);
 
             // Then
             assertThat(result).isEmpty();
         }
 
         @Test
+        @DisplayName("Should use the visibility query with a null caller id for an anonymous caller")
+        void getCampaignsByCategoryId_WhenAnonymous_ShouldUseVisibleToWithNull() {
+            // Given
+            givenCaller(null, false);
+            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, null)).thenReturn(List.of());
+
+            // When
+            campaignService.getCampaignsByCategoryId(CATEGORY_ID);
+
+            // Then
+            verify(campaignRepository).findByCategoryIdVisibleTo(CATEGORY_ID, null);
+            verify(campaignRepository, never()).findByCategoryIdWithActiveOwner(any());
+        }
+
+        @Test
+        @DisplayName("Should use findByCategoryIdWithActiveOwner for an admin")
+        void getCampaignsByCategoryId_WhenAdmin_ShouldUseWithActiveOwner() {
+            // Given
+            givenCaller(TEST_USER_ID, true);
+            when(campaignRepository.findByCategoryIdWithActiveOwner(CATEGORY_ID)).thenReturn(List.of());
+
+            // When
+            campaignService.getCampaignsByCategoryId(CATEGORY_ID);
+
+            // Then
+            verify(campaignRepository).findByCategoryIdWithActiveOwner(CATEGORY_ID);
+            verify(campaignRepository, never()).findByCategoryIdVisibleTo(any(), any());
+        }
+
+        @Test
         @DisplayName("Should use a single campaign query instead of loading the campaign_category rows")
         void getCampaignsByCategoryId_ShouldUseSingleCampaignQuery() {
             // Given
-            Long categoryId = 5L;
-            when(campaignRepository.findByCategoryIdWithActiveOwner(categoryId)).thenReturn(List.of());
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID)).thenReturn(List.of());
 
             // When
-            campaignService.getCampaignsByCategoryId(categoryId);
+            campaignService.getCampaignsByCategoryId(CATEGORY_ID);
 
             // Then
             verify(campaignRepository, never()).findAllById(any());
@@ -695,7 +789,8 @@ class CampaignServiceTest {
             // Given
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
-            when(campaignRepository.findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED)).thenReturn(List.of(campaign1));
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.CLOSED, TEST_USER_ID)).thenReturn(List.of(campaign1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
@@ -706,8 +801,42 @@ class CampaignServiceTest {
                 // Then
                 assertThat(result).hasSize(1);
                 verify(campaignServiceValidation).parseStatus("CLOSED");
-                verify(campaignRepository).findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED);
+                verify(campaignRepository).findByGoalStatusVisibleTo(CampaignStatus.CLOSED, TEST_USER_ID);
+                verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
             }
+        }
+
+        @Test
+        @DisplayName("Should use the visibility query with a null caller id for an anonymous caller")
+        void getCampaignsByStatus_WhenAnonymous_ShouldUseVisibleToWithNull() {
+            // Given
+            when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
+            givenCaller(null, false);
+            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.CLOSED, null)).thenReturn(List.of());
+
+            // When
+            List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("CLOSED");
+
+            // Then
+            assertThat(result).isEmpty();
+            verify(campaignRepository).findByGoalStatusVisibleTo(CampaignStatus.CLOSED, null);
+            verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
+        }
+
+        @Test
+        @DisplayName("Should use findByGoalStatusWithActiveOwner for an admin")
+        void getCampaignsByStatus_WhenAdmin_ShouldUseWithActiveOwner() {
+            // Given
+            when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
+            givenCaller(TEST_USER_ID, true);
+            when(campaignRepository.findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED)).thenReturn(List.of());
+
+            // When
+            campaignService.getCampaignsByStatus("CLOSED");
+
+            // Then
+            verify(campaignRepository).findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED);
+            verify(campaignRepository, never()).findByGoalStatusVisibleTo(any(), any());
         }
 
         @Test
@@ -723,6 +852,7 @@ class CampaignServiceTest {
                     .hasMessage("Invalid campaign status: FOO");
 
             verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
+            verify(campaignRepository, never()).findByGoalStatusVisibleTo(any(), any());
         }
 
         @Test
@@ -730,7 +860,8 @@ class CampaignServiceTest {
         void getCampaignsByStatus_WithNoMatches_ShouldReturnEmptyList() {
             // Given
             when(campaignServiceValidation.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
-            when(campaignRepository.findByGoalStatusWithActiveOwner(CampaignStatus.ACTIVE)).thenReturn(List.of());
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.ACTIVE, TEST_USER_ID)).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("ACTIVE");
