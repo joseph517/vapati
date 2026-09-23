@@ -4,11 +4,9 @@ import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.service.UserService;
-import org.jetbrains.annotations.NotNull;
+import com.vaPaTi.vaPaTi.validation.SortValidationService;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,12 +22,18 @@ import java.util.Map;
 @Tag(name = "Users", description = "User API")
 public class UserController {
 
+    // Only User columns: the paginated query uses SELECT DISTINCT, and SQL Server rejects ORDER BY on joined columns
+    private static final List<String> USER_SORT_FIELDS = List.of("id", "createdAt");
+
     private final UserService userService;
+    private final SortValidationService sortValidationService;
 
     public UserController(
-            UserService userService
+            UserService userService,
+            SortValidationService sortValidationService
     ) {
         this.userService = userService;
+        this.sortValidationService = sortValidationService;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -77,13 +81,10 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") @NotNull String sortDirection) {
+            @RequestParam(defaultValue = "asc") String sortDirection) {
 
-        Sort sort = sortDirection.equalsIgnoreCase("desc") ?
-                Sort.by(sortBy).descending() :
-                Sort.by(sortBy).ascending();
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = sortValidationService.validateAndGetPageable(
+                page, size, sortBy, sortDirection, USER_SORT_FIELDS);
         return ResponseEntity.ok(userService.listUsersWithPagination(pageable));
     }
 

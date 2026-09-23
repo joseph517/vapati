@@ -364,6 +364,17 @@ class UserValidationServiceUserCreationTest {
             }
 
             @Test
+            @DisplayName("Should not query the repository when phone is null")
+            void shouldNotQueryRepository_WhenPhoneIsNull() {
+                // Given
+                createUserInfoDTO.setPhone(null);
+
+                // When & Then
+                assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+                verify(userInfoRepository, never()).existsByPhoneAndUserIdNot(any(), anyLong());
+            }
+
+            @Test
             @DisplayName("Should accept phone that no other user has")
             void shouldAcceptPhone_WhenNotRegistered() {
                 // Given
