@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -238,6 +239,31 @@ class GlobalExceptionHandlerTest {
                     .containsEntry("error", "Unsupported media type")
                     .containsEntry("message", "Content type 'text/plain' is not supported. Use application/json");
             assertNoInternalDetails(response.getBody(), ex);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleDataIntegrityViolationException()")
+    class DataIntegrityViolationTests {
+
+        @Test
+        @DisplayName("Returns 409 with a generic message and without the SQL error")
+        void shouldReturnGenericConflict() {
+            DataIntegrityViolationException ex = new DataIntegrityViolationException(
+                    "could not execute statement [Violation of UNIQUE KEY constraint 'UQ_user_info_phone'. "
+                            + "Cannot insert duplicate key in object 'dbo.user_info'.] [insert into user_info ...]");
+
+            ResponseEntity<Map<String, String>> response = handler.handleDataIntegrityViolationException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Conflict")
+                    .containsEntry("message", "The request conflicts with existing data")
+                    .containsKey("timestamp");
+            assertNoInternalDetails(response.getBody(), ex);
+            assertThat(response.getBody().values())
+                    .noneMatch(value -> value.contains("UQ_user_info_phone"))
+                    .noneMatch(value -> value.contains("insert into"));
         }
     }
 

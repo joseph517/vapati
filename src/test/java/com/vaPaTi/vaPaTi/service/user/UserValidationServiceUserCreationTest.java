@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.UserInfoRepository;
@@ -339,6 +340,39 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+            }
+        }
+
+        @Nested
+        @DisplayName("Phone Validation Tests")
+        class PhoneValidationTests {
+
+            @Test
+            @DisplayName("Should throw ConflictException when phone already exists")
+            void shouldThrowConflictException_WhenPhoneAlreadyExists() {
+                // Given
+                when(userInfoRepository.existsByPhoneAndUserIdNot("+1234567890", -1L))
+                        .thenReturn(true);
+
+                // When & Then
+                ConflictException exception = assertThrows(ConflictException.class,
+                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+
+                assertEquals("Phone already exists", exception.getMessage());
+                verify(userInfoRepository).existsByPhoneAndUserIdNot("+1234567890", -1L);
+                verify(userInfoMapper, never()).fromCreateUserInfoDTO(any());
+            }
+
+            @Test
+            @DisplayName("Should accept phone that no other user has")
+            void shouldAcceptPhone_WhenNotRegistered() {
+                // Given
+                when(userInfoRepository.existsByPhoneAndUserIdNot("+1234567890", -1L))
+                        .thenReturn(false);
+
+                // When & Then
+                assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+                verify(userInfoRepository).existsByPhoneAndUserIdNot("+1234567890", -1L);
             }
         }
 

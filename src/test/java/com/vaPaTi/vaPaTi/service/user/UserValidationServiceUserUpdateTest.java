@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.UserInfoRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
@@ -560,6 +561,65 @@ class UserValidationServiceUserUpdateTest {
 
         verify(passwordEncoder).encode("newSecretPassword1!");
         verifyNoInteractions(userInfoRepository);
+    }
+
+    @Nested
+    @DisplayName("updateUserInfo() - phone")
+    class PhoneUpdateTests {
+
+        @BeforeEach
+        void setUpUserInfo() {
+            testUser.setUserInfo(testUserInfo);
+        }
+
+        @Test
+        @DisplayName("Throws ConflictException when the phone belongs to another user")
+        void shouldThrowConflict_WhenPhoneBelongsToAnotherUser() {
+            UpdateUserDTO phoneDTO = UpdateUserDTO.builder().phone("+9876543210").build();
+            when(userInfoRepository.existsByPhoneAndUserIdNot("+9876543210", 1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, phoneDTO))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage("Phone already exists");
+
+            assertThat(testUserInfo.getPhone()).isEqualTo("+1234567890");
+        }
+
+        @Test
+        @DisplayName("Allows the user to keep their own phone")
+        void shouldAllowOwnPhone() {
+            UpdateUserDTO phoneDTO = UpdateUserDTO.builder().phone("+1234567890").build();
+            when(userInfoRepository.existsByPhoneAndUserIdNot("+1234567890", 1L)).thenReturn(false);
+
+            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, phoneDTO));
+
+            assertThat(testUserInfo.getPhone()).isEqualTo("+1234567890");
+            verify(userInfoRepository).existsByPhoneAndUserIdNot("+1234567890", 1L);
+        }
+
+        @Test
+        @DisplayName("Checks the trimmed phone and stores it trimmed")
+        void shouldCheckTrimmedPhone() {
+            UpdateUserDTO phoneDTO = UpdateUserDTO.builder().phone("  +5550001111  ").build();
+            when(userInfoRepository.existsByPhoneAndUserIdNot("+5550001111", 1L)).thenReturn(false);
+
+            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, phoneDTO));
+
+            assertThat(testUserInfo.getPhone()).isEqualTo("+5550001111");
+        }
+
+        @Test
+        @DisplayName("Does not query the repository when the phone is empty or blank")
+        void shouldNotQueryRepository_WhenPhoneIsBlank() {
+            UpdateUserDTO emptyPhoneDTO = UpdateUserDTO.builder().phone("").build();
+            UpdateUserDTO blankPhoneDTO = UpdateUserDTO.builder().phone("   ").build();
+
+            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, emptyPhoneDTO));
+            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, blankPhoneDTO));
+
+            assertThat(testUserInfo.getPhone()).isEqualTo("+1234567890");
+            verifyNoInteractions(userInfoRepository);
+        }
     }
 
     @Nested

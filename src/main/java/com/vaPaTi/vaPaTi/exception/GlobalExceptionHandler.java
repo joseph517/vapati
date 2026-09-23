@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -221,6 +222,17 @@ public class GlobalExceptionHandler {
         error.put(MESSAGE, message);
         error.put(TIMESTAMP, LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(error);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        logger.warn("Data integrity violation", ex);
+
+        Map<String, String> error = new HashMap<>();
+        error.put(ERROR_MESSAGE, "Conflict");
+        error.put(MESSAGE, "The request conflicts with existing data");
+        error.put(TIMESTAMP, LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
