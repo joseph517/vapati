@@ -2,16 +2,20 @@ package com.vaPaTi.vaPaTi.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
@@ -105,6 +109,29 @@ public class GlobalExceptionHandler {
         Map<String, String> fields = new HashMap<>();
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             fields.put(fieldError.getField(), fieldError.getDefaultMessage());
+        }
+
+        Map<String, Object> error = new HashMap<>();
+        error.put(ERROR_MESSAGE, "Validation failed");
+        error.put(MESSAGE, "One or more fields are invalid");
+        error.put("fields", fields);
+        error.put(TIMESTAMP, LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleHandlerMethodValidationException(HandlerMethodValidationException ex) {
+        Map<String, String> fields = new HashMap<>();
+        for (ParameterErrors parameterErrors : ex.getBeanResults()) {
+            for (FieldError fieldError : parameterErrors.getFieldErrors()) {
+                fields.put(fieldError.getField(), fieldError.getDefaultMessage());
+            }
+        }
+        for (ParameterValidationResult result : ex.getValueResults()) {
+            String parameterName = result.getMethodParameter().getParameterName();
+            for (MessageSourceResolvable resolvableError : result.getResolvableErrors()) {
+                fields.put(parameterName, resolvableError.getDefaultMessage());
+            }
         }
 
         Map<String, Object> error = new HashMap<>();
