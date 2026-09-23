@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/publications")
@@ -37,9 +38,12 @@ public class PublicationController {
 
     @DeleteMapping("/{publicationId}")
     @Operation(summary = "Delete a publication", description = "Delete a publication by ID if it belongs to the authenticated user")
-    public ResponseEntity<String> deletePublication(@PathVariable Long publicationId) {
+    public ResponseEntity<Map<String, Object>> deletePublication(@PathVariable Long publicationId) {
         publicationService.deletePublication(publicationId);
-        return ResponseEntity.ok("Deleted");
+        return ResponseEntity.ok(Map.of(
+                "message", "Publication deleted successfully",
+                "publicationId", publicationId
+        ));
     }
 }
 
