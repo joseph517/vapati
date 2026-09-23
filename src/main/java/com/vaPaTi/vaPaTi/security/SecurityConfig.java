@@ -28,10 +28,6 @@ import java.time.LocalDateTime;
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    private static final String USER_PATERNS = "/users/**";
-    private static final String ADMIN = "ADMIN";
-    private static final String USER = "USER";
-
     // Public URLs that do not require authentication
     private static final String[] PUBLIC_URLS = {
             "/auth/**",               // Authentication routes
@@ -76,11 +72,6 @@ public class SecurityConfig {
                         // my-campaigns also matches /api/campaigns/*, so it must stay authenticated before the public GET rule
                         .requestMatchers(HttpMethod.GET, "/api/campaigns/my-campaigns").authenticated()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_URLS).permitAll()
-                        // Specific configuration for users
-                        .requestMatchers(HttpMethod.GET, USER_PATERNS).hasAnyRole(USER, ADMIN)
-                        .requestMatchers(HttpMethod.POST, USER_PATERNS).hasRole(ADMIN)
-                        .requestMatchers(HttpMethod.PUT, USER_PATERNS).hasRole(ADMIN)
-                        .requestMatchers(HttpMethod.DELETE, USER_PATERNS).hasRole(ADMIN)
                         // Reports are protected via @PreAuthorize annotations in ReportController
                         // - POST /api/reports - authenticated users
                         // - GET /api/reports/my-reports - authenticated users
