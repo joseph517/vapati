@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +30,7 @@ public class CategoryMapper {
         return entity;
     }
 
-    public void updateFromDto(CreateCategoryDTO dto, Category entity) {
+    public void updateFromDto(UpdateCategoryDTO dto, Category entity) {
         if (dto == null || entity == null) return;
 
         if (dto.getName() != null) {

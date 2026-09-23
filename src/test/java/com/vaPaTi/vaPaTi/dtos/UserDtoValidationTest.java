@@ -1,11 +1,5 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,33 +9,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.vaPaTi.vaPaTi.dtos.DtoValidation.assertSingleViolation;
+import static com.vaPaTi.vaPaTi.dtos.DtoValidation.assertValid;
 
 @DisplayName("User DTOs - Bean Validation")
 class UserDtoValidationTest {
-
-    private static ValidatorFactory validatorFactory;
-    private static Validator validator;
-
-    @BeforeAll
-    static void setUpValidator() {
-        validatorFactory = Validation.buildDefaultValidatorFactory();
-        validator = validatorFactory.getValidator();
-    }
-
-    @AfterAll
-    static void closeValidator() {
-        validatorFactory.close();
-    }
-
-    private static <T> void assertSingleViolation(Set<ConstraintViolation<T>> violations, String field) {
-        assertThat(violations).hasSize(1);
-        assertThat(violations.iterator().next().getPropertyPath()).hasToString(field);
-    }
 
     @Nested
     @DisplayName("UserUserInfoRequestDTO / CreateUserInfoDTO")
@@ -98,7 +73,7 @@ class UserDtoValidationTest {
         @Test
         @DisplayName("A valid request has no violations")
         void validRequestHasNoViolations() {
-            assertThat(validator.validate(request)).isEmpty();
+            assertValid(request);
         }
 
         @Test
@@ -106,7 +81,7 @@ class UserDtoValidationTest {
         void missingUser() {
             request.setUser(null);
 
-            assertSingleViolation(validator.validate(request), "user");
+            assertSingleViolation(request, "user");
         }
 
         @Test
@@ -114,7 +89,7 @@ class UserDtoValidationTest {
         void missingUserInfo() {
             request.setUserInfo(null);
 
-            assertSingleViolation(validator.validate(request), "userInfo");
+            assertSingleViolation(request, "userInfo");
         }
 
         @ParameterizedTest(name = "missing {0}")
@@ -123,7 +98,7 @@ class UserDtoValidationTest {
         void missingRequiredField(String field, BiConsumer<CreateUserInfoDTO, String> setter) {
             setter.accept(request.getUserInfo(), null);
 
-            assertSingleViolation(validator.validate(request), "userInfo." + field);
+            assertSingleViolation(request, "userInfo." + field);
         }
 
         @ParameterizedTest(name = "blank {0}")
@@ -132,7 +107,7 @@ class UserDtoValidationTest {
         void blankField(String field, BiConsumer<CreateUserInfoDTO, String> setter) {
             setter.accept(request.getUserInfo(), "   ");
 
-            assertSingleViolation(validator.validate(request), "userInfo." + field);
+            assertSingleViolation(request, "userInfo." + field);
         }
 
         @Test
@@ -140,7 +115,7 @@ class UserDtoValidationTest {
         void emptyDescriptionIsAccepted() {
             request.getUserInfo().setDescription("");
 
-            assertThat(validator.validate(request)).isEmpty();
+            assertValid(request);
         }
 
         @Test
@@ -148,7 +123,7 @@ class UserDtoValidationTest {
         void profilePictureIsOptional() {
             request.getUserInfo().setProfilePicture(null);
 
-            assertThat(validator.validate(request)).isEmpty();
+            assertValid(request);
         }
 
         @ParameterizedTest(name = "{0} over {1} characters")
@@ -157,7 +132,7 @@ class UserDtoValidationTest {
         void fieldTooLong(String field, int max, BiConsumer<CreateUserInfoDTO, String> setter) {
             setter.accept(request.getUserInfo(), "a".repeat(max + 1));
 
-            assertSingleViolation(validator.validate(request), "userInfo." + field);
+            assertSingleViolation(request, "userInfo." + field);
         }
 
         @ParameterizedTest(name = "{0} with {1} characters")
@@ -166,7 +141,7 @@ class UserDtoValidationTest {
         void fieldAtLimit(String field, int max, BiConsumer<CreateUserInfoDTO, String> setter) {
             setter.accept(request.getUserInfo(), "a".repeat(max));
 
-            assertThat(validator.validate(request)).isEmpty();
+            assertValid(request);
         }
     }
 
@@ -188,7 +163,7 @@ class UserDtoValidationTest {
         @Test
         @DisplayName("An empty DTO has no violations")
         void emptyDtoHasNoViolations() {
-            assertThat(validator.validate(new UpdateUserDTO())).isEmpty();
+            assertValid(new UpdateUserDTO());
         }
 
         @ParameterizedTest(name = "{0} over {1} characters")
@@ -198,7 +173,7 @@ class UserDtoValidationTest {
             UpdateUserDTO dto = new UpdateUserDTO();
             setter.accept(dto, "a".repeat(max + 1));
 
-            assertSingleViolation(validator.validate(dto), field);
+            assertSingleViolation(dto, field);
         }
 
         @ParameterizedTest(name = "{0} with {1} characters")
@@ -208,7 +183,7 @@ class UserDtoValidationTest {
             UpdateUserDTO dto = new UpdateUserDTO();
             setter.accept(dto, "a".repeat(max));
 
-            assertThat(validator.validate(dto)).isEmpty();
+            assertValid(dto);
         }
     }
 }

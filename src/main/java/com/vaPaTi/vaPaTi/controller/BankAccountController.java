@@ -28,7 +28,7 @@ public class BankAccountController {
 
     @PostMapping
     @Operation(summary = "Create bank account", description = "Create a new bank account for a user")
-    public ResponseEntity<BankAccountDTO> createBankAccount(@RequestBody CreateBankAccountDTO dto) {
+    public ResponseEntity<BankAccountDTO> createBankAccount(@Valid @RequestBody CreateBankAccountDTO dto) {
         return ResponseEntity.ok(bankAccountService.createBankAccount(dto));
     }
 

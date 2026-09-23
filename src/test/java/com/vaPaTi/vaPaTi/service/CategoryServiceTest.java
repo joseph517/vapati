@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
@@ -46,6 +47,7 @@ class CategoryServiceTest {
 
     private Category testCategory;
     private CreateCategoryDTO createCategoryDTO;
+    private UpdateCategoryDTO updateCategoryDTO;
     private CategoryDTO categoryDTO;
 
     @BeforeEach
@@ -58,6 +60,10 @@ class CategoryServiceTest {
         createCategoryDTO = new CreateCategoryDTO();
         createCategoryDTO.setName(TEST_CATEGORY_NAME);
         createCategoryDTO.setDescription("Test Description");
+
+        updateCategoryDTO = new UpdateCategoryDTO();
+        updateCategoryDTO.setName(TEST_CATEGORY_NAME);
+        updateCategoryDTO.setDescription("Test Description");
 
         categoryDTO = new CategoryDTO();
         categoryDTO.setId(TEST_CATEGORY_ID);
@@ -266,7 +272,7 @@ class CategoryServiceTest {
         @DisplayName("Should update category successfully with valid data")
         void updateCategory_WithValidData_ShouldUpdateCategory() {
             // Given
-            CreateCategoryDTO updateDTO = new CreateCategoryDTO();
+            UpdateCategoryDTO updateDTO = new UpdateCategoryDTO();
             updateDTO.setName("Updated Name");
             updateDTO.setDescription("Updated Description");
 
@@ -295,7 +301,7 @@ class CategoryServiceTest {
             when(categoryRepository.findById(TEST_CATEGORY_ID)).thenReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> categoryService.updateCategory(TEST_CATEGORY_ID, createCategoryDTO))
+            assertThatThrownBy(() -> categoryService.updateCategory(TEST_CATEGORY_ID, updateCategoryDTO))
                     .isInstanceOf(MessageException.class)
                     .hasMessage(CATEGORY_NOT_FOUND_PREFIX + TEST_CATEGORY_ID);
 
@@ -306,7 +312,7 @@ class CategoryServiceTest {
         @DisplayName("Should throw exception when new name already exists on different category")
         void updateCategory_WithDuplicateName_ShouldThrowException() {
             // Given
-            CreateCategoryDTO updateDTO = new CreateCategoryDTO();
+            UpdateCategoryDTO updateDTO = new UpdateCategoryDTO();
             updateDTO.setName(DUPLICATE_NAME);
 
             when(categoryRepository.findById(TEST_CATEGORY_ID)).thenReturn(Optional.of(testCategory));
@@ -324,7 +330,7 @@ class CategoryServiceTest {
         @DisplayName("Should allow update when name is same as existing category name")
         void updateCategory_WithSameName_ShouldAllowUpdate() {
             // Given
-            CreateCategoryDTO updateDTO = new CreateCategoryDTO();
+            UpdateCategoryDTO updateDTO = new UpdateCategoryDTO();
             updateDTO.setName(TEST_CATEGORY_NAME); // Same name as existing
             updateDTO.setDescription("New Description");
 
@@ -345,7 +351,7 @@ class CategoryServiceTest {
         @DisplayName("Should skip name validation when DTO name is null")
         void updateCategory_WithNullName_ShouldSkipNameValidation() {
             // Given
-            CreateCategoryDTO updateDTO = new CreateCategoryDTO();
+            UpdateCategoryDTO updateDTO = new UpdateCategoryDTO();
             updateDTO.setName(null);
             updateDTO.setDescription("Only updating description");
 
@@ -365,7 +371,7 @@ class CategoryServiceTest {
         @DisplayName("Should check name uniqueness only when name is different")
         void updateCategory_ShouldCheckNameUniqueness() {
             // Given
-            CreateCategoryDTO updateDTO = new CreateCategoryDTO();
+            UpdateCategoryDTO updateDTO = new UpdateCategoryDTO();
             updateDTO.setName("Different Name");
 
             when(categoryRepository.findById(TEST_CATEGORY_ID)).thenReturn(Optional.of(testCategory));
@@ -389,17 +395,17 @@ class CategoryServiceTest {
             when(categoryMapper.toCategoryDTO(any())).thenReturn(categoryDTO);
 
             // When
-            categoryService.updateCategory(TEST_CATEGORY_ID, createCategoryDTO);
+            categoryService.updateCategory(TEST_CATEGORY_ID, updateCategoryDTO);
 
             // Then
-            verify(categoryMapper).updateFromDto(createCategoryDTO, testCategory);
+            verify(categoryMapper).updateFromDto(updateCategoryDTO, testCategory);
         }
 
         @Test
         @DisplayName("Should not check duplicate when same name as existing")
         void updateCategory_WithSameNameAsExisting_ShouldNotCheckDuplicate() {
             // Given
-            CreateCategoryDTO updateDTO = new CreateCategoryDTO();
+            UpdateCategoryDTO updateDTO = new UpdateCategoryDTO();
             updateDTO.setName(TEST_CATEGORY_NAME);
 
             when(categoryRepository.findById(TEST_CATEGORY_ID)).thenReturn(Optional.of(testCategory));

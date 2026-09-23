@@ -1,6 +1,8 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,8 +15,13 @@ import java.util.List;
 @NoArgsConstructor
 public class CreateCampaignRequestDTO {
 
+    @NotBlank
+    @Size(max = 255)
     private String name;
+    @NotNull
+    @Size(max = 255)
     private String description;
+    @NotNull
     private Double amountGoal;
     private Double amountRaised;
 

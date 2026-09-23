@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
+import com.vaPaTi.vaPaTi.dtos.UpdateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -40,7 +41,7 @@ public class CategoryService {
         return categoryMapper.toCategoryDTO(categoryRepository.save(newCategory));
     }
 
-    public CategoryDTO updateCategory(Long id, @NotNull CreateCategoryDTO dto) {
+    public CategoryDTO updateCategory(Long id, @NotNull UpdateCategoryDTO dto) {
         Category existingCategory = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found with id: " + id));
 
