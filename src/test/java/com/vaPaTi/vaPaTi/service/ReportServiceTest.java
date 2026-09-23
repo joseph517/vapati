@@ -722,4 +722,55 @@ class ReportServiceTest {
             }
         }
     }
+
+    @Nested
+    @DisplayName("Listing reports with deleted users (real ReportMapper)")
+    class ReportsWithDeletedUsersTests {
+
+        private ReportService serviceWithRealMapper;
+
+        @BeforeEach
+        void setUpRealMapper() {
+            serviceWithRealMapper = new ReportService(reportRepository, reportValidationService, new ReportMapper(),
+                    authenticatedUserService, reportActionService);
+        }
+
+        @Test
+        @DisplayName("getAllReports should keep a report whose reporter is deleted, with the reporter fields null")
+        void getAllReports_WithDeletedReporter_ShouldReturnReportWithNullReporterFields() {
+            // Given: @NotFound(IGNORE) leaves the reporter relation null when the user is soft deleted
+            report.setReporter(null);
+            when(reportRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(report)));
+
+            // When
+            Page<ReportDTO> result = serviceWithRealMapper.getAllReports(pageable);
+
+            // Then
+            assertThat(result.getContent()).hasSize(1);
+            ReportDTO dto = result.getContent().get(0);
+            assertThat(dto.getId()).isEqualTo(1L);
+            assertThat(dto.getReporterId()).isNull();
+            assertThat(dto.getReporterUsername()).isNull();
+            assertThat(dto.getReporterEmail()).isNull();
+        }
+
+        @Test
+        @DisplayName("getReportById should keep a report whose reviewer is deleted, with the reviewer fields null")
+        void getReportById_WithDeletedReviewer_ShouldReturnReportWithNullReviewerFields() {
+            // Given
+            report.setStatus(ReportStatus.RESOLVED);
+            report.setReviewedBy(null);
+            report.setReviewedAt(LocalDateTime.now());
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+
+            // When
+            ReportDTO dto = serviceWithRealMapper.getReportById(1L);
+
+            // Then
+            assertThat(dto.getStatus()).isEqualTo(ReportStatus.RESOLVED);
+            assertThat(dto.getReviewedById()).isNull();
+            assertThat(dto.getReviewedByUsername()).isNull();
+            assertThat(dto.getReporterId()).isEqualTo(1L);
+        }
+    }
 }

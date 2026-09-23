@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 
@@ -36,8 +38,11 @@ public class Publication {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    // Optional in the mapping (the column stays NOT NULL) so a soft-deleted author is left null, not inner-joined away.
+    // Not updatable, so an UPDATE never overwrites the FK with that null.
     @ManyToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", updatable = false)
     private User user;
 
     @ManyToOne

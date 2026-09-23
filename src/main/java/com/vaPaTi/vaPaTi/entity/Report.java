@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import java.time.LocalDateTime;
 
@@ -24,8 +26,12 @@ public class Report {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reporter_id", nullable = false)
+    // @NotFound makes the relation eager: Hibernate must load it to know whether the user exists.
+    // Optional in the mapping (the column stays NOT NULL) so a soft-deleted reporter is left null, not inner-joined away.
+    // Not updatable, so an UPDATE never overwrites the FK with that null.
+    @ManyToOne
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "reporter_id", updatable = false)
     private User reporter;
 
     @Enumerated(EnumType.STRING)
@@ -47,7 +53,8 @@ public class Report {
     @Builder.Default
     private ReportStatus status = ReportStatus.PENDING;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;
 

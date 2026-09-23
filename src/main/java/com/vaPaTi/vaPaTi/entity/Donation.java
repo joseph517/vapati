@@ -25,14 +25,17 @@ public class Donation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    // donor and campaign are optional in the mapping (the columns stay NOT NULL) so a soft-deleted
+    // target is left null by @NotFound instead of inner-joining the row away. They are not updatable,
+    // so an UPDATE never overwrites the FK with that null.
+    @ManyToOne
     @NotFound(action = NotFoundAction.IGNORE)
-    @JoinColumn(name = "donor_user_id", nullable = false)
+    @JoinColumn(name = "donor_user_id", updatable = false)
     private User donor;
 
-    @ManyToOne(optional = false)
+    @ManyToOne
     @NotFound(action = NotFoundAction.IGNORE)
-    @JoinColumn(name = "campaign_id", nullable = false)
+    @JoinColumn(name = "campaign_id", updatable = false)
     private Campaign campaign;
 
     // Read-only copies of the FKs: they keep their value when donor or campaign is soft deleted

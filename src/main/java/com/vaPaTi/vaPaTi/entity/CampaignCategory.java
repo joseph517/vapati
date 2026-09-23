@@ -19,9 +19,11 @@ public class CampaignCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    // Optional in the mapping (the column stays NOT NULL) so a soft-deleted campaign is left null, not inner-joined away.
+    // Not updatable, so an UPDATE never overwrites the FK with that null.
+    @ManyToOne
     @NotFound(action = NotFoundAction.IGNORE)
-    @JoinColumn(name = "campaign_id", nullable = false)
+    @JoinColumn(name = "campaign_id", updatable = false)
     private Campaign campaign;
 
     @ManyToOne(optional = false)

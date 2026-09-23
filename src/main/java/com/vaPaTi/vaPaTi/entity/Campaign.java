@@ -28,9 +28,12 @@ public class Campaign {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    // Optional in the mapping (the column stays NOT NULL): with a mandatory relation, find() inner-joins
+    // the soft-deleted user and drops the row. @NotFound then leaves it null when the owner is deleted.
+    // Not updatable, so an UPDATE never overwrites the FK with the null loaded for a deleted owner.
+    @ManyToOne
     @NotFound(action = NotFoundAction.IGNORE)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", updatable = false)
     private User user;
 
     @Column(name = "name", nullable = false)

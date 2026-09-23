@@ -513,6 +513,22 @@ class ReportActionServiceTest {
         }
 
         @Test
+        @DisplayName("Should soft delete a publication whose author is deleted (user relation null)")
+        void removePublication_WithDeletedAuthor_ShouldDeletePublication() {
+            // Given: with @NotFound(IGNORE) the publication loads with a null author instead of not being found
+            testPublication.setUser(null);
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+
+            // Then
+            verify(publicationRepository).delete(testPublication);
+        }
+
+        @Test
         @DisplayName("Should rely on @SQLDelete annotation for soft delete")
         void removePublication_ShouldUseSoftDelete() {
             // Given

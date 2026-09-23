@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -454,4 +455,19 @@ class PublicationServiceGetByUserIdTest {
         verifyNoMoreInteractions(publicationRepository, publicationMapper);
     }
 
+    @Test
+    @DisplayName("Should return an empty list when the author is deleted (the repository excludes deleted authors)")
+    void shouldReturnEmptyListWhenAuthorIsDeleted() {
+        // Given: findAllByUser_Id joins the author with deletedAt IS NULL, so a deleted author yields no rows
+        Long deletedAuthorId = 1L;
+        when(publicationRepository.findAllByUser_Id(deletedAuthorId)).thenReturn(Collections.emptyList());
+
+        // When
+        List<PublicationResponseDTO> result = publicationService.getPublicationsByUserId(deletedAuthorId);
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(publicationRepository, times(1)).findAllByUser_Id(eq(deletedAuthorId));
+        verifyNoInteractions(publicationMapper);
+    }
 }
