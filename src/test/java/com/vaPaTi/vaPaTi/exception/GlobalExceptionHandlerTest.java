@@ -1,34 +1,65 @@
 package com.vaPaTi.vaPaTi.exception;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpInputMessage;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @DisplayName("GlobalExceptionHandler - Unit Tests")
 class GlobalExceptionHandlerTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private GlobalExceptionHandler handler;
 
     @BeforeEach
     void setUp() {
         handler = new GlobalExceptionHandler();
+    }
+
+    record DonationWrapper(CreateDonationDTO donation) {
+    }
+
+    private HttpMessageNotReadableException unreadable(String json, Class<?> targetType) {
+        Throwable jacksonException = catchThrowable(() -> objectMapper.readValue(json, targetType));
+        return new HttpMessageNotReadableException(
+                "JSON parse error: " + jacksonException.getMessage(), jacksonException, mock(HttpInputMessage.class));
+    }
+
+    private void assertNoInternalDetails(Map<String, String> body, Exception ex) {
+        assertThat(body.values())
+                .noneMatch(value -> value.contains(ex.getMessage()))
+                .noneMatch(value -> value.contains("com.vaPaTi"))
+                .noneMatch(value -> value.contains("java."))
+                .noneMatch(value -> value.contains("Cannot deserialize"))
+                .noneMatch(value -> value.contains("JSON parse error"));
     }
 
     @Nested
@@ -48,6 +79,165 @@ class GlobalExceptionHandlerTest {
                     .containsEntry("message", "You don't have permission to access this resource")
                     .containsKey("timestamp");
             assertThat(response.getBody().values()).noneMatch(value -> value.contains("PreAuthorize"));
+        }
+    }
+
+    @Nested
+    @DisplayName("handleHttpMessageNotReadableException()")
+    class HttpMessageNotReadableTests {
+
+        @Test
+        @DisplayName("Invalid enum value names the field and lists the allowed values in declaration order")
+        void shouldDescribeInvalidEnum() {
+            HttpMessageNotReadableException ex = unreadable("{\"reason\": \"FOO\"}", CreateReportDTO.class);
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Malformed request")
+                    .containsEntry("message", "Invalid value 'FOO' for field 'reason'. Allowed: SPAM, "
+                            + "INAPPROPRIATE_CONTENT, HARASSMENT, FRAUD, MISINFORMATION, IMPERSONATION, OTHER")
+                    .containsKey("timestamp");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+
+        @Test
+        @DisplayName("Wrong type in the body names the field and the value")
+        void shouldDescribeInvalidType() {
+            HttpMessageNotReadableException ex = unreadable("{\"amount\": \"abc\"}", CreateDonationDTO.class);
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Malformed request")
+                    .containsEntry("message", "Invalid value 'abc' for field 'amount'");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+
+        @Test
+        @DisplayName("Wrong type in a nested object names the field with its dotted path")
+        void shouldDescribeNestedFieldPath() {
+            HttpMessageNotReadableException ex = unreadable(
+                    "{\"donation\": {\"amount\": \"abc\"}}", DonationWrapper.class);
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);
+
+            assertThat(response.getBody())
+                    .containsEntry("message", "Invalid value 'abc' for field 'donation.amount'");
+        }
+
+        @Test
+        @DisplayName("Missing body responds with its fixed message")
+        void shouldDescribeMissingBody() {
+            HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
+                    "Required request body is missing: public org.springframework.http.ResponseEntity "
+                            + "com.vaPaTi.vaPaTi.controller.FollowerController.followUser(...)",
+                    mock(HttpInputMessage.class));
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Malformed request")
+                    .containsEntry("message", "Request body is required");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+
+        @Test
+        @DisplayName("Broken JSON responds with its fixed message")
+        void shouldDescribeBrokenJson() {
+            HttpMessageNotReadableException ex = unreadable("{\"amount\": ", CreateDonationDTO.class);
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Malformed request")
+                    .containsEntry("message", "Malformed request body");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleMethodArgumentTypeMismatchException()")
+    class MethodArgumentTypeMismatchTests {
+
+        @Test
+        @DisplayName("Names the parameter and the value")
+        void shouldDescribeParameter() {
+            MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                    "abc", Long.class, "campaignId", mock(MethodParameter.class),
+                    new NumberFormatException("For input string: \"abc\""));
+
+            ResponseEntity<Map<String, String>> response = handler.handleMethodArgumentTypeMismatchException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Invalid parameter")
+                    .containsEntry("message", "Invalid value 'abc' for parameter 'campaignId'")
+                    .containsKey("timestamp");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleMissingServletRequestParameterException()")
+    class MissingServletRequestParameterTests {
+
+        @Test
+        @DisplayName("Names the missing parameter")
+        void shouldDescribeMissingParameter() {
+            MissingServletRequestParameterException ex = new MissingServletRequestParameterException("status", "String");
+
+            ResponseEntity<Map<String, String>> response = handler.handleMissingServletRequestParameterException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Invalid parameter")
+                    .containsEntry("message", "Required parameter 'status' is missing");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleHttpRequestMethodNotSupportedException()")
+    class HttpRequestMethodNotSupportedTests {
+
+        @Test
+        @DisplayName("Returns 405 with the Allow header")
+        void shouldReturnMethodNotAllowedWithAllowHeader() {
+            HttpRequestMethodNotSupportedException ex = new HttpRequestMethodNotSupportedException("DELETE", List.of("GET"));
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpRequestMethodNotSupportedException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+            assertThat(response.getHeaders().getAllow()).containsExactly(HttpMethod.GET);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Method not allowed")
+                    .containsEntry("message", "Method DELETE is not supported for this endpoint");
+            assertNoInternalDetails(response.getBody(), ex);
+        }
+    }
+
+    @Nested
+    @DisplayName("handleHttpMediaTypeNotSupportedException()")
+    class HttpMediaTypeNotSupportedTests {
+
+        @Test
+        @DisplayName("Returns 415 naming the content type")
+        void shouldReturnUnsupportedMediaType() {
+            HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(
+                    MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON));
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMediaTypeNotSupportedException(ex);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+            assertThat(response.getBody())
+                    .containsEntry("error", "Unsupported media type")
+                    .containsEntry("message", "Content type 'text/plain' is not supported. Use application/json");
+            assertNoInternalDetails(response.getBody(), ex);
         }
     }
 
