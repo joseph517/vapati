@@ -240,6 +240,18 @@ class GlobalExceptionHandlerTest {
                     .containsEntry("message", "Content type 'text/plain' is not supported. Use application/json");
             assertNoInternalDetails(response.getBody(), ex);
         }
+
+        @Test
+        @DisplayName("Names only type and subtype, without parameters such as charset")
+        void shouldOmitMediaTypeParameters() {
+            HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException(
+                    MediaType.parseMediaType("text/plain;charset=UTF-8"), List.of(MediaType.APPLICATION_JSON));
+
+            ResponseEntity<Map<String, String>> response = handler.handleHttpMediaTypeNotSupportedException(ex);
+
+            assertThat(response.getBody())
+                    .containsEntry("message", "Content type 'text/plain' is not supported. Use application/json");
+        }
     }
 
     @Nested

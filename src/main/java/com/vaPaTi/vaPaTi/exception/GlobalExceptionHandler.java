@@ -214,7 +214,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleHttpMediaTypeNotSupportedException(HttpMediaTypeNotSupportedException ex) {
         MediaType contentType = ex.getContentType();
         String message = contentType != null
-                ? "Content type '" + contentType + "' is not supported. Use application/json"
+                ? "Content type '" + contentType.getType() + "/" + contentType.getSubtype() + "' is not supported. Use application/json"
                 : "Content type is not supported. Use application/json";
 
         Map<String, String> error = new HashMap<>();
