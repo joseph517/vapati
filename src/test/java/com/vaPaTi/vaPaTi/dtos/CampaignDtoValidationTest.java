@@ -68,10 +68,18 @@ class CampaignDtoValidationTest {
             assertSingleViolation(dto, "amountGoal");
         }
 
+        @ParameterizedTest(name = "amountGoal = {0}")
+        @ValueSource(strings = {"0", "-1", "10.555"})
+        @DisplayName("amountGoal must be positive with at most 2 decimals")
+        void invalidAmountGoal(String amountGoal) {
+            dto.setAmountGoal(new BigDecimal(amountGoal));
+            assertSingleViolation(dto, "amountGoal");
+        }
+
         @Test
-        @DisplayName("A non-positive amountGoal is not rejected here (P24, group 7)")
-        void nonPositiveAmountGoalIsOutOfScope() {
-            dto.setAmountGoal(new BigDecimal("-100.0"));
+        @DisplayName("amountGoal accepts 2 decimals")
+        void amountGoalWithTwoDecimals() {
+            dto.setAmountGoal(new BigDecimal("10.55"));
             assertValid(dto);
         }
 
@@ -129,6 +137,29 @@ class CampaignDtoValidationTest {
 
             dto.setDescription("a".repeat(255));
             assertValid(dto);
+        }
+
+        @ParameterizedTest(name = "amountGoal = {0}")
+        @ValueSource(strings = {"0", "-1", "10.555"})
+        @DisplayName("amountGoal, when present, must be positive with at most 2 decimals")
+        void invalidAmountGoal(String amountGoal) {
+            dto.setAmountGoal(new BigDecimal(amountGoal));
+            assertSingleViolation(dto, "amountGoal");
+        }
+
+        @Test
+        @DisplayName("amountGoal accepts 2 decimals")
+        void amountGoalWithTwoDecimals() {
+            dto.setAmountGoal(new BigDecimal("10.55"));
+            assertValid(dto);
+        }
+
+        @ParameterizedTest(name = "name = ''{0}''")
+        @ValueSource(strings = {"", "   "})
+        @DisplayName("name, when present, can't be blank")
+        void blankName(String name) {
+            dto.setName(name);
+            assertSingleViolation(dto, "name");
         }
     }
 }
