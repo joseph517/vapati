@@ -1,12 +1,16 @@
 package com.vaPaTi.vaPaTi.service;
 
+import com.vaPaTi.vaPaTi.entity.Follower;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,13 +20,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("FollowerValidation - isFollowing method tests")
+@DisplayName("FollowerValidation tests")
 class FollowerValidationTest {
 
     @Mock
@@ -269,4 +274,158 @@ class FollowerValidationTest {
         verifyNoMoreInteractions(userRepository, followerRepository);
     }
 
+    @Nested
+    @DisplayName("validateNotSelfFollow() / validateNotSelfUnfollow()")
+    class SelfActionTests {
+
+        @Test
+        @DisplayName("validateNotSelfFollow should not throw when the IDs differ")
+        void validateNotSelfFollow_WithDifferentIds_ShouldNotThrow() {
+            assertThatCode(() -> followerValidation.validateNotSelfFollow(currentUserId, otherUserId))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("validateNotSelfFollow should throw MessageException when the IDs are equal")
+        void validateNotSelfFollow_WithSameIds_ShouldThrow() {
+            assertThatThrownBy(() -> followerValidation.validateNotSelfFollow(currentUserId, Long.valueOf(1)))
+                    .isExactlyInstanceOf(MessageException.class)
+                    .hasMessage("Users cannot follow themselves");
+        }
+
+        @Test
+        @DisplayName("validateNotSelfUnfollow should not throw when the IDs differ")
+        void validateNotSelfUnfollow_WithDifferentIds_ShouldNotThrow() {
+            assertThatCode(() -> followerValidation.validateNotSelfUnfollow(currentUserId, otherUserId))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("validateNotSelfUnfollow should throw MessageException when the IDs are equal")
+        void validateNotSelfUnfollow_WithSameIds_ShouldThrow() {
+            assertThatThrownBy(() -> followerValidation.validateNotSelfUnfollow(currentUserId, Long.valueOf(1)))
+                    .isExactlyInstanceOf(MessageException.class)
+                    .hasMessage("Users cannot unfollow themselves");
+        }
+    }
+
+    @Nested
+    @DisplayName("validateAndGet*User()")
+    class ValidateAndGetUserTests {
+
+        @Test
+        @DisplayName("validateAndGetCurrentUser should return the user when it exists")
+        void validateAndGetCurrentUser_WhenExists_ShouldReturnUser() {
+            when(userRepository.findById(currentUserId)).thenReturn(Optional.of(currentUser));
+
+            assertThat(followerValidation.validateAndGetCurrentUser(currentUserId)).isSameAs(currentUser);
+        }
+
+        @Test
+        @DisplayName("validateAndGetCurrentUser should throw ResourceNotFoundException when it does not exist")
+        void validateAndGetCurrentUser_WhenNotFound_ShouldThrow() {
+            when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> followerValidation.validateAndGetCurrentUser(nonExistentUserId))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Current user not found with ID: " + nonExistentUserId);
+        }
+
+        @Test
+        @DisplayName("validateAndGetUserToFollow should return the user when it exists")
+        void validateAndGetUserToFollow_WhenExists_ShouldReturnUser() {
+            when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
+
+            assertThat(followerValidation.validateAndGetUserToFollow(otherUserId)).isSameAs(otherUser);
+        }
+
+        @Test
+        @DisplayName("validateAndGetUserToFollow should throw ResourceNotFoundException when it does not exist")
+        void validateAndGetUserToFollow_WhenNotFound_ShouldThrow() {
+            when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> followerValidation.validateAndGetUserToFollow(nonExistentUserId))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("User to follow not found with ID: " + nonExistentUserId);
+        }
+
+        @Test
+        @DisplayName("validateAndGetUserToUnfollow should return the user when it exists")
+        void validateAndGetUserToUnfollow_WhenExists_ShouldReturnUser() {
+            when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
+
+            assertThat(followerValidation.validateAndGetUserToUnfollow(otherUserId)).isSameAs(otherUser);
+        }
+
+        @Test
+        @DisplayName("validateAndGetUserToUnfollow should throw ResourceNotFoundException when it does not exist")
+        void validateAndGetUserToUnfollow_WhenNotFound_ShouldThrow() {
+            when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> followerValidation.validateAndGetUserToUnfollow(nonExistentUserId))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("User to unfollow not found with ID: " + nonExistentUserId);
+        }
+
+        @Test
+        @DisplayName("validateAndGetUser should return the user when it exists")
+        void validateAndGetUser_WhenExists_ShouldReturnUser() {
+            when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
+
+            assertThat(followerValidation.validateAndGetUser(otherUserId)).isSameAs(otherUser);
+        }
+
+        @Test
+        @DisplayName("validateAndGetUser should throw ResourceNotFoundException when it does not exist")
+        void validateAndGetUser_WhenNotFound_ShouldThrow() {
+            when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> followerValidation.validateAndGetUser(nonExistentUserId))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("User not found with ID: " + nonExistentUserId);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateNotAlreadyFollowing() / validateAndGetFollowRelation()")
+    class RelationTests {
+
+        @Test
+        @DisplayName("validateNotAlreadyFollowing should not throw when the relationship does not exist")
+        void validateNotAlreadyFollowing_WhenNotFollowing_ShouldNotThrow() {
+            when(followerRepository.existsByUserAndFollower(otherUser, currentUser)).thenReturn(false);
+
+            assertThatCode(() -> followerValidation.validateNotAlreadyFollowing(otherUser, currentUser))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("validateNotAlreadyFollowing should throw ConflictException when the relationship exists")
+        void validateNotAlreadyFollowing_WhenAlreadyFollowing_ShouldThrow() {
+            when(followerRepository.existsByUserAndFollower(otherUser, currentUser)).thenReturn(true);
+
+            assertThatThrownBy(() -> followerValidation.validateNotAlreadyFollowing(otherUser, currentUser))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage("User is already being followed");
+        }
+
+        @Test
+        @DisplayName("validateAndGetFollowRelation should return the relationship when it exists")
+        void validateAndGetFollowRelation_WhenExists_ShouldReturnRelation() {
+            Follower relation = new Follower();
+            when(followerRepository.findByUserAndFollower(otherUser, currentUser)).thenReturn(Optional.of(relation));
+
+            assertThat(followerValidation.validateAndGetFollowRelation(otherUser, currentUser)).isSameAs(relation);
+        }
+
+        @Test
+        @DisplayName("validateAndGetFollowRelation should throw ResourceNotFoundException when it does not exist")
+        void validateAndGetFollowRelation_WhenNotFound_ShouldThrow() {
+            when(followerRepository.findByUserAndFollower(otherUser, currentUser)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> followerValidation.validateAndGetFollowRelation(otherUser, currentUser))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Follow relationship not found");
+        }
+    }
 }
