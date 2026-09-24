@@ -14,6 +14,7 @@ import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.GoalRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
 import com.vaPaTi.vaPaTi.validation.DonationValidationService;
 import jakarta.transaction.Transactional;
@@ -26,7 +27,6 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -43,6 +43,7 @@ public class DonationService {
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignRepository campaignRepository;
     private final GoalRepository goalRepository;
+    private final CampaignAuthorizationService campaignAuthorizationService;
 
     @Transactional
     public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
@@ -120,16 +121,27 @@ public class DonationService {
     }
 
     public List<DonationResponseDTO> getDonationsByCampaign(Long campaignId) {
-        Optional<Long> callerId = authenticatedUserService.findAuthenticatedUserId();
-        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId.orElse(null));
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
         List<Donation> donations = donationRepository.findByCampaignOrderByCreatedAtDesc(campaign);
         List<DonationResponseDTO> dtos = donationMapper.toDTOList(donations);
 
-        // The transaction id has no public use, so anonymous callers do not get it
-        if (callerId.isEmpty()) {
-            dtos.forEach(dto -> dto.setTransactionId(null));
+        // The transaction id is the payment reference: the campaign owner and admins see all of them,
+        // a donor only their own, and anyone else (anonymous included) none. The donor stays public.
+        if (!canSeeAllTransactionIds(campaign, callerId)) {
+            dtos.stream()
+                    .filter(dto -> callerId == null || !callerId.equals(dto.getDonorUserId()))
+                    .forEach(dto -> dto.setTransactionId(null));
         }
         return dtos;
+    }
+
+    private boolean canSeeAllTransactionIds(Campaign campaign, Long callerId) {
+        if (callerId == null) {
+            return false;
+        }
+        boolean isOwner = campaign.getUser() != null && callerId.equals(campaign.getUser().getId());
+        return isOwner || campaignAuthorizationService.isAdmin(callerId);
     }
 
     public CampaignStatisticsDTO getCampaignStatistics(Long campaignId) {

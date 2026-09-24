@@ -15,6 +15,7 @@ import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.GoalRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
 import com.vaPaTi.vaPaTi.validation.DonationValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,8 @@ class DonationServiceTest {
     private CampaignRepository campaignRepository;
     @Mock
     private GoalRepository goalRepository;
+    @Mock
+    private CampaignAuthorizationService campaignAuthorizationService;
 
     @InjectMocks
     private DonationService donationService;
@@ -549,47 +552,111 @@ class DonationServiceTest {
             verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID);
         }
 
-        @Test
-        @DisplayName("Should keep the transaction id for an authenticated caller")
-        void getDonationsByCampaign_WhenAuthenticated_ShouldKeepTransactionId() {
-            // Given
+        // A campaign with a donation of the test donor and one of another donor
+        private static final Long OTHER_DONOR_ID = 4L;
+        private static final Long THIRD_PARTY_ID = 5L;
+        private static final Long ADMIN_ID = 6L;
+
+        private List<DonationResponseDTO> givenDonationsFromTwoDonors(Long callerId) {
+            donationResponseDTO.setDonorUserName("donor");
+            DonationResponseDTO otherDonationDTO = DonationResponseDTO.builder()
+                    .id(2L)
+                    .donorUserId(OTHER_DONOR_ID)
+                    .donorUserName("other")
+                    .campaignId(TEST_CAMPAIGN_ID)
+                    .amount(TEST_AMOUNT)
+                    .status(DonationStatus.COMPLETED)
+                    .transactionId("TXN-OTHER")
+                    .build();
             List<Donation> donations = List.of(testDonation);
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
+            List<DonationResponseDTO> dtos = List.of(donationResponseDTO, otherDonationDTO);
+
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.ofNullable(callerId));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, callerId)).thenReturn(testCampaign);
             when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(donations);
-            when(donationMapper.toDTOList(donations)).thenReturn(List.of(donationResponseDTO));
+            when(donationMapper.toDTOList(donations)).thenReturn(dtos);
+            return dtos;
+        }
+
+        private void assertDonorsAndAmountsVisible(List<DonationResponseDTO> result) {
+            assertThat(result).extracting(DonationResponseDTO::getDonorUserId).containsExactly(TEST_DONOR_ID, OTHER_DONOR_ID);
+            assertThat(result).extracting(DonationResponseDTO::getDonorUserName).containsExactly("donor", "other");
+            assertThat(result).extracting(DonationResponseDTO::getAmount).doesNotContainNull();
+        }
+
+        @Test
+        @DisplayName("Should look up the campaign with a null caller id and hide every transaction id for an anonymous caller")
+        void getDonationsByCampaign_WhenAnonymous_ShouldHideTransactionId() {
+            // Given
+            givenDonationsFromTwoDonors(null);
+
+            // When
+            List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
+
+            // Then: transactionId is hidden, the donors stay visible
+            assertThat(result).extracting(DonationResponseDTO::getTransactionId).containsOnlyNulls();
+            assertDonorsAndAmountsVisible(result);
+            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, null);
+            verify(authenticatedUserService, never()).getAuthenticatedUserId();
+            verifyNoInteractions(campaignAuthorizationService);
+        }
+
+        @Test
+        @DisplayName("Should hide every transaction id for an authenticated third party")
+        void getDonationsByCampaign_WhenThirdParty_ShouldHideTransactionIds() {
+            // Given
+            givenDonationsFromTwoDonors(THIRD_PARTY_ID);
 
             // When
             List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
 
             // Then
-            assertThat(result).singleElement()
-                    .extracting(DonationResponseDTO::getTransactionId)
-                    .isEqualTo("TXN-12345678");
+            assertThat(result).extracting(DonationResponseDTO::getTransactionId).containsOnlyNulls();
+            assertDonorsAndAmountsVisible(result);
         }
 
         @Test
-        @DisplayName("Should look up the campaign with a null caller id and hide the transaction id for an anonymous caller")
-        void getDonationsByCampaign_WhenAnonymous_ShouldHideTransactionId() {
+        @DisplayName("Should show a donor only the transaction id of their own donations")
+        void getDonationsByCampaign_WhenDonor_ShouldShowOnlyOwnTransactionIds() {
             // Given
-            donationResponseDTO.setDonorUserName("donor");
-            List<Donation> donations = List.of(testDonation);
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
-            when(donationRepository.findByCampaignOrderByCreatedAtDesc(testCampaign)).thenReturn(donations);
-            when(donationMapper.toDTOList(donations)).thenReturn(List.of(donationResponseDTO));
+            givenDonationsFromTwoDonors(TEST_DONOR_ID);
 
             // When
             List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
 
-            // Then: transactionId is hidden, the donor stays visible
-            assertThat(result).singleElement().satisfies(dto -> {
-                assertThat(dto.getTransactionId()).isNull();
-                assertThat(dto.getDonorUserId()).isEqualTo(TEST_DONOR_ID);
-                assertThat(dto.getDonorUserName()).isEqualTo("donor");
-            });
-            verify(donationValidationService).validateAndGetCampaign(TEST_CAMPAIGN_ID, null);
-            verify(authenticatedUserService, never()).getAuthenticatedUserId();
+            // Then
+            assertThat(result).extracting(DonationResponseDTO::getTransactionId).containsExactly("TXN-12345678", null);
+            assertDonorsAndAmountsVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show the campaign owner every transaction id without checking the admin role")
+        void getDonationsByCampaign_WhenOwner_ShouldShowAllTransactionIds() {
+            // Given
+            givenDonationsFromTwoDonors(TEST_CAMPAIGN_OWNER_ID);
+
+            // When
+            List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(result).extracting(DonationResponseDTO::getTransactionId).containsExactly("TXN-12345678", "TXN-OTHER");
+            assertDonorsAndAmountsVisible(result);
+            verify(campaignAuthorizationService, never()).isAdmin(any());
+        }
+
+        @Test
+        @DisplayName("Should show an ADMIN every transaction id")
+        void getDonationsByCampaign_WhenAdmin_ShouldShowAllTransactionIds() {
+            // Given
+            givenDonationsFromTwoDonors(ADMIN_ID);
+            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+
+            // When
+            List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(result).extracting(DonationResponseDTO::getTransactionId).containsExactly("TXN-12345678", "TXN-OTHER");
+            assertDonorsAndAmountsVisible(result);
         }
 
         @Test
