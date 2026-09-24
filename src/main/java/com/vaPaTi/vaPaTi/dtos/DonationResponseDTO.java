@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -20,7 +21,7 @@ public class DonationResponseDTO {
     private Long campaignId;
     private String campaignName;
     private Boolean campaignDeleted;
-    private Double amount;
+    private BigDecimal amount;
     private DonationStatus status;
     private String transactionId;
     private LocalDateTime createdAt;

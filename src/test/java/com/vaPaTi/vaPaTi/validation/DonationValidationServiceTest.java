@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -50,8 +51,8 @@ class DonationValidationServiceTest {
 
         testGoal = Goal.builder()
                 .id(1L)
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
+                .amountGoal(new BigDecimal("1000.0"))
+                .amountRaised(new BigDecimal("500.0"))
                 .status(CampaignStatus.ACTIVE)
                 .build();
 
@@ -66,7 +67,7 @@ class DonationValidationServiceTest {
 
         testDTO = new CreateDonationDTO();
         testDTO.setCampaignId(1L);
-        testDTO.setAmount(100.0);
+        testDTO.setAmount(new BigDecimal("100.0"));
     }
 
     @Nested
@@ -79,7 +80,7 @@ class DonationValidationServiceTest {
             // Given
             CreateDonationDTO validDTO = new CreateDonationDTO();
             validDTO.setCampaignId(1L);
-            validDTO.setAmount(100.0);
+            validDTO.setAmount(new BigDecimal("100.0"));
 
             // When & Then (should not throw exception)
             donationValidationService.validateInput(validDTO);
@@ -91,7 +92,7 @@ class DonationValidationServiceTest {
             // Given
             CreateDonationDTO dtoWithNullCampaignId = new CreateDonationDTO();
             dtoWithNullCampaignId.setCampaignId(null);
-            dtoWithNullCampaignId.setAmount(100.0);
+            dtoWithNullCampaignId.setAmount(new BigDecimal("100.0"));
 
             // When & Then
             assertThatThrownBy(() -> donationValidationService.validateInput(dtoWithNullCampaignId))
@@ -119,7 +120,7 @@ class DonationValidationServiceTest {
             // Given
             CreateDonationDTO dtoWithZeroAmount = new CreateDonationDTO();
             dtoWithZeroAmount.setCampaignId(1L);
-            dtoWithZeroAmount.setAmount(0.0);
+            dtoWithZeroAmount.setAmount(new BigDecimal("0.0"));
 
             // When & Then
             assertThatThrownBy(() -> donationValidationService.validateInput(dtoWithZeroAmount))
@@ -133,7 +134,7 @@ class DonationValidationServiceTest {
             // Given
             CreateDonationDTO dtoWithNegativeAmount = new CreateDonationDTO();
             dtoWithNegativeAmount.setCampaignId(1L);
-            dtoWithNegativeAmount.setAmount(-50.0);
+            dtoWithNegativeAmount.setAmount(new BigDecimal("-50.0"));
 
             // When & Then
             assertThatThrownBy(() -> donationValidationService.validateInput(dtoWithNegativeAmount))

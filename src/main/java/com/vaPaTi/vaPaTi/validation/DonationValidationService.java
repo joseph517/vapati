@@ -26,7 +26,7 @@ public class DonationValidationService {
         if (dto.getAmount() == null) {
             throw new MessageException("Amount is required");
         }
-        if (dto.getAmount() <= 0) {
+        if (dto.getAmount().signum() <= 0) {
             throw new MessageException("Amount must be greater than zero");
         }
     }

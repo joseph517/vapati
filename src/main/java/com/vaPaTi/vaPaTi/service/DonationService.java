@@ -8,10 +8,13 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
+import com.vaPaTi.vaPaTi.repository.GoalRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
 import com.vaPaTi.vaPaTi.validation.DonationValidationService;
 import jakarta.transaction.Transactional;
@@ -19,9 +22,11 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -29,12 +34,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DonationService {
 
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
+
     private final DonationRepository donationRepository;
     private final DonationValidationService donationValidationService;
     private final AuthenticatedUserService authenticatedUserService;
     private final DonationMapper donationMapper;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignRepository campaignRepository;
+    private final GoalRepository goalRepository;
+    private final CampaignAuthorizationService campaignAuthorizationService;
 
     @Transactional
     public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
@@ -57,30 +66,29 @@ public class DonationService {
         // Validate not self-donation
         donationValidationService.validateNotSelfDonation(donorUserId, campaign.getUser().getId());
 
-        // Create donation with PENDING status
+        // Auto-approve: System simulates validation
+        // In production, this would integrate with payment gateway
         Donation donation = Donation.builder()
                 .donor(donor)
                 .campaign(campaign)
                 .amount(dto.getAmount())
-                .status(DonationStatus.PENDING)
+                .status(DonationStatus.COMPLETED)
+                .transactionId(generateTransactionId())
                 .build();
 
-        // Auto-approve: System simulates validation
-        // In production, this would integrate with payment gateway
-        donation.setStatus(DonationStatus.COMPLETED);
-        donation.setTransactionId(generateTransactionId());
+        Donation savedDonation = donationRepository.save(donation);
 
-        // Update goal amount raised
-        goal.setAmountRaised(goal.getAmountRaised() + dto.getAmount());
-
-        // Auto-complete: mark goal as COMPLETED once the amount raised reaches the target
-        if (goal.getStatus() == CampaignStatus.ACTIVE && goal.getAmountRaised() >= goal.getAmountGoal()) {
-            goal.setStatus(CampaignStatus.COMPLETED);
-            campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
+        // The sum and the auto-complete are atomic UPDATEs, the last writes on the goal: its row stays
+        // locked only from here to the commit. The goal in memory is stale after this and is not used again.
+        LocalDateTime now = LocalDateTime.now();
+        if (goalRepository.addToAmountRaised(goal.getId(), dto.getAmount(), now) == 0) {
+            // The campaign was closed after the validation: the transaction rolls back the donation too
+            throw new MessageException("Campaign goal is not active");
         }
 
-        // Save donation (goal will be updated via cascade)
-        Donation savedDonation = donationRepository.save(donation);
+        if (goalRepository.completeIfGoalReached(goal.getId(), now) == 1) {
+            campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
+        }
 
         return donationMapper.toDTO(savedDonation);
     }
@@ -113,42 +121,64 @@ public class DonationService {
     }
 
     public List<DonationResponseDTO> getDonationsByCampaign(Long campaignId) {
-        Optional<Long> callerId = authenticatedUserService.findAuthenticatedUserId();
-        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId.orElse(null));
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
         List<Donation> donations = donationRepository.findByCampaignOrderByCreatedAtDesc(campaign);
         List<DonationResponseDTO> dtos = donationMapper.toDTOList(donations);
 
-        // The transaction id has no public use, so anonymous callers do not get it
-        if (callerId.isEmpty()) {
-            dtos.forEach(dto -> dto.setTransactionId(null));
+        // The transaction id is the payment reference: the campaign owner and admins see all of them,
+        // a donor only their own, and anyone else (anonymous included) none. The donor stays public.
+        if (!canSeeAllTransactionIds(campaign, callerId)) {
+            dtos.stream()
+                    .filter(dto -> callerId == null || !callerId.equals(dto.getDonorUserId()))
+                    .forEach(dto -> dto.setTransactionId(null));
         }
         return dtos;
+    }
+
+    private boolean canSeeAllTransactionIds(Campaign campaign, Long callerId) {
+        if (callerId == null) {
+            return false;
+        }
+        boolean isOwner = campaign.getUser() != null && callerId.equals(campaign.getUser().getId());
+        return isOwner || campaignAuthorizationService.isAdmin(callerId);
     }
 
     public CampaignStatisticsDTO getCampaignStatistics(Long campaignId) {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
 
-        Double totalRaised = donationRepository.sumCompletedDonationsByCampaignId(campaignId);
+        Long totalDonations = donationRepository.countCompletedDonationsByCampaignId(campaignId);
         Long uniqueDonors = donationRepository.countUniqueDonorsByCampaignId(campaignId);
 
         // Handle null values from queries
-        totalRaised = totalRaised != null ? totalRaised : 0.0;
+        totalDonations = totalDonations != null ? totalDonations : 0L;
         uniqueDonors = uniqueDonors != null ? uniqueDonors : 0L;
 
+        // amountRaised is the campaign's own total, the same value the campaign returns
         Goal goal = campaign.getGoal();
-        Double goalAmount = goal != null ? goal.getAmountGoal() : 0.0;
-        Double percentage = goalAmount > 0 ? (totalRaised / goalAmount) * 100 : 0.0;
+        BigDecimal amountGoal = goal != null ? goal.getAmountGoal() : BigDecimal.ZERO;
+        BigDecimal amountRaised = goal != null ? goal.getAmountRaised() : BigDecimal.ZERO;
+
+        // A goal <= 0 only exists in dev test data (P24): 0% instead of dividing by zero
+        BigDecimal percentage = amountGoal.signum() > 0
+                ? amountRaised.multiply(ONE_HUNDRED).divide(amountGoal, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal averageDonation = totalDonations > 0
+                ? amountRaised.divide(BigDecimal.valueOf(totalDonations), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
 
         return CampaignStatisticsDTO.builder()
                 .campaignId(campaignId)
                 .campaignName(campaign.getName())
-                .amountGoal(goalAmount)
-                .amountRaised(totalRaised)
+                .amountGoal(amountGoal)
+                .amountRaised(amountRaised)
                 .percentageReached(percentage)
-                .isGoalReached(totalRaised >= goalAmount)
+                .isGoalReached(amountRaised.compareTo(amountGoal) >= 0)
                 .status(goal != null ? goal.getStatus() : null)
                 .totalDonors(uniqueDonors)
+                .totalDonations(totalDonations)
+                .averageDonation(averageDonation)
                 .build();
     }
 

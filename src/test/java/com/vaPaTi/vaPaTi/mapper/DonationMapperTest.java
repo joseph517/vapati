@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +44,7 @@ class DonationMapperTest {
     void toDTO_WithAliveRelations_ShouldMapAllFields() {
         // Given
         Donation donation = Donation.builder()
-                .id(10L).donor(donor).campaign(campaign).amount(50.0).status(DonationStatus.COMPLETED)
+                .id(10L).donor(donor).campaign(campaign).amount(new BigDecimal("50.0")).status(DonationStatus.COMPLETED)
                 .build();
 
         // When
@@ -62,7 +63,7 @@ class DonationMapperTest {
     void toDTO_WithDeletedDonor_ShouldReturnNullDonorFields() {
         // Given
         Donation donation = Donation.builder()
-                .id(10L).donor(null).donorUserId(1L).campaign(campaign).amount(50.0)
+                .id(10L).donor(null).donorUserId(1L).campaign(campaign).amount(new BigDecimal("50.0"))
                 .build();
 
         // When
@@ -80,7 +81,7 @@ class DonationMapperTest {
     void toDTO_WithDeletedCampaign_ShouldUseReadOnlyIdAndDeletedName() {
         // Given
         Donation donation = Donation.builder()
-                .id(10L).donor(donor).campaign(null).campaignId(20L).amount(50.0)
+                .id(10L).donor(donor).campaign(null).campaignId(20L).amount(new BigDecimal("50.0"))
                 .build();
 
         // When
@@ -98,7 +99,7 @@ class DonationMapperTest {
     void toDTO_WithDeletedDonorAndCampaign_ShouldNotThrow() {
         // Given
         Donation donation = Donation.builder()
-                .id(10L).donor(null).donorUserId(1L).campaign(null).campaignId(20L).amount(50.0)
+                .id(10L).donor(null).donorUserId(1L).campaign(null).campaignId(20L).amount(new BigDecimal("50.0"))
                 .build();
 
         // When & Then

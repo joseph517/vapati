@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -16,14 +16,12 @@ public class CampaignStatisticsDTO {
 
     private Long campaignId;
     private String campaignName;
-    private Double amountGoal;
-    private Double amountRaised;
-    private Double percentageReached;
+    private BigDecimal amountGoal;
+    private BigDecimal amountRaised;
+    private BigDecimal percentageReached;
     private Boolean isGoalReached;
     private CampaignStatus status;
-    private LocalDateTime targetDate;
-    private Long daysRemaining;
     private Long totalDonors;
-    private Double averageDonation;
+    private BigDecimal averageDonation;
     private Long totalDonations;
 }

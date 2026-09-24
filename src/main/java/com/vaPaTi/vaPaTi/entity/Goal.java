@@ -10,6 +10,7 @@ import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -26,11 +27,14 @@ public class Goal {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "amount_goal", nullable = false)
-    private Double amountGoal;
+    @Column(name = "amount_goal", nullable = false, precision = 15, scale = 2)
+    private BigDecimal amountGoal;
 
-    @Column(name = "amount_raised", nullable = false)
-    private Double amountRaised;
+    // Not updatable: only GoalRepository.addToAmountRaised changes it, with an atomic UPDATE.
+    // Otherwise any save of a campaign would write the total it read when loading it and
+    // overwrite the donations added in the meantime. The INSERT of a new campaign still writes 0.
+    @Column(name = "amount_raised", nullable = false, precision = 15, scale = 2, updatable = false)
+    private BigDecimal amountRaised;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)

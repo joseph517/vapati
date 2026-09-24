@@ -22,11 +22,14 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -42,6 +45,7 @@ public class CampaignService {
     private final CategoryRepository categoryRepository;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
+    private final EntityManager entityManager;
 
     // Public listings: admins see every campaign, everyone else (anonymous included) only their own CLOSED ones
     public List<CampaignResponseDTO> getAllCampaigns() {
@@ -110,9 +114,6 @@ public class CampaignService {
 
         campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
 
-        Double amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : 0;
-        dto.setAmountRaised(amountRaised);
-
         Campaign campaign = CampaignMapper.toEntity(dto, user);
 
         Campaign savedCampaign = campaignRepository.save(campaign);
@@ -145,7 +146,7 @@ public class CampaignService {
         campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
 
         campaignServiceValidation.updateCampaignFields(campaign, dto);
-        campaignServiceValidation.updateGoalFields(campaign.getGoal(), dto);
+        updateGoalAndRecalculateStatus(campaign, dto, userId);
 
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
@@ -153,6 +154,42 @@ public class CampaignService {
         saveCampaignCategories(updatedCampaign, dto.getCategoryIds());
 
         return toResponseDTOWithCategories(updatedCampaign);
+    }
+
+    /**
+     * Applies the new amountGoal and, unless the goal is CLOSED, recalculates its status with the real amount
+     * raised, recording the transition with the editor. A CLOSED goal keeps its status: /activate recalculates it.
+     */
+    private void updateGoalAndRecalculateStatus(Campaign campaign, UpdateCampaignRequestDTO dto, Long userId) {
+        Goal goal = campaign.getGoal();
+        if (goal == null || dto.getAmountGoal() == null) {
+            campaignServiceValidation.updateGoalFields(goal, dto);
+            return;
+        }
+
+        lockGoal(goal);
+        CampaignStatus previousStatus = goal.getStatus();
+        campaignServiceValidation.updateGoalFields(goal, dto);
+
+        if (previousStatus == CampaignStatus.CLOSED) {
+            return;
+        }
+
+        CampaignStatus newStatus = campaignServiceValidation.statusForAmounts(goal);
+        if (newStatus != previousStatus) {
+            goal.setStatus(newStatus);
+            campaignStatusHistoryService.recordTransition(campaign, previousStatus, newStatus, userId);
+        }
+    }
+
+    /**
+     * Re-reads the goal row with a pessimistic write lock (UPDLOCK in SQL Server), replacing the in-memory
+     * values with the current ones, so a status decision uses the real status and amount raised and does not
+     * interleave with the atomic updates of a donation. Call it before modifying the goal: refresh discards
+     * in-memory changes.
+     */
+    private void lockGoal(Goal goal) {
+        entityManager.refresh(goal, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @Transactional
@@ -171,13 +208,16 @@ public class CampaignService {
      */
     public void closeAndSoftDelete(Campaign campaign, Long changedByUserId) {
         Goal goal = campaign.getGoal();
-        if (goal != null && goal.getStatus() != CampaignStatus.CLOSED) {
-            CampaignStatus previousStatus = goal.getStatus();
-            goal.setStatus(CampaignStatus.CLOSED);
-            campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, changedByUserId);
-            // Flush before deleting: the delete cascades to the goal, and Hibernate skips
-            // the pending status update of an entity scheduled for removal.
-            campaignRepository.saveAndFlush(campaign);
+        if (goal != null) {
+            lockGoal(goal);
+            if (goal.getStatus() != CampaignStatus.CLOSED) {
+                CampaignStatus previousStatus = goal.getStatus();
+                goal.setStatus(CampaignStatus.CLOSED);
+                campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, changedByUserId);
+                // Flush before deleting: the delete cascades to the goal, and Hibernate skips
+                // the pending status update of an entity scheduled for removal.
+                campaignRepository.saveAndFlush(campaign);
+            }
         }
 
         campaignRepository.delete(campaign);
@@ -189,14 +229,22 @@ public class CampaignService {
      */
     @Transactional
     public void closeAllByOwner(Long userId) {
-        List<Campaign> campaignsToClose = campaignRepository.findByUserId(userId).stream()
-                .filter(campaign -> campaign.getGoal() != null && campaign.getGoal().getStatus() != CampaignStatus.CLOSED)
-                .toList();
+        List<Campaign> campaignsToClose = new ArrayList<>();
 
-        for (Campaign campaign : campaignsToClose) {
-            CampaignStatus previousStatus = campaign.getGoal().getStatus();
-            campaign.getGoal().setStatus(CampaignStatus.CLOSED);
+        for (Campaign campaign : campaignRepository.findByUserId(userId)) {
+            Goal goal = campaign.getGoal();
+            if (goal == null) {
+                continue;
+            }
+            lockGoal(goal);
+            if (goal.getStatus() == CampaignStatus.CLOSED) {
+                continue;
+            }
+
+            CampaignStatus previousStatus = goal.getStatus();
+            goal.setStatus(CampaignStatus.CLOSED);
             campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, userId);
+            campaignsToClose.add(campaign);
         }
 
         campaignRepository.saveAll(campaignsToClose);
@@ -212,6 +260,7 @@ public class CampaignService {
             throw new MessageException("Campaign does not have a goal");
         }
 
+        lockGoal(goal);
         if (goal.getStatus() == CampaignStatus.CLOSED) {
             throw new ConflictException("Campaign goal is already closed");
         }
@@ -235,11 +284,12 @@ public class CampaignService {
             throw new MessageException("Campaign does not have a goal");
         }
 
+        lockGoal(goal);
         if (goal.getStatus() != CampaignStatus.CLOSED) {
             throw new MessageException("Campaign is not closed");
         }
 
-        CampaignStatus newStatus = goal.getAmountRaised() >= goal.getAmountGoal() ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE;
+        CampaignStatus newStatus = campaignServiceValidation.statusForAmounts(goal);
         goal.setStatus(newStatus);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
