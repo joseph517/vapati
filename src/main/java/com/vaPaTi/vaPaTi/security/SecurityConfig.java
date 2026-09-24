@@ -74,7 +74,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_URLS).permitAll()
                         // Reports are protected via @PreAuthorize annotations in ReportController
                         // - POST /api/reports - authenticated users
-                        // - GET /api/reports/my-reports - authenticated users
                         // - GET /api/reports, GET /api/reports/{id}, PUT /api/reports/{id}/review, GET /api/reports/stats - ADMIN only
                         // Any other request requires authentication
                         .anyRequest().authenticated()

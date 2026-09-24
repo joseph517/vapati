@@ -126,15 +126,6 @@ public class ReportService {
     }
 
     /**
-     * Get reports created by the authenticated user
-     */
-    public Page<ReportDTO> getMyReports(Pageable pageable) {
-        Long userId = authenticatedUserService.getAuthenticatedUserId();
-        Page<Report> reports = reportRepository.findByReporterId(userId, pageable);
-        return reports.map(reportMapper::toDTO);
-    }
-
-    /**
      * Get report statistics (ADMIN only)
      */
     public ReportStatsDTO getReportStats() {
