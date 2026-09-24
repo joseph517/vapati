@@ -8,9 +8,11 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
+import com.vaPaTi.vaPaTi.repository.GoalRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
 import com.vaPaTi.vaPaTi.validation.DonationValidationService;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +42,7 @@ public class DonationService {
     private final DonationMapper donationMapper;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignRepository campaignRepository;
+    private final GoalRepository goalRepository;
 
     @Transactional
     public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
@@ -61,30 +65,29 @@ public class DonationService {
         // Validate not self-donation
         donationValidationService.validateNotSelfDonation(donorUserId, campaign.getUser().getId());
 
-        // Create donation with PENDING status
+        // Auto-approve: System simulates validation
+        // In production, this would integrate with payment gateway
         Donation donation = Donation.builder()
                 .donor(donor)
                 .campaign(campaign)
                 .amount(dto.getAmount())
-                .status(DonationStatus.PENDING)
+                .status(DonationStatus.COMPLETED)
+                .transactionId(generateTransactionId())
                 .build();
 
-        // Auto-approve: System simulates validation
-        // In production, this would integrate with payment gateway
-        donation.setStatus(DonationStatus.COMPLETED);
-        donation.setTransactionId(generateTransactionId());
+        Donation savedDonation = donationRepository.save(donation);
 
-        // Update goal amount raised
-        goal.setAmountRaised(goal.getAmountRaised().add(dto.getAmount()));
-
-        // Auto-complete: mark goal as COMPLETED once the amount raised reaches the target
-        if (goal.getStatus() == CampaignStatus.ACTIVE && goal.getAmountRaised().compareTo(goal.getAmountGoal()) >= 0) {
-            goal.setStatus(CampaignStatus.COMPLETED);
-            campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
+        // The sum and the auto-complete are atomic UPDATEs, the last writes on the goal: its row stays
+        // locked only from here to the commit. The goal in memory is stale after this and is not used again.
+        LocalDateTime now = LocalDateTime.now();
+        if (goalRepository.addToAmountRaised(goal.getId(), dto.getAmount(), now) == 0) {
+            // The campaign was closed after the validation: the transaction rolls back the donation too
+            throw new MessageException("Campaign goal is not active");
         }
 
-        // Save donation (goal will be updated via cascade)
-        Donation savedDonation = donationRepository.save(donation);
+        if (goalRepository.completeIfGoalReached(goal.getId(), now) == 1) {
+            campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
+        }
 
         return donationMapper.toDTO(savedDonation);
     }

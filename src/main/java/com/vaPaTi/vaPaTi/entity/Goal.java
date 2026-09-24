@@ -30,7 +30,10 @@ public class Goal {
     @Column(name = "amount_goal", nullable = false, precision = 15, scale = 2)
     private BigDecimal amountGoal;
 
-    @Column(name = "amount_raised", nullable = false, precision = 15, scale = 2)
+    // Not updatable: only GoalRepository.addToAmountRaised changes it, with an atomic UPDATE.
+    // Otherwise any save of a campaign would write the total it read when loading it and
+    // overwrite the donations added in the meantime. The INSERT of a new campaign still writes 0.
+    @Column(name = "amount_raised", nullable = false, precision = 15, scale = 2, updatable = false)
     private BigDecimal amountRaised;
 
     @Enumerated(EnumType.STRING)

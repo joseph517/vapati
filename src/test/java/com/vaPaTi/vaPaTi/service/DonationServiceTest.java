@@ -8,10 +8,12 @@ import com.vaPaTi.vaPaTi.entity.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.Donation;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.DonationRepository;
+import com.vaPaTi.vaPaTi.repository.GoalRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.DonationStatus;
 import com.vaPaTi.vaPaTi.validation.DonationValidationService;
@@ -21,11 +23,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +37,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,6 +56,8 @@ class DonationServiceTest {
     private CampaignStatusHistoryService campaignStatusHistoryService;
     @Mock
     private CampaignRepository campaignRepository;
+    @Mock
+    private GoalRepository goalRepository;
 
     @InjectMocks
     private DonationService donationService;
@@ -120,6 +127,10 @@ class DonationServiceTest {
     @DisplayName("createDonation() tests")
     class CreateDonationTests {
 
+        private void givenAmountAdded() {
+            when(goalRepository.addToAmountRaised(eq(testGoal.getId()), eq(TEST_AMOUNT), any(LocalDateTime.class))).thenReturn(1);
+        }
+
         @Test
         @DisplayName("Should create donation successfully with valid data")
         void createDonation_WithValidData_ShouldCreateDonation() {
@@ -131,6 +142,7 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
             when(donationMapper.toDTO(testDonation)).thenReturn(donationResponseDTO);
 
             // When
@@ -159,6 +171,7 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             ArgumentCaptor<Donation> donationCaptor = ArgumentCaptor.forClass(Donation.class);
@@ -183,6 +196,7 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             ArgumentCaptor<Donation> donationCaptor = ArgumentCaptor.forClass(Donation.class);
@@ -198,8 +212,8 @@ class DonationServiceTest {
         }
 
         @Test
-        @DisplayName("Should update goal amount raised when creating donation")
-        void createDonation_ShouldUpdateGoalAmountRaised() {
+        @DisplayName("Should save the donation before adding its amount to the goal with an atomic update")
+        void createDonation_ShouldSaveDonationBeforeAddingToAmountRaised() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
@@ -208,21 +222,23 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
             donationService.createDonation(createDonationDTO);
 
             // Then
-            BigDecimal expectedAmountRaised = INITIAL_AMOUNT_RAISED.add(TEST_AMOUNT);
-            assertThat(testGoal.getAmountRaised()).isEqualByComparingTo(expectedAmountRaised);
+            InOrder inOrder = inOrder(donationRepository, goalRepository);
+            inOrder.verify(donationRepository).save(any(Donation.class));
+            inOrder.verify(goalRepository).addToAmountRaised(eq(testGoal.getId()), eq(TEST_AMOUNT), any(LocalDateTime.class));
+            inOrder.verify(goalRepository).completeIfGoalReached(eq(testGoal.getId()), any(LocalDateTime.class));
         }
 
         @Test
-        @DisplayName("Should mark goal as COMPLETED when donation makes amount raised reach the goal")
-        void createDonation_WhenDonationReachesGoal_ShouldMarkGoalCompleted() {
+        @DisplayName("Should throw MessageException and not complete the goal when the atomic add affects no row (goal closed meanwhile)")
+        void createDonation_WhenAddToAmountRaisedAffectsNoRow_ShouldThrow() {
             // Given
-            testGoal.setAmountRaised(GOAL_AMOUNT.subtract(TEST_AMOUNT));
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
             when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
@@ -230,20 +246,22 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
-            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+            when(goalRepository.addToAmountRaised(eq(testGoal.getId()), eq(TEST_AMOUNT), any(LocalDateTime.class))).thenReturn(0);
 
-            // When
-            donationService.createDonation(createDonationDTO);
+            // When & Then
+            assertThatThrownBy(() -> donationService.createDonation(createDonationDTO))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Campaign goal is not active");
 
-            // Then
-            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
+            verify(goalRepository, never()).completeIfGoalReached(any(), any());
+            verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
+            verify(donationMapper, never()).toDTO(any());
         }
 
         @Test
-        @DisplayName("Should record an ACTIVE -> COMPLETED status history entry with no acting user when the goal is auto-completed")
+        @DisplayName("Should record an ACTIVE -> COMPLETED status history entry with no acting user when the conditional update completes the goal")
         void createDonation_WhenDonationReachesGoal_ShouldRecordStatusHistoryEntry() {
             // Given
-            testGoal.setAmountRaised(GOAL_AMOUNT.subtract(TEST_AMOUNT));
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
             doNothing().when(donationValidationService).validateInput(createDonationDTO);
             when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
@@ -251,6 +269,8 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
+            when(goalRepository.completeIfGoalReached(eq(testGoal.getId()), any(LocalDateTime.class))).thenReturn(1);
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
@@ -262,27 +282,7 @@ class DonationServiceTest {
         }
 
         @Test
-        @DisplayName("Should keep goal ACTIVE when donation does not reach the goal")
-        void createDonation_WhenDonationDoesNotReachGoal_ShouldKeepGoalActive() {
-            // Given
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
-            doNothing().when(donationValidationService).validateInput(createDonationDTO);
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
-            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
-            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
-            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
-            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
-
-            // When
-            donationService.createDonation(createDonationDTO);
-
-            // Then
-            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
-        }
-
-        @Test
-        @DisplayName("Should not record a status history entry when the goal is not auto-completed")
+        @DisplayName("Should not record a status history entry when the conditional update does not complete the goal")
         void createDonation_WhenDonationDoesNotReachGoal_ShouldNotRecordStatusHistoryEntry() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
@@ -292,6 +292,8 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
+            when(goalRepository.completeIfGoalReached(eq(testGoal.getId()), any(LocalDateTime.class))).thenReturn(0);
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
@@ -300,6 +302,30 @@ class DonationServiceTest {
             // Then
             verify(campaignStatusHistoryService, never())
                     .recordTransition(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("Should not change amountRaised or status of the goal in memory")
+        void createDonation_ShouldNotChangeGoalInMemory() {
+            // Given
+            testGoal.setAmountRaised(GOAL_AMOUNT.subtract(TEST_AMOUNT));
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
+            when(goalRepository.completeIfGoalReached(eq(testGoal.getId()), any(LocalDateTime.class))).thenReturn(1);
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            assertThat(testGoal.getAmountRaised()).isEqualByComparingTo(GOAL_AMOUNT.subtract(TEST_AMOUNT));
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
         }
 
         @Test
@@ -314,6 +340,7 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
@@ -321,9 +348,8 @@ class DonationServiceTest {
 
             // Then
             assertThat(result).isNotNull();
-            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
-            BigDecimal expectedAmountRaised = INITIAL_AMOUNT_RAISED.add(TEST_AMOUNT);
-            assertThat(testGoal.getAmountRaised()).isEqualByComparingTo(expectedAmountRaised);
+            verify(goalRepository).addToAmountRaised(eq(testGoal.getId()), eq(TEST_AMOUNT), any(LocalDateTime.class));
+            verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
         }
 
         @Test
@@ -337,6 +363,7 @@ class DonationServiceTest {
             when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
             doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
             when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
