@@ -50,8 +50,7 @@ Notas:
 
 - Ejecutar desde la raíz del proyecto (`vaPaTi`).
 - `-v maven_repo_cache:/root/.m2` cachea las dependencias de Maven entre corridas; Docker crea el volumen solo si no existe.
-- Testcontainers crea el contenedor MSSQL, corre los tests contra él y lo destruye al terminar — no toca el volumen persistente `sql_data_apivapati_java` usado por `docker-compose.dev.yml`/`docker-compose.yml`.
-- Si `mvn`/`./mvnw test` falla con `Could not find a valid Docker environment`, ver la sección "TestContainers no funciona en Docker" de [`DOCKER-INSTRUCTIONS.md`](DOCKER-INSTRUCTIONS.md).
+- Testcontainers crea el contenedor MSSQL, corre los tests contra él y lo destruye al terminar — no toca el volumen persistente `sql_data_apivapati_java` usado por `docker-compose.dev.yml`.
 
 ## Un solo método de test
 
