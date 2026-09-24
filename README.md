@@ -56,8 +56,6 @@ Esto levanta dos contenedores:
 - `db_vapati_dev` — SQL Server 2022, expuesto en `localhost:1433` (usuario `sa`, password `<DB_PASSWORD del .env>`, base de datos `ApiVaPaTiJava` — ver `src/main/resources/application-docker.properties`).
 - `app_vapati_dev` — la app Spring Boot, expuesta en `localhost:8080`, con hot reload al editar archivos `.java`.
 
-Para más detalle (modo producción local, SonarQube, troubleshooting) revisa [`DOCKER-INSTRUCTIONS.md`](DOCKER-INSTRUCTIONS.md).
-
 > Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<tu-password>" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-latest` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos (con `DB_PASSWORD=<tu-password>` en el entorno). `./mvnw spring-boot:run` también necesita `JWT_SECRET` exportado en el entorno, con al menos 32 bytes: por ejemplo `export JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')`. Sin él, la app no arranca.
 
 ### 4. Datos iniciales (roles y categorías)

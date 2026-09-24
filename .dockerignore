@@ -1,6 +1,6 @@
 # Maven build output
 # For production build (Dockerfile), exclude target but keep JARs
-# For development build (Dockerfile.dev), target/ is mounted as volume
+# For development build (Dockerfile.dev), target/ is not needed: the dev container compiles into its own /app/target
 target/
 !target/*.jar
 
@@ -22,10 +22,8 @@ target/
 # Docker files
 Dockerfile
 Dockerfile.dev
-docker-compose.yml
 docker-compose.dev.yml
 .dockerignore
-DOCKER-INSTRUCTIONS.md
 
 # Logs
 *.log
