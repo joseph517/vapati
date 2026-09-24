@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.*;
 import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.ReportMapper;
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -401,7 +404,7 @@ class ReportServiceTest {
                     .isEqualTo(reportDTO);
 
             verify(reportValidationService).validateReportExists(1L);
-            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED);
+            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
             verify(reportRepository).save(report);
             verify(reportActionService).executeAction(report);
         }
@@ -437,7 +440,7 @@ class ReportServiceTest {
             reportService.reviewReport(1L, reviewReportDTO);
 
             // Then
-            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED);
+            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
         }
 
         @Test
@@ -559,6 +562,71 @@ class ReportServiceTest {
             reportService.reviewReport(1L, reviewReportDTO);
 
             // Then
+            verify(reportActionService, never()).executeAction(any());
+        }
+
+        @Test
+        @DisplayName("Should check the report is reviewable before validating the body")
+        void reviewReport_ShouldValidateReviewableBeforeInput() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(10L);
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+            when(reportValidationService.getReporter(10L)).thenReturn(admin);
+            when(reportRepository.save(report)).thenReturn(report);
+            when(reportMapper.toDTO(report)).thenReturn(reportDTO);
+            InOrder inOrder = inOrder(reportValidationService, reportRepository, reportActionService);
+
+            // When
+            reportService.reviewReport(1L, reviewReportDTO);
+
+            // Then
+            inOrder.verify(reportValidationService).validateReportExists(1L);
+            inOrder.verify(reportValidationService).validateReportIsReviewable(report);
+            inOrder.verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
+            inOrder.verify(reportRepository).save(report);
+            inOrder.verify(reportActionService).executeAction(report);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ReportStatus.class, names = {"RESOLVED", "REJECTED"})
+        @DisplayName("Should throw ConflictException for a final report without saving or executing anything")
+        void reviewReport_WithFinalReport_ShouldThrowConflictAndNotSave(ReportStatus finalStatus) {
+            // Given
+            report.setStatus(finalStatus);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(10L);
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+            doThrow(new ConflictException("Report already reviewed with status: " + finalStatus.name()))
+                    .when(reportValidationService).validateReportIsReviewable(report);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.reviewReport(1L, reviewReportDTO))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage("Report already reviewed with status: " + finalStatus.name());
+
+            verify(reportValidationService, never()).validateReviewInput(any(), any(), any());
+            verify(reportRepository, never()).save(any());
+            verify(reportActionService, never()).executeAction(any());
+        }
+
+        @Test
+        @DisplayName("Should reject REJECTED with USER_BANNED without saving or executing anything")
+        void reviewReport_WithRejectedAndAction_ShouldThrowAndNotSave() {
+            // Given
+            reviewReportDTO.setStatus(ReportStatus.REJECTED);
+            reviewReportDTO.setActionTaken(ActionTaken.USER_BANNED);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(10L);
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+            doThrow(new MessageException("Action taken can only be set when resolving a report"))
+                    .when(reportValidationService)
+                    .validateReviewInput(ReportStatus.REJECTED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.reviewReport(1L, reviewReportDTO))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Action taken can only be set when resolving a report");
+
+            assertThat(report.getStatus()).isEqualTo(ReportStatus.PENDING);
+            verify(reportRepository, never()).save(any());
             verify(reportActionService, never()).executeAction(any());
         }
     }

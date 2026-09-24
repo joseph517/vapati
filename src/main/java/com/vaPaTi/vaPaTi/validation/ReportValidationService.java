@@ -12,7 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,16 @@ public class ReportValidationService {
     private static final int MAX_REPORTS_PER_DAY = 10;
     private static final String USER_NOT_FOUND = "User not found";
     private static final String PUBLICATION_NOT_FOUND = "Publication not found";
+
+    // Actions a RESOLVED report can take on each entity type. NO_ACTION is not listed: RESOLVED does not accept it.
+    private static final Map<ReportedEntityType, Set<ActionTaken>> ALLOWED_ACTIONS = Map.of(
+            ReportedEntityType.USER, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.USER_SUSPENDED, ActionTaken.USER_BANNED, ActionTaken.OTHER),
+            ReportedEntityType.PUBLICATION, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER),
+            ReportedEntityType.CAMPAIGN, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER)
+    );
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -139,21 +152,42 @@ public class ReportValidationService {
     }
 
     /**
-     * Validate review input
+     * Validate that the report can still be reviewed: RESOLVED and REJECTED are final
      */
-    public void validateReviewInput(ReportStatus status, ActionTaken actionTaken) {
+    public void validateReportIsReviewable(Report report) {
+        if (report.getStatus() == ReportStatus.RESOLVED || report.getStatus() == ReportStatus.REJECTED) {
+            throw new ConflictException("Report already reviewed with status: " + report.getStatus().name());
+        }
+    }
+
+    /**
+     * Validate review input: an action is only allowed when resolving, and only if it applies to the entity type
+     */
+    public void validateReviewInput(ReportStatus status, ActionTaken actionTaken, ReportedEntityType entityType) {
         if (status == null) {
             throw new MessageException("Status is required for review");
-        }
-
-        // If status is RESOLVED, action taken should be specified
-        if (status == ReportStatus.RESOLVED && (actionTaken == null || actionTaken == ActionTaken.NO_ACTION)) {
-            throw new MessageException("Action taken must be specified when resolving a report");
         }
 
         // PENDING reports cannot be reviewed (they need to go to UNDER_REVIEW first or directly to RESOLVED/REJECTED)
         if (status == ReportStatus.PENDING) {
             throw new MessageException("Cannot set status back to PENDING");
+        }
+
+        boolean hasAction = actionTaken != null && actionTaken != ActionTaken.NO_ACTION;
+
+        // If status is RESOLVED, action taken should be specified
+        if (status == ReportStatus.RESOLVED && !hasAction) {
+            throw new MessageException("Action taken must be specified when resolving a report");
+        }
+
+        // UNDER_REVIEW and REJECTED never execute an action
+        if (status != ReportStatus.RESOLVED && hasAction) {
+            throw new MessageException("Action taken can only be set when resolving a report");
+        }
+
+        if (status == ReportStatus.RESOLVED && !ALLOWED_ACTIONS.get(entityType).contains(actionTaken)) {
+            throw new MessageException("Action " + actionTaken.name() + " does not apply to a "
+                    + entityType.name().toLowerCase());
         }
     }
 

@@ -98,8 +98,11 @@ public class ReportService {
         // Validate report exists
         Report report = reportValidationService.validateReportExists(reportId);
 
-        // Validate review input
-        reportValidationService.validateReviewInput(dto.getStatus(), dto.getActionTaken());
+        // RESOLVED and REJECTED are final, whatever the body says
+        reportValidationService.validateReportIsReviewable(report);
+
+        // Validate review input against the report's entity type
+        reportValidationService.validateReviewInput(dto.getStatus(), dto.getActionTaken(), report.getReportedEntityType());
 
         // Get admin user
         User admin = reportValidationService.getReporter(adminId);
@@ -114,7 +117,7 @@ public class ReportService {
         // Save report
         Report updatedReport = reportRepository.save(report);
 
-        // Execute the action if specified
+        // Execute the action if specified; validateReviewInput only lets one through when RESOLVED
         if (dto.getActionTaken() != null && dto.getActionTaken() != ActionTaken.NO_ACTION) {
             reportActionService.executeAction(updatedReport);
         }
