@@ -632,64 +632,6 @@ class ReportServiceTest {
     }
 
     @Nested
-    @DisplayName("getMyReports() tests")
-    class GetMyReportsTests {
-
-        @Test
-        @DisplayName("Should return user's reports with pagination")
-        void getMyReports_ShouldReturnUserReports() {
-            // Given
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
-            Page<Report> reportPage = new PageImpl<>(List.of(report));
-            when(reportRepository.findByReporterId(1L, pageable)).thenReturn(reportPage);
-            when(reportMapper.toDTO(report)).thenReturn(reportDTO);
-
-            // When
-            Page<ReportDTO> result = reportService.getMyReports(pageable);
-
-            // Then
-            assertThat(result)
-                    .isNotNull();
-            assertThat(result.getContent())
-                    .hasSize(1)
-                    .element(0).isEqualTo(reportDTO);
-
-            verify(reportRepository).findByReporterId(1L, pageable);
-        }
-
-        @Test
-        @DisplayName("Should filter by authenticated user ID")
-        void getMyReports_ShouldFilterByUserId() {
-            // Given
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
-            Page<Report> reportPage = new PageImpl<>(List.of());
-            when(reportRepository.findByReporterId(1L, pageable)).thenReturn(reportPage);
-
-            // When
-            reportService.getMyReports(pageable);
-
-            // Then
-            verify(reportRepository).findByReporterId(1L, pageable);
-        }
-
-        @Test
-        @DisplayName("Should map reports to DTOs")
-        void getMyReports_ShouldMapReportsToDTOs() {
-            // Given
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
-            Page<Report> reportPage = new PageImpl<>(List.of(report));
-            when(reportRepository.findByReporterId(1L, pageable)).thenReturn(reportPage);
-            when(reportMapper.toDTO(report)).thenReturn(reportDTO);
-
-            // When
-            reportService.getMyReports(pageable);
-
-            // Then
-            verify(reportMapper).toDTO(report);
-        }
-    }
-
-    @Nested
     @DisplayName("getReportStats() tests")
     class GetReportStatsTests {
 

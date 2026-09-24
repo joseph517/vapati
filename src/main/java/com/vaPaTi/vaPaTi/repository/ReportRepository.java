@@ -36,12 +36,6 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     );
 
     /**
-     * Get all reports created by a specific user (paginated)
-     */
-    @Query("SELECT r FROM Report r WHERE r.reporter.id = :reporterId ORDER BY r.createdAt DESC")
-    Page<Report> findByReporterId(@Param("reporterId") Long reporterId, Pageable pageable);
-
-    /**
      * Get all reports with pagination
      * Order is controlled by Pageable parameter from controller
      */

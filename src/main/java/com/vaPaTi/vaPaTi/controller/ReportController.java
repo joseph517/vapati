@@ -67,20 +67,6 @@ public class ReportController {
         return ResponseEntity.ok(report);
     }
 
-    @GetMapping("/my-reports")
-    @Operation(summary = "Get my reports", description = "Get all reports created by the authenticated user")
-    public ResponseEntity<Page<ReportDTO>> getMyReports(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDirection
-    ) {
-        Pageable pageable = sortValidationService.validateAndGetPageable(
-                page, size, sortBy, sortDirection, REPORT_SORT_FIELDS);
-        Page<ReportDTO> reports = reportService.getMyReports(pageable);
-        return ResponseEntity.ok(reports);
-    }
-
     @GetMapping("/stats")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Get report statistics", description = "Get aggregated statistics about reports (ADMIN only)")
