@@ -1,5 +1,5 @@
 # Docker Compose for Development with Hot Reload
-# Use: docker-compose -f docker-compose.dev.yml up
+# Use: docker compose -f docker-compose.dev.yml up -d  (hot reload is built in, see app-dev)
 
 services:
   sqlserver:
@@ -43,28 +43,34 @@ services:
       SERVER_PORT: ${SERVER_PORT:-8080}
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
       SPRING_DEVTOOLS_LIVERELOAD_ENABLED: "true"
-      # DevTools only restarts when this file changes, i.e. after a full compile (see develop.watch)
+      # DevTools only restarts when this file changes, i.e. after a successful compile (see scripts/dev-hot-reload.sh)
       SPRING_DEVTOOLS_RESTART_TRIGGER_FILE: .reloadtrigger
       DOCKER_HOST: unix:///var/run/docker.sock
       TESTCONTAINERS_RYUK_DISABLED: "false"
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    # Hot reload (no Compose Watch): ./src and the project dir are mounted read-only, and
+    # scripts/dev-hot-reload.sh (the container's CMD) recompiles on every save in src/main and
+    # restarts the app; a pom.xml change downloads only the missing dependencies and restarts the Java process.
+    # target/ stays inside the container. A failed compile keeps the previous version running,
+    # prints a banner in the logs and marks the container unhealthy.
     volumes:
+      - ./src:/app/src:ro
+      # pom.xml is read through its directory: a single-file bind mount misses editors' atomic saves
+      - ./:/workspace:ro
       - maven-cache-dev:/root/.m2
       - /var/run/docker.sock:/var/run/docker.sock
-    # Hot reload: start with `docker compose -f docker-compose.dev.yml up --watch`.
-    # Source changes are synced into the container and compiled there; DevTools picks up the new classes.
-    develop:
-      watch:
-        - path: ./src/main
-          target: /app/src/main
-          action: sync+exec
-          initial_sync: true
-          exec:
-            command: sh -c "./mvnw -q -o compile && touch target/classes/.reloadtrigger"
-        - path: ./pom.xml
-          action: rebuild
+    # tini as PID 1: forwards SIGTERM to the watcher script and reaps child processes
+    init: true
+    healthcheck:
+      # Unhealthy if the last compile failed or the app does not answer HTTP (any status code, 401 included)
+      test: ["CMD-SHELL", "test ! -e /tmp/hot-reload/failed && curl -s -o /dev/null http://localhost:$${SERVER_PORT:-8080}/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      # The first start compiles everything
+      start_period: 180s
     depends_on:
       sqlserver:
         condition: service_healthy
