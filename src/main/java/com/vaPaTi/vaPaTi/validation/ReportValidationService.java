@@ -53,19 +53,11 @@ public class ReportValidationService {
     }
 
     /**
-     * Validate that user is not reporting themselves
+     * Validate that the reported entity exists and is not deleted.
+     * Returns the id of the entity's owner, or null when the owner is a deleted user.
      */
-    public void validateNotSelfReport(Long reporterId, ReportedEntityType entityType, Long entityId) {
-        if (entityType == ReportedEntityType.USER && reporterId.equals(entityId)) {
-            throw new MessageException("You cannot report yourself");
-        }
-    }
-
-    /**
-     * Validate that the reported entity exists and is not deleted
-     */
-    public void validateEntityExists(ReportedEntityType entityType, Long entityId, Long reporterId) {
-        switch (entityType) {
+    public Long validateEntityExists(ReportedEntityType entityType, Long entityId, Long reporterId) {
+        return switch (entityType) {
             case USER -> {
                 Optional<User> user = userRepository.findById(entityId);
                 if (user.isEmpty()) {
@@ -74,6 +66,7 @@ public class ReportValidationService {
                 if (user.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted user");
                 }
+                yield entityId;
             }
             case PUBLICATION -> {
                 Optional<Publication> publication = publicationRepository.findById(entityId);
@@ -83,11 +76,33 @@ public class ReportValidationService {
                 if (publication.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted publication");
                 }
+                yield ownerIdOf(publication.get().getUser());
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
-            case CAMPAIGN -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(entityId, reporterId);
+            case CAMPAIGN -> ownerIdOf(campaignServiceValidation.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
+            default -> throw new MessageException("Invalid entity type");
+        };
+    }
+
+    /**
+     * Validate that user is not reporting themselves or their own content.
+     * A null owner (deleted author) is never a self-report.
+     */
+    public void validateNotSelfReport(Long reporterId, ReportedEntityType entityType, Long ownerId) {
+        if (ownerId == null || !ownerId.equals(reporterId)) {
+            return;
+        }
+        switch (entityType) {
+            case USER -> throw new MessageException("You cannot report yourself");
+            case PUBLICATION -> throw new MessageException("You cannot report your own publication");
+            case CAMPAIGN -> throw new MessageException("You cannot report your own campaign");
             default -> throw new MessageException("Invalid entity type");
         }
+    }
+
+    // The author is loaded as null when the user is soft-deleted (@NotFound IGNORE)
+    private Long ownerIdOf(User owner) {
+        return owner == null ? null : owner.getId();
     }
 
     /**

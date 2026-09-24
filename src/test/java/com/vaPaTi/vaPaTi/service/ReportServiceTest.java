@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.*;
 import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.ReportMapper;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
@@ -97,6 +98,7 @@ class ReportServiceTest {
         void createReport_WithValidData_ShouldCreateReport() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, 1L)).thenReturn(2L);
             when(reportValidationService.getReporter(1L)).thenReturn(reporter);
             when(reportRepository.save(any(Report.class))).thenReturn(report);
 
@@ -138,6 +140,7 @@ class ReportServiceTest {
         void createReport_ShouldValidateNotSelfReport() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, 1L)).thenReturn(2L);
             when(reportValidationService.getReporter(1L)).thenReturn(reporter);
 
             // When
@@ -213,6 +216,7 @@ class ReportServiceTest {
         void createReport_ShouldExecuteValidationsInOrder() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, 1L)).thenReturn(2L);
             when(reportValidationService.getReporter(1L)).thenReturn(reporter);
             InOrder inOrder = inOrder(reportValidationService);
 
@@ -221,8 +225,8 @@ class ReportServiceTest {
 
             // Then
             inOrder.verify(reportValidationService).validateInput(createReportDTO);
-            inOrder.verify(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L, 1L);
+            inOrder.verify(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateNoDuplicateReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateDailyReportLimit(1L);
         }
@@ -242,6 +246,26 @@ class ReportServiceTest {
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Campaign not found with id: 5");
 
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should not save the report when the reporter owns the publication")
+        void createReport_WhenReportingOwnPublication_ShouldThrowAndNotSave() {
+            // Given: the entity check returns the reporter as the owner
+            createReportDTO.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            createReportDTO.setReportedEntityId(7L);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 7L, 1L)).thenReturn(1L);
+            doThrow(new MessageException("You cannot report your own publication"))
+                    .when(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.PUBLICATION, 1L);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.createReport(createReportDTO))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("You cannot report your own publication");
+
+            verify(reportValidationService, never()).validateNoDuplicateReport(any(), any(), any());
             verify(reportRepository, never()).save(any());
         }
     }

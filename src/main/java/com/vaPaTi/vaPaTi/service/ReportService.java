@@ -37,11 +37,11 @@ public class ReportService {
         // Validate input
         reportValidationService.validateInput(dto);
 
-        // Validate not self-report
-        reportValidationService.validateNotSelfReport(reporterId, dto.getReportedEntityType(), dto.getReportedEntityId());
+        // Validate entity exists and is not deleted; it also gives the owner for the self-report check
+        Long ownerId = reportValidationService.validateEntityExists(dto.getReportedEntityType(), dto.getReportedEntityId(), reporterId);
 
-        // Validate entity exists and is not deleted
-        reportValidationService.validateEntityExists(dto.getReportedEntityType(), dto.getReportedEntityId(), reporterId);
+        // Validate not self-report
+        reportValidationService.validateNotSelfReport(reporterId, dto.getReportedEntityType(), ownerId);
 
         // Validate no duplicate report
         reportValidationService.validateNoDuplicateReport(reporterId, dto.getReportedEntityType(), dto.getReportedEntityId());

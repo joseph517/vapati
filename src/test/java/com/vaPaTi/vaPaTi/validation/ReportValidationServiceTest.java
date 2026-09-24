@@ -192,12 +192,105 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should pass for non-USER entity types")
-        void validateNotSelfReport_WithPublicationEntityType_ShouldNotThrowException() {
+        @DisplayName("Should throw MessageException when user reports their own publication")
+        void validateNotSelfReport_WithOwnPublication_ShouldThrowException() {
+            // When & Then
+            assertThatThrownBy(() -> reportValidationService.validateNotSelfReport(
+                    1L, ReportedEntityType.PUBLICATION, 1L
+            ))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("You cannot report your own publication");
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when user reports their own campaign")
+        void validateNotSelfReport_WithOwnCampaign_ShouldThrowException() {
+            // When & Then
+            assertThatThrownBy(() -> reportValidationService.validateNotSelfReport(
+                    1L, ReportedEntityType.CAMPAIGN, 1L
+            ))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("You cannot report your own campaign");
+        }
+
+        @Test
+        @DisplayName("Should pass when the publication or campaign belongs to someone else")
+        void validateNotSelfReport_WithOtherOwner_ShouldNotThrowException() {
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateNotSelfReport(
-                    1L, ReportedEntityType.PUBLICATION, 1L
+                    1L, ReportedEntityType.PUBLICATION, 2L
             ));
+            assertDoesNotThrow(() -> reportValidationService.validateNotSelfReport(
+                    1L, ReportedEntityType.CAMPAIGN, 2L
+            ));
+        }
+
+        @Test
+        @DisplayName("Should pass when the owner is null (deleted author)")
+        void validateNotSelfReport_WithNullOwner_ShouldNotThrowException() {
+            // When & Then
+            assertDoesNotThrow(() -> reportValidationService.validateNotSelfReport(
+                    1L, ReportedEntityType.PUBLICATION, null
+            ));
+            assertDoesNotThrow(() -> reportValidationService.validateNotSelfReport(
+                    1L, ReportedEntityType.CAMPAIGN, null
+            ));
+        }
+    }
+
+    @Nested
+    @DisplayName("validateEntityExists() - owner tests")
+    class ValidateEntityExistsOwnerTests {
+
+        @Test
+        @DisplayName("Should return the reported user id as the owner of a USER")
+        void validateEntityExists_ForUser_ShouldReturnEntityIdAsOwner() {
+            // Given
+            when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
+
+            // When & Then
+            assertThat(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, REPORTER_ID))
+                    .isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("Should return the author id as the owner of a publication")
+        void validateEntityExists_ForPublication_ShouldReturnAuthorId() {
+            // Given
+            User author = new User();
+            author.setId(5L);
+            testPublication.setUser(author);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When & Then
+            assertThat(reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L, REPORTER_ID))
+                    .isEqualTo(5L);
+        }
+
+        @Test
+        @DisplayName("Should return null as the owner of a publication whose author is deleted")
+        void validateEntityExists_ForPublicationWithDeletedAuthor_ShouldReturnNull() {
+            // Given: a soft-deleted author is loaded as null
+            testPublication.setUser(null);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When & Then
+            assertThat(reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L, REPORTER_ID))
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("Should return the campaign owner id")
+        void validateEntityExists_ForCampaign_ShouldReturnOwnerId() {
+            // Given
+            User owner = new User();
+            owner.setId(6L);
+            testCampaign.setUser(owner);
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
+
+            // When & Then
+            assertThat(reportValidationService.validateEntityExists(ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID))
+                    .isEqualTo(6L);
         }
     }
 
