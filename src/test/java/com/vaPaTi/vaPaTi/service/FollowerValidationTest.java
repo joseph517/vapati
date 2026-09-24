@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +36,9 @@ class FollowerValidationTest {
 
     @Mock
     private FollowerRepository followerRepository;
+
+    @Mock
+    private AccountStatusValidationService accountStatusValidationService;
 
     @InjectMocks
     private FollowerValidation followerValidation;
@@ -383,6 +387,30 @@ class FollowerValidationTest {
             assertThatThrownBy(() -> followerValidation.validateAndGetUser(nonExistentUserId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User not found with ID: " + nonExistentUserId);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateNotSanctioned()")
+    class ValidateNotSanctionedTests {
+
+        @Test
+        @DisplayName("Should not throw when the user to follow is not banned nor suspended")
+        void validateNotSanctioned_WhenNotBlocked_ShouldNotThrow() {
+            when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(false);
+
+            assertThatCode(() -> followerValidation.validateNotSanctioned(otherUser))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when the user to follow is banned or suspended")
+        void validateNotSanctioned_WhenBlocked_ShouldThrow() {
+            when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(true);
+
+            assertThatThrownBy(() -> followerValidation.validateNotSanctioned(otherUser))
+                    .isExactlyInstanceOf(MessageException.class)
+                    .hasMessage("You cannot follow a banned or suspended user");
         }
     }
 

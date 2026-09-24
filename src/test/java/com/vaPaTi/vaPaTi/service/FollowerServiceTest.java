@@ -57,6 +57,7 @@ class FollowerServiceTest {
     private static final String SELF_FOLLOW_ERROR = "Users cannot follow themselves";
     private static final String SELF_UNFOLLOW_ERROR = "Users cannot unfollow themselves";
     private static final String ALREADY_FOLLOWING_ERROR = "User is already being followed";
+    private static final String SANCTIONED_USER_ERROR = "You cannot follow a banned or suspended user";
     private static final String FOLLOW_RELATION_NOT_FOUND = "Follow relationship not found";
 
     private User currentUser;
@@ -166,6 +167,7 @@ class FollowerServiceTest {
             inOrder.verify(followerValidation).validateNotSelfFollow(CURRENT_USER_ID, OTHER_USER_ID);
             inOrder.verify(followerValidation).validateAndGetCurrentUser(CURRENT_USER_ID);
             inOrder.verify(followerValidation).validateAndGetUserToFollow(OTHER_USER_ID);
+            inOrder.verify(followerValidation).validateNotSanctioned(userToFollow);
             inOrder.verify(followerValidation).validateNotAlreadyFollowing(userToFollow, currentUser);
             inOrder.verify(followerRepository).save(any(Follower.class));
             inOrder.verify(followerMapper).toFollowResponseDto(any(Follower.class), anyString());
@@ -218,6 +220,25 @@ class FollowerServiceTest {
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID);
+
+            verify(followerValidation, never()).validateNotSanctioned(any());
+            verify(followerRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when user to follow is banned or suspended")
+        void followUser_WhenUserToFollowIsSanctioned_ShouldThrowException() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            doThrow(new MessageException(SANCTIONED_USER_ERROR))
+                    .when(followerValidation).validateNotSanctioned(userToFollow);
+
+            // When & Then
+            assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
+                    .isExactlyInstanceOf(MessageException.class)
+                    .hasMessage(SANCTIONED_USER_ERROR);
 
             verify(followerValidation, never()).validateNotAlreadyFollowing(any(), any());
             verify(followerRepository, never()).save(any());
@@ -360,6 +381,7 @@ class FollowerServiceTest {
             inOrder.verify(followerValidation).validateAndGetFollowRelation(userToFollow, currentUser);
             inOrder.verify(followerRepository).delete(followerRelationship);
             inOrder.verify(followerMapper).toUnfollowResponseDto(eq(OTHER_USER_ID), anyString());
+            verify(followerValidation, never()).validateNotSanctioned(any());
         }
 
         @Test

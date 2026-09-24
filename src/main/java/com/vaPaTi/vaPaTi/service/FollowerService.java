@@ -31,11 +31,11 @@ public class FollowerService {
     /**
      * Follows a user by creating a new follower relationship.
      *
-     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found). It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
+     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), and that the user to follow is not banned or suspended. It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
      *
      * @param userToFollowId the ID of the user to follow
      * @return a FollowResponseDto with the result of the follow operation
-     * @throws MessageException if the current user is trying to follow themselves
+     * @throws MessageException if the current user is trying to follow themselves, or the user to follow is banned or suspended
      * @throws ConflictException if the current user is already following the user to follow
      * @throws ResourceNotFoundException if the current user or the user to follow is not found
      */
@@ -46,6 +46,7 @@ public class FollowerService {
         followerValidation.validateNotSelfFollow(userId, userToFollowId);
         User currentUser = followerValidation.validateAndGetCurrentUser(userId);
         User userToFollow = followerValidation.validateAndGetUserToFollow(userToFollowId);
+        followerValidation.validateNotSanctioned(userToFollow);
         followerValidation.validateNotAlreadyFollowing(userToFollow, currentUser);
 
         // Create new follower relationship

@@ -17,6 +17,7 @@ public class FollowerValidation {
 
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
+    private final AccountStatusValidationService accountStatusValidationService;
 
     /**
      * Check if current user follows another user
@@ -104,6 +105,18 @@ public class FollowerValidation {
     public User validateAndGetUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+    }
+
+    /**
+     * Validates that the user to follow is not banned nor under an active suspension.
+     * Uses a single message for both sanctions, so the sanction type is not revealed.
+     * @param userToFollow the user to follow
+     * @throws MessageException if the user is banned or suspended
+     */
+    public void validateNotSanctioned(User userToFollow) {
+        if (accountStatusValidationService.isBlocked(userToFollow)) {
+            throw new MessageException("You cannot follow a banned or suspended user");
+        }
     }
 
     /**
