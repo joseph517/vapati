@@ -26,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -63,7 +64,7 @@ class CampaignServiceTest {
 
     private static final Long TEST_USER_ID = 1L;
     private static final Long TEST_CAMPAIGN_ID = 1L;
-    private static final Double DEFAULT_AMOUNT_RAISED = 0.0;
+    private static final BigDecimal DEFAULT_AMOUNT_RAISED = new BigDecimal("0.0");
     private static final String CAMPAIGN_NOT_FOUND_MESSAGE = "Campaign not found";
     private static final String USER_NOT_FOUND_MESSAGE = "User not found with id: ";
 
@@ -368,7 +369,7 @@ class CampaignServiceTest {
         @DisplayName("Should create campaign successfully with valid data")
         void createCampaign_WithValidDTO_ShouldCreateCampaign() {
             // Given
-            createCampaignDTO.setAmountRaised(50.0);
+            createCampaignDTO.setAmountRaised(new BigDecimal("50.0"));
             Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "New Campaign");
 
@@ -420,7 +421,7 @@ class CampaignServiceTest {
                 campaignService.createCampaign(createCampaignDTO);
 
                 // Then
-                assertThat(createCampaignDTO.getAmountRaised()).isEqualTo(DEFAULT_AMOUNT_RAISED);
+                assertThat(createCampaignDTO.getAmountRaised()).isEqualByComparingTo(DEFAULT_AMOUNT_RAISED);
             }
         }
 
@@ -428,7 +429,7 @@ class CampaignServiceTest {
         @DisplayName("Should preserve amountRaised value when DTO value is provided")
         void createCampaign_WithProvidedAmountRaised_ShouldKeepValue() {
             // Given
-            Double providedAmount = 100.0;
+            BigDecimal providedAmount = new BigDecimal("100.0");
             createCampaignDTO.setAmountRaised(providedAmount);
             Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "New Campaign");
@@ -447,7 +448,7 @@ class CampaignServiceTest {
                 campaignService.createCampaign(createCampaignDTO);
 
                 // Then
-                assertThat(createCampaignDTO.getAmountRaised()).isEqualTo(providedAmount);
+                assertThat(createCampaignDTO.getAmountRaised()).isEqualByComparingTo(providedAmount);
             }
         }
 
@@ -1193,8 +1194,8 @@ class CampaignServiceTest {
         void activateCampaign_WithClosedGoalBelowTarget_ShouldSetGoalActive() {
             // Given
             testGoal.setStatus(CampaignStatus.CLOSED);
-            testGoal.setAmountGoal(1000.0);
-            testGoal.setAmountRaised(500.0);
+            testGoal.setAmountGoal(new BigDecimal("1000.0"));
+            testGoal.setAmountRaised(new BigDecimal("500.0"));
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
@@ -1220,8 +1221,8 @@ class CampaignServiceTest {
         void activateCampaign_WithClosedGoalAtOrAboveTarget_ShouldSetGoalCompleted() {
             // Given
             testGoal.setStatus(CampaignStatus.CLOSED);
-            testGoal.setAmountGoal(1000.0);
-            testGoal.setAmountRaised(1000.0);
+            testGoal.setAmountGoal(new BigDecimal("1000.0"));
+            testGoal.setAmountRaised(new BigDecimal("1000.0"));
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
@@ -1314,8 +1315,8 @@ class CampaignServiceTest {
         void activateCampaign_WithGoalBelowTarget_ShouldRecordStatusHistoryEntry() {
             // Given
             testGoal.setStatus(CampaignStatus.CLOSED);
-            testGoal.setAmountGoal(1000.0);
-            testGoal.setAmountRaised(500.0);
+            testGoal.setAmountGoal(new BigDecimal("1000.0"));
+            testGoal.setAmountRaised(new BigDecimal("500.0"));
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
@@ -1340,8 +1341,8 @@ class CampaignServiceTest {
         void activateCampaign_WithGoalAtTarget_ShouldRecordStatusHistoryEntry() {
             // Given
             testGoal.setStatus(CampaignStatus.CLOSED);
-            testGoal.setAmountGoal(1000.0);
-            testGoal.setAmountRaised(1000.0);
+            testGoal.setAmountGoal(new BigDecimal("1000.0"));
+            testGoal.setAmountRaised(new BigDecimal("1000.0"));
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))

@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -56,8 +57,8 @@ class CampaignServiceValidationTest {
 
         testGoal = Goal.builder()
                 .id(1L)
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
+                .amountGoal(new BigDecimal("1000.0"))
+                .amountRaised(new BigDecimal("500.0"))
                 .build();
 
         testCampaign = Campaign.builder()
@@ -73,7 +74,7 @@ class CampaignServiceValidationTest {
         testDTO = new UpdateCampaignRequestDTO(
                 "Updated Campaign Name",
                 "Updated Description",
-                2000.0,
+                new BigDecimal("2000.0"),
                 List.of(1L)
         );
     }
@@ -216,7 +217,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNullFields = new UpdateCampaignRequestDTO(
-                null, null, 1000.0, List.of(1L)
+                null, null, new BigDecimal("1000.0"), List.of(1L)
         );
 
         // When
@@ -255,20 +256,20 @@ class CampaignServiceValidationTest {
     void updateGoalFields_WhenOnlyAmountGoalProvided_ShouldUpdateOnlyAmountGoal() {
         // Given
         Goal goal = Goal.builder()
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
+                .amountGoal(new BigDecimal("1000.0"))
+                .amountRaised(new BigDecimal("500.0"))
                 .build();
 
         UpdateCampaignRequestDTO dtoWithOnlyAmountGoal = new UpdateCampaignRequestDTO(
-                null, null, 3000.0, List.of(1L)
+                null, null, new BigDecimal("3000.0"), List.of(1L)
         );
 
         // When
         campaignServiceValidation.updateGoalFields(goal, dtoWithOnlyAmountGoal);
 
         // Then
-        assertThat(goal.getAmountGoal()).isEqualTo(3000.0);
-        assertThat(goal.getAmountRaised()).isEqualTo(500.0);
+        assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("3000.0"));
+        assertThat(goal.getAmountRaised()).isEqualByComparingTo(new BigDecimal("500.0"));
         verifyNoInteractions(campaignRepository);
     }
 
@@ -277,8 +278,8 @@ class CampaignServiceValidationTest {
     void updateGoalFields_WhenBothAmountsAreNull_ShouldNotUpdateAnyAmount() {
         // Given
         Goal goal = Goal.builder()
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
+                .amountGoal(new BigDecimal("1000.0"))
+                .amountRaised(new BigDecimal("500.0"))
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNullAmounts = new UpdateCampaignRequestDTO(
@@ -289,9 +290,9 @@ class CampaignServiceValidationTest {
         campaignServiceValidation.updateGoalFields(goal, dtoWithNullAmounts);
 
         // Then
-        assertThat(goal.getAmountGoal()).isEqualTo(1000.0);
+        assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("1000.0"));
         // amountRaised should not be updated (no longer in DTO)
-        assertThat(goal.getAmountRaised()).isEqualTo(500.0);
+        assertThat(goal.getAmountRaised()).isEqualByComparingTo(new BigDecimal("500.0"));
         verifyNoInteractions(campaignRepository);
     }
 
@@ -314,21 +315,21 @@ class CampaignServiceValidationTest {
     void updateGoalFields_WhenZeroAmountsProvided_ShouldUpdateWithZeroValues() {
         // Given
         Goal goal = Goal.builder()
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
+                .amountGoal(new BigDecimal("1000.0"))
+                .amountRaised(new BigDecimal("500.0"))
                 .build();
 
         UpdateCampaignRequestDTO dtoWithZeroAmounts = new UpdateCampaignRequestDTO(
-                null, null, 0.0, List.of(1L)
+                null, null, new BigDecimal("0.0"), List.of(1L)
         );
 
         // When
         campaignServiceValidation.updateGoalFields(goal, dtoWithZeroAmounts);
 
         // Then
-        assertThat(goal.getAmountGoal()).isEqualTo(0.0);
+        assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("0.0"));
         // amountRaised should not be updated (no longer in DTO)
-        assertThat(goal.getAmountRaised()).isEqualTo(500.0);
+        assertThat(goal.getAmountRaised()).isEqualByComparingTo(new BigDecimal("500.0"));
         verifyNoInteractions(campaignRepository);
     }
 
@@ -337,21 +338,21 @@ class CampaignServiceValidationTest {
     void updateGoalFields_WhenNegativeAmountsProvided_ShouldUpdateWithNegativeValues() {
         // Given
         Goal goal = Goal.builder()
-                .amountGoal(1000.0)
-                .amountRaised(500.0)
+                .amountGoal(new BigDecimal("1000.0"))
+                .amountRaised(new BigDecimal("500.0"))
                 .build();
 
         UpdateCampaignRequestDTO dtoWithNegativeAmounts = new UpdateCampaignRequestDTO(
-                null, null, -100.0, List.of(1L)
+                null, null, new BigDecimal("-100.0"), List.of(1L)
         );
 
         // When
         campaignServiceValidation.updateGoalFields(goal, dtoWithNegativeAmounts);
 
         // Then
-        assertThat(goal.getAmountGoal()).isEqualTo(-100.0);
+        assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("-100.0"));
         // amountRaised should not be updated (no longer in DTO)
-        assertThat(goal.getAmountRaised()).isEqualTo(500.0);
+        assertThat(goal.getAmountRaised()).isEqualByComparingTo(new BigDecimal("500.0"));
         verifyNoInteractions(campaignRepository);
     }
 

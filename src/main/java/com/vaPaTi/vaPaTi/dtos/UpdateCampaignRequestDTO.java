@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -17,7 +18,7 @@ public class UpdateCampaignRequestDTO {
     private String name;
     @Size(max = 255)
     private String description;
-    private Double amountGoal;
+    private BigDecimal amountGoal;
 
     @NotEmpty
     @Size(min = 1, max = 5)

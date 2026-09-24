@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -110,7 +111,7 @@ public class CampaignService {
 
         campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
 
-        Double amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : 0;
+        BigDecimal amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : BigDecimal.ZERO;
         dto.setAmountRaised(amountRaised);
 
         Campaign campaign = CampaignMapper.toEntity(dto, user);
@@ -239,7 +240,7 @@ public class CampaignService {
             throw new MessageException("Campaign is not closed");
         }
 
-        CampaignStatus newStatus = goal.getAmountRaised() >= goal.getAmountGoal() ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE;
+        CampaignStatus newStatus = goal.getAmountRaised().compareTo(goal.getAmountGoal()) >= 0 ? CampaignStatus.COMPLETED : CampaignStatus.ACTIVE;
         goal.setStatus(newStatus);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 

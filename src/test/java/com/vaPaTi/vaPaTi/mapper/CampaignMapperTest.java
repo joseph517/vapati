@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.entity.UserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,8 +30,8 @@ class CampaignMapperTest {
         user.setUserInfo(userInfo);
 
         Goal goal = new Goal();
-        goal.setAmountGoal(1000.0);
-        goal.setAmountRaised(0.0);
+        goal.setAmountGoal(new BigDecimal("1000.0"));
+        goal.setAmountRaised(new BigDecimal("0.0"));
         goal.setStatus(CampaignStatus.ACTIVE);
 
         Campaign campaign = new Campaign();
@@ -52,8 +53,8 @@ class CampaignMapperTest {
     void toResponseDTO_WithNullUser_ShouldLeaveUserNameNull() {
         // Given
         Goal goal = new Goal();
-        goal.setAmountGoal(1000.0);
-        goal.setAmountRaised(0.0);
+        goal.setAmountGoal(new BigDecimal("1000.0"));
+        goal.setAmountRaised(new BigDecimal("0.0"));
         goal.setStatus(CampaignStatus.ACTIVE);
 
         Campaign campaign = new Campaign();
@@ -79,8 +80,8 @@ class CampaignMapperTest {
         user.setUserInfo(null);
 
         Goal goal = new Goal();
-        goal.setAmountGoal(1000.0);
-        goal.setAmountRaised(0.0);
+        goal.setAmountGoal(new BigDecimal("1000.0"));
+        goal.setAmountRaised(new BigDecimal("0.0"));
         goal.setStatus(CampaignStatus.ACTIVE);
 
         Campaign campaign = new Campaign();

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Repository
@@ -31,7 +32,7 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     List<Donation> findByDonorIdOrderByCreatedAtDesc(@Param("donorId") Long donorId);
 
     @Query("SELECT SUM(d.amount) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
-    Double sumCompletedDonationsByCampaignId(@Param("campaignId") Long campaignId);
+    BigDecimal sumCompletedDonationsByCampaignId(@Param("campaignId") Long campaignId);
 
     @Query("SELECT COUNT(DISTINCT d.donorUserId) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countUniqueDonorsByCampaignId(@Param("campaignId") Long campaignId);

@@ -8,6 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static com.vaPaTi.vaPaTi.dtos.DtoValidation.assertSingleViolation;
@@ -25,7 +26,7 @@ class CampaignDtoValidationTest {
 
         @BeforeEach
         void setUp() {
-            dto = new CreateCampaignRequestDTO("School supplies", "Help us buy notebooks", 1000.0, null, List.of(1L));
+            dto = new CreateCampaignRequestDTO("School supplies", "Help us buy notebooks", new BigDecimal("1000.0"), null, List.of(1L));
         }
 
         @Test
@@ -70,7 +71,7 @@ class CampaignDtoValidationTest {
         @Test
         @DisplayName("A non-positive amountGoal is not rejected here (P24, group 7)")
         void nonPositiveAmountGoalIsOutOfScope() {
-            dto.setAmountGoal(-100.0);
+            dto.setAmountGoal(new BigDecimal("-100.0"));
             assertValid(dto);
         }
 

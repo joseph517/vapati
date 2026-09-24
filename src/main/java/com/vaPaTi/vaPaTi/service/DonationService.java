@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +30,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class DonationService {
+
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
 
     private final DonationRepository donationRepository;
     private final DonationValidationService donationValidationService;
@@ -71,10 +75,10 @@ public class DonationService {
         donation.setTransactionId(generateTransactionId());
 
         // Update goal amount raised
-        goal.setAmountRaised(goal.getAmountRaised() + dto.getAmount());
+        goal.setAmountRaised(goal.getAmountRaised().add(dto.getAmount()));
 
         // Auto-complete: mark goal as COMPLETED once the amount raised reaches the target
-        if (goal.getStatus() == CampaignStatus.ACTIVE && goal.getAmountRaised() >= goal.getAmountGoal()) {
+        if (goal.getStatus() == CampaignStatus.ACTIVE && goal.getAmountRaised().compareTo(goal.getAmountGoal()) >= 0) {
             goal.setStatus(CampaignStatus.COMPLETED);
             campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
         }
@@ -129,16 +133,18 @@ public class DonationService {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
 
-        Double totalRaised = donationRepository.sumCompletedDonationsByCampaignId(campaignId);
+        BigDecimal totalRaised = donationRepository.sumCompletedDonationsByCampaignId(campaignId);
         Long uniqueDonors = donationRepository.countUniqueDonorsByCampaignId(campaignId);
 
         // Handle null values from queries
-        totalRaised = totalRaised != null ? totalRaised : 0.0;
+        totalRaised = totalRaised != null ? totalRaised : BigDecimal.ZERO;
         uniqueDonors = uniqueDonors != null ? uniqueDonors : 0L;
 
         Goal goal = campaign.getGoal();
-        Double goalAmount = goal != null ? goal.getAmountGoal() : 0.0;
-        Double percentage = goalAmount > 0 ? (totalRaised / goalAmount) * 100 : 0.0;
+        BigDecimal goalAmount = goal != null ? goal.getAmountGoal() : BigDecimal.ZERO;
+        BigDecimal percentage = goalAmount.signum() > 0
+                ? totalRaised.multiply(ONE_HUNDRED).divide(goalAmount, MathContext.DECIMAL64)
+                : BigDecimal.ZERO;
 
         return CampaignStatisticsDTO.builder()
                 .campaignId(campaignId)
@@ -146,7 +152,7 @@ public class DonationService {
                 .amountGoal(goalAmount)
                 .amountRaised(totalRaised)
                 .percentageReached(percentage)
-                .isGoalReached(totalRaised >= goalAmount)
+                .isGoalReached(totalRaised.compareTo(goalAmount) >= 0)
                 .status(goal != null ? goal.getStatus() : null)
                 .totalDonors(uniqueDonors)
                 .build();

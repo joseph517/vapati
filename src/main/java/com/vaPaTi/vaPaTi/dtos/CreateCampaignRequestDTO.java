@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -22,8 +23,8 @@ public class CreateCampaignRequestDTO {
     @Size(max = 255)
     private String description;
     @NotNull
-    private Double amountGoal;
-    private Double amountRaised;
+    private BigDecimal amountGoal;
+    private BigDecimal amountRaised;
 
     @NotEmpty
     @Size(min = 1, max = 5)
