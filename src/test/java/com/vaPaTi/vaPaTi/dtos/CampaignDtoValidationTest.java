@@ -26,7 +26,7 @@ class CampaignDtoValidationTest {
 
         @BeforeEach
         void setUp() {
-            dto = new CreateCampaignRequestDTO("School supplies", "Help us buy notebooks", new BigDecimal("1000.0"), null, List.of(1L));
+            dto = new CreateCampaignRequestDTO("School supplies", "Help us buy notebooks", new BigDecimal("1000.0"), List.of(1L));
         }
 
         @Test

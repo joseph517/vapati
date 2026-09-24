@@ -27,7 +27,6 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -110,9 +109,6 @@ public class CampaignService {
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
         campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
-
-        BigDecimal amountRaised = dto.getAmountRaised() != null ? dto.getAmountRaised() : BigDecimal.ZERO;
-        dto.setAmountRaised(amountRaised);
 
         Campaign campaign = CampaignMapper.toEntity(dto, user);
 

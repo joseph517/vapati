@@ -28,7 +28,6 @@ public class CreateCampaignRequestDTO {
     @Positive
     @Digits(integer = 13, fraction = 2)
     private BigDecimal amountGoal;
-    private BigDecimal amountRaised;
 
     @NotEmpty
     @Size(min = 1, max = 5)

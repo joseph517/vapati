@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -64,7 +65,6 @@ class CampaignServiceTest {
 
     private static final Long TEST_USER_ID = 1L;
     private static final Long TEST_CAMPAIGN_ID = 1L;
-    private static final BigDecimal DEFAULT_AMOUNT_RAISED = new BigDecimal("0.0");
     private static final String CAMPAIGN_NOT_FOUND_MESSAGE = "Campaign not found";
     private static final String USER_NOT_FOUND_MESSAGE = "User not found with id: ";
 
@@ -369,7 +369,6 @@ class CampaignServiceTest {
         @DisplayName("Should create campaign successfully with valid data")
         void createCampaign_WithValidDTO_ShouldCreateCampaign() {
             // Given
-            createCampaignDTO.setAmountRaised(new BigDecimal("50.0"));
             Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "New Campaign");
 
@@ -400,56 +399,25 @@ class CampaignServiceTest {
         }
 
         @Test
-        @DisplayName("Should set amountRaised to 0 when DTO value is null")
-        void createCampaign_WithNullAmountRaised_ShouldDefaultToZero() {
+        @DisplayName("Should start the new campaign's goal with amountRaised 0 and ACTIVE")
+        void createCampaign_ShouldStartGoalWithZeroRaisedAndActive() {
             // Given
-            createCampaignDTO.setAmountRaised(null);
-            Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
-            CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "New Campaign");
-
+            createCampaignDTO.setAmountGoal(new BigDecimal("100.00"));
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
-            when(campaignRepository.save(any(Campaign.class))).thenReturn(savedCampaign);
+            when(campaignRepository.save(any(Campaign.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toEntity(any(CreateCampaignRequestDTO.class), eq(testUser)))
-                        .thenReturn(savedCampaign);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(savedCampaign), any()))
-                        .thenReturn(expectedDTO);
+            // When
+            CampaignResponseDTO result = campaignService.createCampaign(createCampaignDTO);
 
-                // When
-                campaignService.createCampaign(createCampaignDTO);
-
-                // Then
-                assertThat(createCampaignDTO.getAmountRaised()).isEqualByComparingTo(DEFAULT_AMOUNT_RAISED);
-            }
-        }
-
-        @Test
-        @DisplayName("Should preserve amountRaised value when DTO value is provided")
-        void createCampaign_WithProvidedAmountRaised_ShouldKeepValue() {
-            // Given
-            BigDecimal providedAmount = new BigDecimal("100.0");
-            createCampaignDTO.setAmountRaised(providedAmount);
-            Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
-            CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "New Campaign");
-
-            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
-            when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
-            when(campaignRepository.save(any(Campaign.class))).thenReturn(savedCampaign);
-
-            try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
-                mapperMock.when(() -> CampaignMapper.toEntity(any(CreateCampaignRequestDTO.class), eq(testUser)))
-                        .thenReturn(savedCampaign);
-                mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(savedCampaign), any()))
-                        .thenReturn(expectedDTO);
-
-                // When
-                campaignService.createCampaign(createCampaignDTO);
-
-                // Then
-                assertThat(createCampaignDTO.getAmountRaised()).isEqualByComparingTo(providedAmount);
-            }
+            // Then
+            ArgumentCaptor<Campaign> campaignCaptor = ArgumentCaptor.forClass(Campaign.class);
+            verify(campaignRepository).save(campaignCaptor.capture());
+            Goal savedGoal = campaignCaptor.getValue().getGoal();
+            assertThat(savedGoal.getAmountRaised()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(savedGoal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
+            assertThat(result.getAmountRaised()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(result.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
         }
 
         @Test
