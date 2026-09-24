@@ -16,12 +16,15 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -59,6 +62,8 @@ class CampaignServiceTest {
     private CampaignStatusHistoryService campaignStatusHistoryService;
     @Mock
     private CampaignStatusHistoryRepository campaignStatusHistoryRepository;
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private CampaignService campaignService;
@@ -1164,6 +1169,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("500.0"));
+            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
@@ -1191,6 +1197,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("1000.0"));
+            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
@@ -1285,6 +1292,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("500.0"));
+            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
@@ -1311,6 +1319,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("1000.0"));
+            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
@@ -1328,6 +1337,147 @@ class CampaignServiceTest {
                 verify(campaignStatusHistoryService)
                         .recordTransition(testCampaign, CampaignStatus.CLOSED, CampaignStatus.COMPLETED, TEST_USER_ID);
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Goal lock before status changes (P16)")
+    class GoalLockTests {
+
+        // Simulates a concurrent change (e.g. a donation) that the refresh with lock picks up from the database
+        private void givenRefreshLoads(Goal goal, CampaignStatus realStatus, BigDecimal realAmountRaised) {
+            doAnswer(invocation -> {
+                goal.setStatus(realStatus);
+                goal.setAmountRaised(realAmountRaised);
+                return null;
+            }).when(entityManager).refresh(goal, LockModeType.PESSIMISTIC_WRITE);
+        }
+
+        @Test
+        @DisplayName("closeCampaign locks the goal before changing its status and records the real previous status")
+        void closeCampaign_ShouldLockGoalBeforeChangingStatus() {
+            // Given: ACTIVE in memory, a donation completed it meanwhile
+            givenRefreshLoads(testGoal, CampaignStatus.COMPLETED, new BigDecimal("1000.00"));
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            // When
+            campaignService.closeCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            InOrder inOrder = inOrder(entityManager, campaignRepository, campaignStatusHistoryService);
+            inOrder.verify(entityManager).refresh(testGoal, LockModeType.PESSIMISTIC_WRITE);
+            inOrder.verify(campaignRepository).save(testCampaign);
+            inOrder.verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.COMPLETED, CampaignStatus.CLOSED, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("activateCampaign locks the goal before deciding ACTIVE or COMPLETED with the real amount raised")
+        void activateCampaign_ShouldLockGoalBeforeChangingStatus() {
+            // Given: 500 of 1000 raised in memory, 1000 in the database
+            testGoal.setStatus(CampaignStatus.CLOSED);
+            testGoal.setAmountGoal(new BigDecimal("1000.00"));
+            testGoal.setAmountRaised(new BigDecimal("500.00"));
+            givenRefreshLoads(testGoal, CampaignStatus.CLOSED, new BigDecimal("1000.00"));
+            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            // When
+            campaignService.activateCampaign(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
+            InOrder inOrder = inOrder(entityManager, campaignRepository, campaignStatusHistoryService);
+            inOrder.verify(entityManager).refresh(testGoal, LockModeType.PESSIMISTIC_WRITE);
+            inOrder.verify(campaignRepository).save(testCampaign);
+            inOrder.verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.CLOSED, CampaignStatus.COMPLETED, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("updateCampaign with amountGoal locks the goal before setting the new goal and recalculating")
+        void updateCampaign_WithAmountGoal_ShouldLockGoalBeforeChangingStatus() {
+            // Given: nothing raised in memory, 20 in the database; the new goal is 15
+            testGoal.setAmountGoal(new BigDecimal("1000.00"));
+            testGoal.setAmountRaised(BigDecimal.ZERO);
+            givenRefreshLoads(testGoal, CampaignStatus.ACTIVE, new BigDecimal("20.00"));
+            updateCampaignDTO.setAmountGoal(new BigDecimal("15.00"));
+            doCallRealMethod().when(campaignServiceValidation).updateGoalFields(any(), any());
+            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
+
+            // When
+            campaignService.updateCampaign(TEST_CAMPAIGN_ID, updateCampaignDTO);
+
+            // Then: the refresh did not discard the new goal
+            assertThat(testGoal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("15.00"));
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
+            InOrder inOrder = inOrder(entityManager, campaignServiceValidation, campaignStatusHistoryService);
+            inOrder.verify(entityManager).refresh(testGoal, LockModeType.PESSIMISTIC_WRITE);
+            inOrder.verify(campaignServiceValidation).updateGoalFields(testGoal, updateCampaignDTO);
+            inOrder.verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, TEST_USER_ID);
+        }
+
+        @Test
+        @DisplayName("closeAndSoftDelete locks the goal before changing its status and records the real previous status")
+        void closeAndSoftDelete_ShouldLockGoalBeforeChangingStatus() {
+            // Given: ACTIVE in memory, a donation completed it meanwhile
+            givenRefreshLoads(testGoal, CampaignStatus.COMPLETED, new BigDecimal("1000.00"));
+
+            // When
+            campaignService.closeAndSoftDelete(testCampaign, TEST_USER_ID);
+
+            // Then
+            assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            InOrder inOrder = inOrder(entityManager, campaignStatusHistoryService, campaignRepository);
+            inOrder.verify(entityManager).refresh(testGoal, LockModeType.PESSIMISTIC_WRITE);
+            inOrder.verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.COMPLETED, CampaignStatus.CLOSED, TEST_USER_ID);
+            inOrder.verify(campaignRepository).saveAndFlush(testCampaign);
+            inOrder.verify(campaignRepository).delete(testCampaign);
+        }
+
+        @Test
+        @DisplayName("closeAllByOwner locks each goal before changing its status and records the real previous status")
+        void closeAllByOwner_ShouldLockEachGoalBeforeChangingStatus() {
+            // Given: both ACTIVE in memory; in the database one was completed and the other closed meanwhile
+            Goal completedGoal = new Goal();
+            completedGoal.setId(1L);
+            completedGoal.setStatus(CampaignStatus.ACTIVE);
+            Campaign completedCampaign = createTestCampaign(1L, "Completed meanwhile");
+            completedCampaign.setGoal(completedGoal);
+
+            Goal closedGoal = new Goal();
+            closedGoal.setId(2L);
+            closedGoal.setStatus(CampaignStatus.ACTIVE);
+            Campaign closedCampaign = createTestCampaign(2L, "Closed meanwhile");
+            closedCampaign.setGoal(closedGoal);
+
+            givenRefreshLoads(completedGoal, CampaignStatus.COMPLETED, new BigDecimal("1000.00"));
+            givenRefreshLoads(closedGoal, CampaignStatus.CLOSED, BigDecimal.ZERO);
+            when(campaignRepository.findByUserId(TEST_USER_ID)).thenReturn(List.of(completedCampaign, closedCampaign));
+
+            // When
+            campaignService.closeAllByOwner(TEST_USER_ID);
+
+            // Then
+            assertThat(completedGoal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            InOrder inOrder = inOrder(entityManager, campaignStatusHistoryService);
+            inOrder.verify(entityManager).refresh(completedGoal, LockModeType.PESSIMISTIC_WRITE);
+            inOrder.verify(campaignStatusHistoryService)
+                    .recordTransition(completedCampaign, CampaignStatus.COMPLETED, CampaignStatus.CLOSED, TEST_USER_ID);
+            verify(entityManager).refresh(closedGoal, LockModeType.PESSIMISTIC_WRITE);
+            verify(campaignStatusHistoryService, never())
+                    .recordTransition(eq(closedCampaign), any(), any(), any());
+            verify(campaignRepository).saveAll(List.of(completedCampaign));
         }
     }
 

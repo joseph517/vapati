@@ -520,4 +520,37 @@ class CampaignServiceValidationTest {
                     .hasMessage("Campaign not found with id: " + CAMPAIGN_ID);
         }
     }
+
+    @Nested
+    @DisplayName("statusForAmounts() tests")
+    class StatusForAmountsTests {
+
+        private Goal goalWith(String amountGoal, String amountRaised) {
+            return Goal.builder()
+                    .amountGoal(new BigDecimal(amountGoal))
+                    .amountRaised(new BigDecimal(amountRaised))
+                    .build();
+        }
+
+        @Test
+        @DisplayName("Should be ACTIVE when the amount raised is below the goal")
+        void statusForAmounts_WhenRaisedBelowGoal_ShouldBeActive() {
+            assertThat(campaignServiceValidation.statusForAmounts(goalWith("100.00", "99.99")))
+                    .isEqualTo(CampaignStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("Should be COMPLETED when the amount raised equals the goal, regardless of the scale")
+        void statusForAmounts_WhenRaisedEqualsGoal_ShouldBeCompleted() {
+            assertThat(campaignServiceValidation.statusForAmounts(goalWith("100.0", "100.00")))
+                    .isEqualTo(CampaignStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("Should be COMPLETED when the amount raised is above the goal")
+        void statusForAmounts_WhenRaisedAboveGoal_ShouldBeCompleted() {
+            assertThat(campaignServiceValidation.statusForAmounts(goalWith("100.00", "150.00")))
+                    .isEqualTo(CampaignStatus.COMPLETED);
+        }
+    }
 }

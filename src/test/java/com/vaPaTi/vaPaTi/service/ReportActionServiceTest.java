@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -615,7 +616,8 @@ class ReportActionServiceTest {
                     mock(CampaignCategoryRepository.class),
                     mock(CategoryRepository.class),
                     campaignStatusHistoryService,
-                    mock(CampaignStatusHistoryRepository.class)
+                    mock(CampaignStatusHistoryRepository.class),
+                    mock(EntityManager.class)
             );
             service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService);
 

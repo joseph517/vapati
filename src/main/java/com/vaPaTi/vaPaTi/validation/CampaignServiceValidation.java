@@ -51,6 +51,13 @@ public class CampaignServiceValidation {
         Optional.ofNullable(dto.getAmountGoal()).ifPresent(goal::setAmountGoal);
     }
 
+    // Status a non-CLOSED goal should have for its amounts: COMPLETED once the amount raised reaches the goal
+    public CampaignStatus statusForAmounts(@NotNull Goal goal) {
+        return goal.getAmountRaised().compareTo(goal.getAmountGoal()) >= 0
+                ? CampaignStatus.COMPLETED
+                : CampaignStatus.ACTIVE;
+    }
+
     public CampaignStatus parseStatus(String status) {
         try {
             return CampaignStatus.valueOf(status.toUpperCase());

@@ -19,6 +19,7 @@ import com.vaPaTi.vaPaTi.service.UserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -313,7 +314,8 @@ class UserServiceDeleteUserTest {
                     mock(CampaignCategoryRepository.class),
                     mock(CategoryRepository.class),
                     campaignStatusHistoryService,
-                    mock(CampaignStatusHistoryRepository.class)
+                    mock(CampaignStatusHistoryRepository.class),
+                    mock(EntityManager.class)
             );
             service = new UserService(userRepository, userValidationService, userMapper, roleRepository,
                     authenticatedUserService, realCampaignService);
