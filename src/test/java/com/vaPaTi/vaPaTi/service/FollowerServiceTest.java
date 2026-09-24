@@ -8,12 +8,10 @@ import com.vaPaTi.vaPaTi.entity.Follower;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.entity.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
-import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,7 +27,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,8 +38,6 @@ class FollowerServiceTest {
 
     @Mock
     private FollowerRepository followerRepository;
-    @Mock
-    private UserRepository userRepository;
     @Mock
     private FollowerMapper followerMapper;
     @Mock
@@ -60,6 +56,9 @@ class FollowerServiceTest {
     private static final String USER_TO_UNFOLLOW_NOT_FOUND = "User to unfollow not found with ID: ";
     private static final String SELF_FOLLOW_ERROR = "Users cannot follow themselves";
     private static final String SELF_UNFOLLOW_ERROR = "Users cannot unfollow themselves";
+    private static final String ALREADY_FOLLOWING_ERROR = "User is already being followed";
+    private static final String SANCTIONED_USER_ERROR = "You cannot follow a banned or suspended user";
+    private static final String FOLLOW_RELATION_NOT_FOUND = "Follow relationship not found";
 
     private User currentUser;
     private User userToFollow;
@@ -129,9 +128,8 @@ class FollowerServiceTest {
         void followUser_WithValidUser_ShouldCreateFollowerRelationship() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.existsByUserAndFollower(userToFollow, currentUser)).thenReturn(false);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
             when(followerRepository.save(any(Follower.class))).thenReturn(followerRelationship);
             when(followerMapper.toFollowResponseDto(any(Follower.class), anyString())).thenReturn(followResponseDto);
 
@@ -151,17 +149,44 @@ class FollowerServiceTest {
         }
 
         @Test
+        @DisplayName("Should run the validations in order before saving the relationship")
+        void followUser_ShouldValidateInOrderBeforeSaving() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            when(followerRepository.save(any(Follower.class))).thenReturn(followerRelationship);
+            when(followerMapper.toFollowResponseDto(any(Follower.class), anyString())).thenReturn(followResponseDto);
+
+            // When
+            followerService.followUser(OTHER_USER_ID);
+
+            // Then
+            InOrder inOrder = inOrder(authenticatedUserService, followerValidation, followerRepository, followerMapper);
+            inOrder.verify(authenticatedUserService).getAuthenticatedUserId();
+            inOrder.verify(followerValidation).validateNotSelfFollow(CURRENT_USER_ID, OTHER_USER_ID);
+            inOrder.verify(followerValidation).validateAndGetCurrentUser(CURRENT_USER_ID);
+            inOrder.verify(followerValidation).validateAndGetUserToFollow(OTHER_USER_ID);
+            inOrder.verify(followerValidation).validateNotSanctioned(userToFollow);
+            inOrder.verify(followerValidation).validateNotAlreadyFollowing(userToFollow, currentUser);
+            inOrder.verify(followerRepository).save(any(Follower.class));
+            inOrder.verify(followerMapper).toFollowResponseDto(any(Follower.class), anyString());
+        }
+
+        @Test
         @DisplayName("Should throw exception when user tries to follow themselves")
         void followUser_WithSameUserId_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            doThrow(new MessageException(SELF_FOLLOW_ERROR))
+                    .when(followerValidation).validateNotSelfFollow(CURRENT_USER_ID, CURRENT_USER_ID);
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(CURRENT_USER_ID))
                     .isInstanceOf(MessageException.class)
                     .hasMessage(SELF_FOLLOW_ERROR);
 
-            verify(userRepository, never()).findById(any());
+            verify(followerValidation, never()).validateAndGetCurrentUser(any());
             verify(followerRepository, never()).save(any());
         }
 
@@ -170,13 +195,15 @@ class FollowerServiceTest {
         void followUser_WithNonExistentCurrentUser_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(CURRENT_USER_NOT_FOUND + CURRENT_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(CURRENT_USER_NOT_FOUND + CURRENT_USER_ID);
 
+            verify(followerValidation, never()).validateAndGetUserToFollow(any());
             verify(followerRepository, never()).save(any());
         }
 
@@ -185,14 +212,35 @@ class FollowerServiceTest {
         void followUser_WithNonExistentUserToFollow_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID);
 
+            verify(followerValidation, never()).validateNotSanctioned(any());
+            verify(followerRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw exception when user to follow is banned or suspended")
+        void followUser_WhenUserToFollowIsSanctioned_ShouldThrowException() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            doThrow(new MessageException(SANCTIONED_USER_ERROR))
+                    .when(followerValidation).validateNotSanctioned(userToFollow);
+
+            // When & Then
+            assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
+                    .isExactlyInstanceOf(MessageException.class)
+                    .hasMessage(SANCTIONED_USER_ERROR);
+
+            verify(followerValidation, never()).validateNotAlreadyFollowing(any(), any());
             verify(followerRepository, never()).save(any());
         }
 
@@ -201,14 +249,15 @@ class FollowerServiceTest {
         void followUser_WhenAlreadyFollowing_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.existsByUserAndFollower(userToFollow, currentUser)).thenReturn(true);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            doThrow(new ConflictException(ALREADY_FOLLOWING_ERROR))
+                    .when(followerValidation).validateNotAlreadyFollowing(userToFollow, currentUser);
 
             // When & Then
             assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
                     .isInstanceOf(ConflictException.class)
-                    .hasMessage("User is already being followed");
+                    .hasMessage(ALREADY_FOLLOWING_ERROR);
 
             verify(followerRepository, never()).save(any());
         }
@@ -218,9 +267,8 @@ class FollowerServiceTest {
         void followUser_ShouldSetCorrectFollowerRelationship() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.existsByUserAndFollower(userToFollow, currentUser)).thenReturn(false);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
             when(followerRepository.save(any(Follower.class))).thenAnswer(invocation -> {
                 Follower saved = invocation.getArgument(0);
                 assertThat(saved.getUser()).isEqualTo(userToFollow);
@@ -242,9 +290,8 @@ class FollowerServiceTest {
             // Given
             LocalDateTime before = LocalDateTime.now();
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.existsByUserAndFollower(userToFollow, currentUser)).thenReturn(false);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
             when(followerRepository.save(any(Follower.class))).thenAnswer(invocation -> {
                 Follower saved = invocation.getArgument(0);
                 assertThat(saved.getCreatedAt())
@@ -267,9 +314,8 @@ class FollowerServiceTest {
         void followUser_ShouldIncludeUsernameInMessage() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.existsByUserAndFollower(any(), any())).thenReturn(false);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
             when(followerRepository.save(any(Follower.class))).thenReturn(followerRelationship);
             when(followerMapper.toFollowResponseDto(any(Follower.class), contains("other_user")))
                     .thenReturn(followResponseDto);
@@ -291,10 +337,10 @@ class FollowerServiceTest {
         void unfollowUser_WithValidUser_ShouldDeleteFollowerRelationship() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.findByUserAndFollower(userToFollow, currentUser))
-                    .thenReturn(Optional.of(followerRelationship));
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToUnfollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            when(followerValidation.validateAndGetFollowRelation(userToFollow, currentUser))
+                    .thenReturn(followerRelationship);
             when(followerMapper.toUnfollowResponseDto(anyLong(), anyString())).thenReturn(unfollowResponseDto);
 
             // When
@@ -313,16 +359,45 @@ class FollowerServiceTest {
         }
 
         @Test
+        @DisplayName("Should run the validations in order before deleting the relationship")
+        void unfollowUser_ShouldValidateInOrderBeforeDeleting() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToUnfollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            when(followerValidation.validateAndGetFollowRelation(userToFollow, currentUser))
+                    .thenReturn(followerRelationship);
+            when(followerMapper.toUnfollowResponseDto(anyLong(), anyString())).thenReturn(unfollowResponseDto);
+
+            // When
+            followerService.unfollowUser(OTHER_USER_ID);
+
+            // Then
+            InOrder inOrder = inOrder(authenticatedUserService, followerValidation, followerRepository, followerMapper);
+            inOrder.verify(authenticatedUserService).getAuthenticatedUserId();
+            inOrder.verify(followerValidation).validateNotSelfUnfollow(CURRENT_USER_ID, OTHER_USER_ID);
+            inOrder.verify(followerValidation).validateAndGetCurrentUser(CURRENT_USER_ID);
+            inOrder.verify(followerValidation).validateAndGetUserToUnfollow(OTHER_USER_ID);
+            inOrder.verify(followerValidation).validateAndGetFollowRelation(userToFollow, currentUser);
+            inOrder.verify(followerRepository).delete(followerRelationship);
+            inOrder.verify(followerMapper).toUnfollowResponseDto(eq(OTHER_USER_ID), anyString());
+            verify(followerValidation, never()).validateNotSanctioned(any());
+        }
+
+        @Test
         @DisplayName("Should throw exception when user tries to unfollow themselves")
         void unfollowUser_WithSameUserId_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            doThrow(new MessageException(SELF_UNFOLLOW_ERROR))
+                    .when(followerValidation).validateNotSelfUnfollow(CURRENT_USER_ID, CURRENT_USER_ID);
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(CURRENT_USER_ID))
                     .isInstanceOf(MessageException.class)
                     .hasMessage(SELF_UNFOLLOW_ERROR);
 
+            verify(followerValidation, never()).validateAndGetCurrentUser(any());
             verify(followerRepository, never()).delete(any());
         }
 
@@ -331,13 +406,15 @@ class FollowerServiceTest {
         void unfollowUser_WithNonExistentCurrentUser_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(CURRENT_USER_NOT_FOUND + CURRENT_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(CURRENT_USER_NOT_FOUND + CURRENT_USER_ID);
 
+            verify(followerValidation, never()).validateAndGetUserToUnfollow(any());
             verify(followerRepository, never()).delete(any());
         }
 
@@ -346,14 +423,16 @@ class FollowerServiceTest {
         void unfollowUser_WithNonExistentUserToUnfollow_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToUnfollow(OTHER_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_TO_UNFOLLOW_NOT_FOUND + OTHER_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(USER_TO_UNFOLLOW_NOT_FOUND + OTHER_USER_ID);
 
+            verify(followerValidation, never()).validateAndGetFollowRelation(any(), any());
             verify(followerRepository, never()).delete(any());
         }
 
@@ -362,15 +441,15 @@ class FollowerServiceTest {
         void unfollowUser_WithNoFollowerRelationship_ShouldThrowException() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.findByUserAndFollower(userToFollow, currentUser))
-                    .thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToUnfollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            when(followerValidation.validateAndGetFollowRelation(userToFollow, currentUser))
+                    .thenThrow(new ResourceNotFoundException(FOLLOW_RELATION_NOT_FOUND));
 
             // When & Then
             assertThatThrownBy(() -> followerService.unfollowUser(OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
-                    .hasMessage("Follow relationship not found");
+                    .hasMessage(FOLLOW_RELATION_NOT_FOUND);
 
             verify(followerRepository, never()).delete(any());
         }
@@ -380,10 +459,10 @@ class FollowerServiceTest {
         void unfollowUser_ShouldIncludeUsernameInMessage() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
-            when(userRepository.findById(OTHER_USER_ID)).thenReturn(Optional.of(userToFollow));
-            when(followerRepository.findByUserAndFollower(userToFollow, currentUser))
-                    .thenReturn(Optional.of(followerRelationship));
+            when(followerValidation.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidation.validateAndGetUserToUnfollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            when(followerValidation.validateAndGetFollowRelation(userToFollow, currentUser))
+                    .thenReturn(followerRelationship);
             when(followerMapper.toUnfollowResponseDto(eq(OTHER_USER_ID), contains("other_user")))
                     .thenReturn(unfollowResponseDto);
 
@@ -404,7 +483,7 @@ class FollowerServiceTest {
         void getFollowers_WithFollowers_ShouldReturnFollowersList() {
             // Given
             List<Follower> followers = List.of(followerRelationship);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.findFollowersByUser(currentUser)).thenReturn(followers);
             when(followerMapper.toFollowersListResponseDto(CURRENT_USER_ID, followers))
                     .thenReturn(followersListResponseDto);
@@ -424,7 +503,7 @@ class FollowerServiceTest {
         @DisplayName("Should return empty list when user has no followers")
         void getFollowers_WithNoFollowers_ShouldReturnEmptyList() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.findFollowersByUser(currentUser)).thenReturn(List.of());
             when(followerMapper.toFollowersListResponseDto(CURRENT_USER_ID, List.of()))
                     .thenReturn(followersListResponseDto);
@@ -441,7 +520,8 @@ class FollowerServiceTest {
         @DisplayName("Should throw exception when user is not found")
         void getFollowers_WithNonExistentUser_ShouldThrowException() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_NOT_FOUND + CURRENT_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.getFollowers(CURRENT_USER_ID))
@@ -456,7 +536,7 @@ class FollowerServiceTest {
         void getFollowers_ShouldUseMapper() {
             // Given
             List<Follower> followers = List.of(followerRelationship);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.findFollowersByUser(currentUser)).thenReturn(followers);
             when(followerMapper.toFollowersListResponseDto(CURRENT_USER_ID, followers))
                     .thenReturn(followersListResponseDto);
@@ -478,7 +558,7 @@ class FollowerServiceTest {
         void getFollowing_WithFollowing_ShouldReturnFollowingList() {
             // Given
             List<Follower> following = List.of(followerRelationship);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.findFollowingsByFollower(currentUser)).thenReturn(following);
             when(followerMapper.toFollowingListResponseDto(CURRENT_USER_ID, following))
                     .thenReturn(followersListResponseDto);
@@ -498,7 +578,7 @@ class FollowerServiceTest {
         @DisplayName("Should return empty list when user follows no one")
         void getFollowing_WithNoFollowing_ShouldReturnEmptyList() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.findFollowingsByFollower(currentUser)).thenReturn(List.of());
             when(followerMapper.toFollowingListResponseDto(CURRENT_USER_ID, List.of()))
                     .thenReturn(followersListResponseDto);
@@ -515,7 +595,8 @@ class FollowerServiceTest {
         @DisplayName("Should throw exception when user is not found")
         void getFollowing_WithNonExistentUser_ShouldThrowException() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_NOT_FOUND + CURRENT_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.getFollowing(CURRENT_USER_ID))
@@ -530,7 +611,7 @@ class FollowerServiceTest {
         void getFollowing_ShouldUseMapper() {
             // Given
             List<Follower> following = List.of(followerRelationship);
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.findFollowingsByFollower(currentUser)).thenReturn(following);
             when(followerMapper.toFollowingListResponseDto(CURRENT_USER_ID, following))
                     .thenReturn(followersListResponseDto);
@@ -551,7 +632,7 @@ class FollowerServiceTest {
         @DisplayName("Should return follower count when user has followers")
         void getFollowerCount_WithFollowers_ShouldReturnCount() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.countByUser(currentUser)).thenReturn(10L);
 
             // When
@@ -566,7 +647,7 @@ class FollowerServiceTest {
         @DisplayName("Should return zero when user has no followers")
         void getFollowerCount_WithNoFollowers_ShouldReturnZero() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.countByUser(currentUser)).thenReturn(0L);
 
             // When
@@ -580,7 +661,8 @@ class FollowerServiceTest {
         @DisplayName("Should throw exception when user is not found")
         void getFollowerCount_WithNonExistentUser_ShouldThrowException() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_NOT_FOUND + CURRENT_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.getFollowerCount(CURRENT_USER_ID))
@@ -594,7 +676,7 @@ class FollowerServiceTest {
         @DisplayName("Should return the repository count, which excludes deleted followers like the followers list")
         void getFollowerCount_WithDeletedFollower_ShouldReturnOnlyActiveFollowersCount() {
             // Given: two follow relations, one from a deleted user; countByUser filters deletedAt IS NULL
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.countByUser(currentUser)).thenReturn(1L);
 
             // When
@@ -615,7 +697,7 @@ class FollowerServiceTest {
         @DisplayName("Should return following count when user follows others")
         void getFollowingCount_WithFollowing_ShouldReturnCount() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.countByFollower(currentUser)).thenReturn(15L);
 
             // When
@@ -630,7 +712,7 @@ class FollowerServiceTest {
         @DisplayName("Should return zero when user follows no one")
         void getFollowingCount_WithNoFollowing_ShouldReturnZero() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.countByFollower(currentUser)).thenReturn(0L);
 
             // When
@@ -644,7 +726,8 @@ class FollowerServiceTest {
         @DisplayName("Should throw exception when user is not found")
         void getFollowingCount_WithNonExistentUser_ShouldThrowException() {
             // Given
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.empty());
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_NOT_FOUND + CURRENT_USER_ID));
 
             // When & Then
             assertThatThrownBy(() -> followerService.getFollowingCount(CURRENT_USER_ID))
@@ -658,7 +741,7 @@ class FollowerServiceTest {
         @DisplayName("Should return the repository count, which excludes deleted followed users like the following list")
         void getFollowingCount_WithDeletedFollowedUser_ShouldReturnOnlyActiveFollowingCount() {
             // Given: follows two users, one of them deleted; countByFollower filters deletedAt IS NULL
-            when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(currentUser));
+            when(followerValidation.validateAndGetUser(CURRENT_USER_ID)).thenReturn(currentUser);
             when(followerRepository.countByFollower(currentUser)).thenReturn(1L);
 
             // When

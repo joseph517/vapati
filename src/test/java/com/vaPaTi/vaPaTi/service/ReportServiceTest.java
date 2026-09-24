@@ -2,6 +2,8 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.*;
 import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.ReportMapper;
 import com.vaPaTi.vaPaTi.repository.ReportRepository;
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -97,6 +101,7 @@ class ReportServiceTest {
         void createReport_WithValidData_ShouldCreateReport() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, 1L)).thenReturn(2L);
             when(reportValidationService.getReporter(1L)).thenReturn(reporter);
             when(reportRepository.save(any(Report.class))).thenReturn(report);
 
@@ -138,6 +143,7 @@ class ReportServiceTest {
         void createReport_ShouldValidateNotSelfReport() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, 1L)).thenReturn(2L);
             when(reportValidationService.getReporter(1L)).thenReturn(reporter);
 
             // When
@@ -213,6 +219,7 @@ class ReportServiceTest {
         void createReport_ShouldExecuteValidationsInOrder() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, 1L)).thenReturn(2L);
             when(reportValidationService.getReporter(1L)).thenReturn(reporter);
             InOrder inOrder = inOrder(reportValidationService);
 
@@ -221,8 +228,8 @@ class ReportServiceTest {
 
             // Then
             inOrder.verify(reportValidationService).validateInput(createReportDTO);
-            inOrder.verify(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateEntityExists(ReportedEntityType.USER, 2L, 1L);
+            inOrder.verify(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateNoDuplicateReport(1L, ReportedEntityType.USER, 2L);
             inOrder.verify(reportValidationService).validateDailyReportLimit(1L);
         }
@@ -242,6 +249,26 @@ class ReportServiceTest {
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Campaign not found with id: 5");
 
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should not save the report when the reporter owns the publication")
+        void createReport_WhenReportingOwnPublication_ShouldThrowAndNotSave() {
+            // Given: the entity check returns the reporter as the owner
+            createReportDTO.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            createReportDTO.setReportedEntityId(7L);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(1L);
+            when(reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 7L, 1L)).thenReturn(1L);
+            doThrow(new MessageException("You cannot report your own publication"))
+                    .when(reportValidationService).validateNotSelfReport(1L, ReportedEntityType.PUBLICATION, 1L);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.createReport(createReportDTO))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("You cannot report your own publication");
+
+            verify(reportValidationService, never()).validateNoDuplicateReport(any(), any(), any());
             verify(reportRepository, never()).save(any());
         }
     }
@@ -377,7 +404,7 @@ class ReportServiceTest {
                     .isEqualTo(reportDTO);
 
             verify(reportValidationService).validateReportExists(1L);
-            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED);
+            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
             verify(reportRepository).save(report);
             verify(reportActionService).executeAction(report);
         }
@@ -413,7 +440,7 @@ class ReportServiceTest {
             reportService.reviewReport(1L, reviewReportDTO);
 
             // Then
-            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED);
+            verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
         }
 
         @Test
@@ -535,6 +562,71 @@ class ReportServiceTest {
             reportService.reviewReport(1L, reviewReportDTO);
 
             // Then
+            verify(reportActionService, never()).executeAction(any());
+        }
+
+        @Test
+        @DisplayName("Should check the report is reviewable before validating the body")
+        void reviewReport_ShouldValidateReviewableBeforeInput() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(10L);
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+            when(reportValidationService.getReporter(10L)).thenReturn(admin);
+            when(reportRepository.save(report)).thenReturn(report);
+            when(reportMapper.toDTO(report)).thenReturn(reportDTO);
+            InOrder inOrder = inOrder(reportValidationService, reportRepository, reportActionService);
+
+            // When
+            reportService.reviewReport(1L, reviewReportDTO);
+
+            // Then
+            inOrder.verify(reportValidationService).validateReportExists(1L);
+            inOrder.verify(reportValidationService).validateReportIsReviewable(report);
+            inOrder.verify(reportValidationService).validateReviewInput(ReportStatus.RESOLVED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
+            inOrder.verify(reportRepository).save(report);
+            inOrder.verify(reportActionService).executeAction(report);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = ReportStatus.class, names = {"RESOLVED", "REJECTED"})
+        @DisplayName("Should throw ConflictException for a final report without saving or executing anything")
+        void reviewReport_WithFinalReport_ShouldThrowConflictAndNotSave(ReportStatus finalStatus) {
+            // Given
+            report.setStatus(finalStatus);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(10L);
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+            doThrow(new ConflictException("Report already reviewed with status: " + finalStatus.name()))
+                    .when(reportValidationService).validateReportIsReviewable(report);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.reviewReport(1L, reviewReportDTO))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage("Report already reviewed with status: " + finalStatus.name());
+
+            verify(reportValidationService, never()).validateReviewInput(any(), any(), any());
+            verify(reportRepository, never()).save(any());
+            verify(reportActionService, never()).executeAction(any());
+        }
+
+        @Test
+        @DisplayName("Should reject REJECTED with USER_BANNED without saving or executing anything")
+        void reviewReport_WithRejectedAndAction_ShouldThrowAndNotSave() {
+            // Given
+            reviewReportDTO.setStatus(ReportStatus.REJECTED);
+            reviewReportDTO.setActionTaken(ActionTaken.USER_BANNED);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(10L);
+            when(reportValidationService.validateReportExists(1L)).thenReturn(report);
+            doThrow(new MessageException("Action taken can only be set when resolving a report"))
+                    .when(reportValidationService)
+                    .validateReviewInput(ReportStatus.REJECTED, ActionTaken.USER_BANNED, ReportedEntityType.USER);
+
+            // When & Then
+            assertThatThrownBy(() -> reportService.reviewReport(1L, reviewReportDTO))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Action taken can only be set when resolving a report");
+
+            assertThat(report.getStatus()).isEqualTo(ReportStatus.PENDING);
+            verify(reportRepository, never()).save(any());
             verify(reportActionService, never()).executeAction(any());
         }
     }

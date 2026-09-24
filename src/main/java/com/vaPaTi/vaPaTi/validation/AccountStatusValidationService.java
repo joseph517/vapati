@@ -13,15 +13,28 @@ public class AccountStatusValidationService {
     private static final String DEFAULT_VIOLATION_REASON = "Violation of terms";
 
     public void validateNotBlocked(User user) {
-        if (Boolean.TRUE.equals(user.getBanned())) {
+        if (isBanned(user)) {
             throw new ForbiddenActionException("Your account has been banned. Reason: " + reasonOf(user));
         }
 
-        // An expired suspension (suspendedUntil in the past) doesn't block
-        if (user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now())) {
+        if (isSuspended(user)) {
             throw new ForbiddenActionException("Your account is suspended until " + user.getSuspendedUntil() +
                     ". Reason: " + reasonOf(user));
         }
+    }
+
+    // Same condition as validateNotBlocked, without revealing which sanction applies
+    public boolean isBlocked(User user) {
+        return isBanned(user) || isSuspended(user);
+    }
+
+    private boolean isBanned(User user) {
+        return Boolean.TRUE.equals(user.getBanned());
+    }
+
+    // An expired suspension (suspendedUntil in the past) doesn't block
+    private boolean isSuspended(User user) {
+        return user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(LocalDateTime.now());
     }
 
     private String reasonOf(User user) {

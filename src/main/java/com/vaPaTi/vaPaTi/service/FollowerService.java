@@ -10,7 +10,6 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.FollowerRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.FollowerValidation;
 import jakarta.transaction.Transactional;
@@ -25,22 +24,18 @@ import java.util.List;
 public class FollowerService {
 
     private final FollowerRepository followerRepository;
-    private final UserRepository userRepository;
     private final FollowerMapper followerMapper;
     private final FollowerValidation followerValidation;
     private final AuthenticatedUserService authenticatedUserService;
 
-    private static final String USER_NOT_FOUND = "User not found with ID: ";
-
-
     /**
      * Follows a user by creating a new follower relationship.
      *
-     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found). It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
+     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), and that the user to follow is not banned or suspended. It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
      *
      * @param userToFollowId the ID of the user to follow
      * @return a FollowResponseDto with the result of the follow operation
-     * @throws MessageException if the current user is trying to follow themselves
+     * @throws MessageException if the current user is trying to follow themselves, or the user to follow is banned or suspended
      * @throws ConflictException if the current user is already following the user to follow
      * @throws ResourceNotFoundException if the current user or the user to follow is not found
      */
@@ -48,23 +43,11 @@ public class FollowerService {
     public FollowResponseDto followUser(Long userToFollowId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
-        // Validate that user is not trying to follow themselves
-        if (userId.equals(userToFollowId)) {
-            throw new MessageException("Users cannot follow themselves");
-        }
-
-        // Get current user
-        User currentUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found with ID: " + userId));
-
-        // Get user to follow
-        User userToFollow = userRepository.findById(userToFollowId)
-                .orElseThrow(() -> new ResourceNotFoundException("User to follow not found with ID: " + userToFollowId));
-
-        // Check if already following
-        if (followerRepository.existsByUserAndFollower(userToFollow, currentUser)) {
-            throw new ConflictException("User is already being followed");
-        }
+        followerValidation.validateNotSelfFollow(userId, userToFollowId);
+        User currentUser = followerValidation.validateAndGetCurrentUser(userId);
+        User userToFollow = followerValidation.validateAndGetUserToFollow(userToFollowId);
+        followerValidation.validateNotSanctioned(userToFollow);
+        followerValidation.validateNotAlreadyFollowing(userToFollow, currentUser);
 
         // Create new follower relationship
         Follower newFollowerRelation = new Follower();
@@ -92,22 +75,10 @@ public class FollowerService {
     public UnfollowResponseDto unfollowUser(Long userToUnfollowId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
-        // Validate that user is not trying to unfollow themselves
-        if (userId.equals(userToUnfollowId)) {
-            throw new MessageException("Users cannot unfollow themselves");
-        }
-
-        // Get current user
-        User currentUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Current user not found with ID: " + userId));
-
-        // Get user to unfollow
-        User userToUnfollow = userRepository.findById(userToUnfollowId)
-                .orElseThrow(() -> new ResourceNotFoundException("User to unfollow not found with ID: " + userToUnfollowId));
-
-        // Find the follower relationship
-        Follower followerRelation = followerRepository.findByUserAndFollower(userToUnfollow, currentUser)
-                .orElseThrow(() -> new ResourceNotFoundException("Follow relationship not found"));
+        followerValidation.validateNotSelfUnfollow(userId, userToUnfollowId);
+        User currentUser = followerValidation.validateAndGetCurrentUser(userId);
+        User userToUnfollow = followerValidation.validateAndGetUserToUnfollow(userToUnfollowId);
+        Follower followerRelation = followerValidation.validateAndGetFollowRelation(userToUnfollow, currentUser);
 
         // Delete the relationship
         followerRepository.delete(followerRelation);
@@ -124,9 +95,7 @@ public class FollowerService {
      * @return FollowersListResponseDto with followers list
      */
     public FollowersListResponseDto getFollowers(Long userId) {
-        // Get user
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
+        User user = followerValidation.validateAndGetUser(userId);
 
         // Get followers
         List<Follower> followers = followerRepository.findFollowersByUser(user);
@@ -140,9 +109,7 @@ public class FollowerService {
      * @return FollowersListResponseDto with following list
      */
     public FollowersListResponseDto getFollowing(Long userId) {
-        // Get user
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
+        User user = followerValidation.validateAndGetUser(userId);
 
         // Get following
         List<Follower> following = followerRepository.findFollowingsByFollower(user);
@@ -156,8 +123,7 @@ public class FollowerService {
      * @return number of followers
      */
     public long getFollowerCount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
+        User user = followerValidation.validateAndGetUser(userId);
 
         return followerRepository.countByUser(user);
     }
@@ -168,8 +134,7 @@ public class FollowerService {
      * @return number of users being followed
      */
     public long getFollowingCount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND + userId));
+        User user = followerValidation.validateAndGetUser(userId);
 
         return followerRepository.countByFollower(user);
     }

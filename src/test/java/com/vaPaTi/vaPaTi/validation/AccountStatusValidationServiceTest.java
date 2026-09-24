@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -112,5 +113,50 @@ class AccountStatusValidationServiceTest {
                     .hasMessageStartingWith("Your account has been banned");
         }
 
+    }
+
+    @Nested
+    @DisplayName("isBlocked()")
+    class IsBlockedTests {
+
+        @Test
+        @DisplayName("Returns true for a banned user")
+        void shouldReturnTrueForBannedUser() {
+            user.setBanned(true);
+
+            assertThat(accountStatusValidationService.isBlocked(user)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Returns true for an active suspension (suspendedUntil in the future)")
+        void shouldReturnTrueForActiveSuspension() {
+            user.setSuspendedUntil(LocalDateTime.now().plusDays(3));
+
+            assertThat(accountStatusValidationService.isBlocked(user)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Returns false for an expired suspension (suspendedUntil in the past)")
+        void shouldReturnFalseForExpiredSuspension() {
+            user.setSuspendedUntil(LocalDateTime.now().minusDays(1));
+
+            assertThat(accountStatusValidationService.isBlocked(user)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Returns false when banned is null")
+        void shouldReturnFalseWhenBannedIsNull() {
+            user.setBanned(null);
+
+            assertThat(accountStatusValidationService.isBlocked(user)).isFalse();
+        }
+
+        @Test
+        @DisplayName("Returns false for a user that is neither banned nor suspended")
+        void shouldReturnFalseForRegularUser() {
+            user.setBanned(false);
+
+            assertThat(accountStatusValidationService.isBlocked(user)).isFalse();
+        }
     }
 }

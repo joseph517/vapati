@@ -12,7 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,16 @@ public class ReportValidationService {
     private static final int MAX_REPORTS_PER_DAY = 10;
     private static final String USER_NOT_FOUND = "User not found";
     private static final String PUBLICATION_NOT_FOUND = "Publication not found";
+
+    // Actions a RESOLVED report can take on each entity type. NO_ACTION is not listed: RESOLVED does not accept it.
+    private static final Map<ReportedEntityType, Set<ActionTaken>> ALLOWED_ACTIONS = Map.of(
+            ReportedEntityType.USER, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.USER_SUSPENDED, ActionTaken.USER_BANNED, ActionTaken.OTHER),
+            ReportedEntityType.PUBLICATION, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER),
+            ReportedEntityType.CAMPAIGN, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER)
+    );
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
@@ -53,19 +66,11 @@ public class ReportValidationService {
     }
 
     /**
-     * Validate that user is not reporting themselves
+     * Validate that the reported entity exists and is not deleted.
+     * Returns the id of the entity's owner, or null when the owner is a deleted user.
      */
-    public void validateNotSelfReport(Long reporterId, ReportedEntityType entityType, Long entityId) {
-        if (entityType == ReportedEntityType.USER && reporterId.equals(entityId)) {
-            throw new MessageException("You cannot report yourself");
-        }
-    }
-
-    /**
-     * Validate that the reported entity exists and is not deleted
-     */
-    public void validateEntityExists(ReportedEntityType entityType, Long entityId, Long reporterId) {
-        switch (entityType) {
+    public Long validateEntityExists(ReportedEntityType entityType, Long entityId, Long reporterId) {
+        return switch (entityType) {
             case USER -> {
                 Optional<User> user = userRepository.findById(entityId);
                 if (user.isEmpty()) {
@@ -74,6 +79,7 @@ public class ReportValidationService {
                 if (user.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted user");
                 }
+                yield entityId;
             }
             case PUBLICATION -> {
                 Optional<Publication> publication = publicationRepository.findById(entityId);
@@ -83,11 +89,33 @@ public class ReportValidationService {
                 if (publication.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted publication");
                 }
+                yield ownerIdOf(publication.get().getUser());
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
-            case CAMPAIGN -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(entityId, reporterId);
+            case CAMPAIGN -> ownerIdOf(campaignServiceValidation.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
+            default -> throw new MessageException("Invalid entity type");
+        };
+    }
+
+    /**
+     * Validate that user is not reporting themselves or their own content.
+     * A null owner (deleted author) is never a self-report.
+     */
+    public void validateNotSelfReport(Long reporterId, ReportedEntityType entityType, Long ownerId) {
+        if (ownerId == null || !ownerId.equals(reporterId)) {
+            return;
+        }
+        switch (entityType) {
+            case USER -> throw new MessageException("You cannot report yourself");
+            case PUBLICATION -> throw new MessageException("You cannot report your own publication");
+            case CAMPAIGN -> throw new MessageException("You cannot report your own campaign");
             default -> throw new MessageException("Invalid entity type");
         }
+    }
+
+    // The author is loaded as null when the user is soft-deleted (@NotFound IGNORE)
+    private Long ownerIdOf(User owner) {
+        return owner == null ? null : owner.getId();
     }
 
     /**
@@ -124,21 +152,42 @@ public class ReportValidationService {
     }
 
     /**
-     * Validate review input
+     * Validate that the report can still be reviewed: RESOLVED and REJECTED are final
      */
-    public void validateReviewInput(ReportStatus status, ActionTaken actionTaken) {
+    public void validateReportIsReviewable(Report report) {
+        if (report.getStatus() == ReportStatus.RESOLVED || report.getStatus() == ReportStatus.REJECTED) {
+            throw new ConflictException("Report already reviewed with status: " + report.getStatus().name());
+        }
+    }
+
+    /**
+     * Validate review input: an action is only allowed when resolving, and only if it applies to the entity type
+     */
+    public void validateReviewInput(ReportStatus status, ActionTaken actionTaken, ReportedEntityType entityType) {
         if (status == null) {
             throw new MessageException("Status is required for review");
-        }
-
-        // If status is RESOLVED, action taken should be specified
-        if (status == ReportStatus.RESOLVED && (actionTaken == null || actionTaken == ActionTaken.NO_ACTION)) {
-            throw new MessageException("Action taken must be specified when resolving a report");
         }
 
         // PENDING reports cannot be reviewed (they need to go to UNDER_REVIEW first or directly to RESOLVED/REJECTED)
         if (status == ReportStatus.PENDING) {
             throw new MessageException("Cannot set status back to PENDING");
+        }
+
+        boolean hasAction = actionTaken != null && actionTaken != ActionTaken.NO_ACTION;
+
+        // If status is RESOLVED, action taken should be specified
+        if (status == ReportStatus.RESOLVED && !hasAction) {
+            throw new MessageException("Action taken must be specified when resolving a report");
+        }
+
+        // UNDER_REVIEW and REJECTED never execute an action
+        if (status != ReportStatus.RESOLVED && hasAction) {
+            throw new MessageException("Action taken can only be set when resolving a report");
+        }
+
+        if (status == ReportStatus.RESOLVED && !ALLOWED_ACTIONS.get(entityType).contains(actionTaken)) {
+            throw new MessageException("Action " + actionTaken.name() + " does not apply to a "
+                    + entityType.name().toLowerCase());
         }
     }
 

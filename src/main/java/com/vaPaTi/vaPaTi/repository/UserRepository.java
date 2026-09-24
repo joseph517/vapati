@@ -55,4 +55,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query(value = "SELECT u.* FROM [user] u JOIN user_info ui ON u.id = ui.user_id WHERE ui.email = :email", nativeQuery = true)
     Optional<User> findByEmailIncludingDeleted(@Param("email") String email);
 
+    // Native so @SQLRestriction does not hide soft-deleted accounts: moderation must reach them too
+    @Query(value = "SELECT u.* FROM [user] u WHERE u.id = :id", nativeQuery = true)
+    Optional<User> findByIdIncludingDeleted(@Param("id") Long id);
+
 }
