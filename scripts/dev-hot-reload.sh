@@ -25,7 +25,7 @@ STATE_DIR=/tmp/hot-reload
 FAILED=$STATE_DIR/failed
 MVN_OUT=$STATE_DIR/mvn.log
 POM_BACKUP=$STATE_DIR/pom.xml.bak
-EVENTS=close_write,create,delete,moved_to,moved_from
+EVENTS=modify,close_write,create,delete,moved_to,moved_from
 DEBUG_JVM_ARGS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005'
 
 APP_PID=
