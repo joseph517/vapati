@@ -611,17 +611,18 @@ class DonationServiceTest {
     @DisplayName("getCampaignStatistics() tests")
     class GetCampaignStatisticsTests {
 
+        private void givenStatistics(Long totalDonations, Long uniqueDonors) {
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
+            when(donationRepository.countCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(totalDonations);
+            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(uniqueDonors);
+        }
+
         @Test
         @DisplayName("Should calculate statistics correctly with valid data")
         void getCampaignStatistics_WithValidData_ShouldReturnStatistics() {
-            // Given
-            BigDecimal totalRaised = new BigDecimal("600.0");
-            Long uniqueDonors = 5L;
-
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(totalRaised);
-            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(uniqueDonors);
+            // Given: 500 raised of 1000, in 4 donations from 3 donors
+            givenStatistics(4L, 3L);
 
             // When
             CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
@@ -631,62 +632,104 @@ class DonationServiceTest {
             assertThat(result.getCampaignId()).isEqualTo(TEST_CAMPAIGN_ID);
             assertThat(result.getCampaignName()).isEqualTo(TEST_CAMPAIGN_NAME);
             assertThat(result.getAmountGoal()).isEqualByComparingTo(GOAL_AMOUNT);
-            assertThat(result.getAmountRaised()).isEqualByComparingTo(totalRaised);
-            assertThat(result.getPercentageReached()).isEqualByComparingTo(new BigDecimal("60.0"));
+            assertThat(result.getAmountRaised()).isEqualByComparingTo(INITIAL_AMOUNT_RAISED);
+            assertThat(result.getPercentageReached()).isEqualTo(new BigDecimal("50.00"));
             assertThat(result.getIsGoalReached()).isFalse();
             assertThat(result.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
-            assertThat(result.getTotalDonors()).isEqualTo(uniqueDonors);
+            assertThat(result.getTotalDonors()).isEqualTo(3L);
+            assertThat(result.getTotalDonations()).isEqualTo(4L);
+            assertThat(result.getAverageDonation()).isEqualTo(new BigDecimal("125.00"));
         }
 
         @Test
-        @DisplayName("Should handle null total raised from repository")
-        void getCampaignStatistics_WithNullTotalRaised_ShouldDefaultToZero() {
+        @DisplayName("Should return the goal's amountRaised even if it does not match the donations")
+        void getCampaignStatistics_ShouldUseGoalAmountRaised() {
+            // Given: the goal says 500 raised; 1 completed donation (of 100) is what the donations table has
+            givenStatistics(1L, 1L);
+
+            // When
+            CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
+
+            // Then: the same value the campaign returns
+            assertThat(result.getAmountRaised()).isSameAs(testGoal.getAmountRaised());
+            assertThat(result.getAverageDonation()).isEqualTo(new BigDecimal("500.00"));
+        }
+
+        @Test
+        @DisplayName("Should round the percentage and the average donation to 2 decimals HALF_UP")
+        void getCampaignStatistics_ShouldRoundPercentageAndAverage() {
+            // Given: 200 raised of 300, in 3 donations -> 66.666...% and 66.666... per donation
+            testGoal.setAmountGoal(new BigDecimal("300.00"));
+            testGoal.setAmountRaised(new BigDecimal("200.00"));
+            givenStatistics(3L, 3L);
+
+            // When
+            CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(result.getPercentageReached()).isEqualTo(new BigDecimal("66.67"));
+            assertThat(result.getAverageDonation()).isEqualTo(new BigDecimal("66.67"));
+        }
+
+        @Test
+        @DisplayName("Should return an average donation of 0 when there are no donations")
+        void getCampaignStatistics_WithNoDonations_ShouldReturnZeroAverage() {
             // Given
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(null);
-            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
+            testGoal.setAmountRaised(BigDecimal.ZERO);
+            givenStatistics(0L, 0L);
 
             // When
             CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
 
             // Then
             assertThat(result.getAmountRaised()).isZero();
+            assertThat(result.getTotalDonations()).isZero();
+            assertThat(result.getAverageDonation()).isZero();
             assertThat(result.getPercentageReached()).isZero();
         }
 
         @Test
-        @DisplayName("Should handle null unique donors from repository")
-        void getCampaignStatistics_WithNullUniqueDonors_ShouldDefaultToZero() {
+        @DisplayName("Should default null counts from the repository to zero")
+        void getCampaignStatistics_WithNullCounts_ShouldDefaultToZero() {
             // Given
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(new BigDecimal("0.0"));
-            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(null);
+            givenStatistics(null, null);
 
             // When
             CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
 
             // Then
             assertThat(result.getTotalDonors()).isZero();
+            assertThat(result.getTotalDonations()).isZero();
+            assertThat(result.getAverageDonation()).isZero();
         }
 
         @Test
-        @DisplayName("Should mark goal as reached when total raised equals or exceeds goal")
+        @DisplayName("Should mark goal as reached when amount raised equals or exceeds goal")
         void getCampaignStatistics_WithGoalReached_ShouldMarkAsReached() {
             // Given
-            BigDecimal totalRaised = GOAL_AMOUNT;
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(totalRaised);
-            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(5L);
+            testGoal.setAmountRaised(GOAL_AMOUNT);
+            givenStatistics(5L, 5L);
 
             // When
             CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
 
             // Then
             assertThat(result.getIsGoalReached()).isTrue();
-            assertThat(result.getPercentageReached()).isEqualByComparingTo(new BigDecimal("100.0"));
+            assertThat(result.getPercentageReached()).isEqualTo(new BigDecimal("100.00"));
+        }
+
+        @Test
+        @DisplayName("Should return 0% instead of dividing by zero when the goal is not positive (dev test data)")
+        void getCampaignStatistics_WithNonPositiveGoal_ShouldReturnZeroPercentage() {
+            // Given
+            testGoal.setAmountGoal(new BigDecimal("-100.00"));
+            givenStatistics(1L, 1L);
+
+            // When
+            CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
+
+            // Then
+            assertThat(result.getPercentageReached()).isZero();
         }
 
         @Test
@@ -694,16 +737,14 @@ class DonationServiceTest {
         void getCampaignStatistics_WithNoGoal_ShouldHandleGracefully() {
             // Given
             testCampaign.setGoal(null);
-            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
-            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(new BigDecimal("100.0"));
-            when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(2L);
+            givenStatistics(2L, 2L);
 
             // When
             CampaignStatisticsDTO result = donationService.getCampaignStatistics(TEST_CAMPAIGN_ID);
 
             // Then
             assertThat(result.getAmountGoal()).isZero();
+            assertThat(result.getAmountRaised()).isZero();
             assertThat(result.getPercentageReached()).isZero();
             assertThat(result.getStatus()).isNull();
         }
@@ -714,7 +755,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_DONOR_ID));
             when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(new BigDecimal("0.0"));
+            when(donationRepository.countCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
 
             // When
@@ -730,7 +771,7 @@ class DonationServiceTest {
             // Given
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
             when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
-            when(donationRepository.sumCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(new BigDecimal("0.0"));
+            when(donationRepository.countCompletedDonationsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
             when(donationRepository.countUniqueDonorsByCampaignId(TEST_CAMPAIGN_ID)).thenReturn(0L);
 
             // When

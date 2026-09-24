@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -136,28 +136,37 @@ public class DonationService {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
 
-        BigDecimal totalRaised = donationRepository.sumCompletedDonationsByCampaignId(campaignId);
+        Long totalDonations = donationRepository.countCompletedDonationsByCampaignId(campaignId);
         Long uniqueDonors = donationRepository.countUniqueDonorsByCampaignId(campaignId);
 
         // Handle null values from queries
-        totalRaised = totalRaised != null ? totalRaised : BigDecimal.ZERO;
+        totalDonations = totalDonations != null ? totalDonations : 0L;
         uniqueDonors = uniqueDonors != null ? uniqueDonors : 0L;
 
+        // amountRaised is the campaign's own total, the same value the campaign returns
         Goal goal = campaign.getGoal();
-        BigDecimal goalAmount = goal != null ? goal.getAmountGoal() : BigDecimal.ZERO;
-        BigDecimal percentage = goalAmount.signum() > 0
-                ? totalRaised.multiply(ONE_HUNDRED).divide(goalAmount, MathContext.DECIMAL64)
+        BigDecimal amountGoal = goal != null ? goal.getAmountGoal() : BigDecimal.ZERO;
+        BigDecimal amountRaised = goal != null ? goal.getAmountRaised() : BigDecimal.ZERO;
+
+        // A goal <= 0 only exists in dev test data (P24): 0% instead of dividing by zero
+        BigDecimal percentage = amountGoal.signum() > 0
+                ? amountRaised.multiply(ONE_HUNDRED).divide(amountGoal, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal averageDonation = totalDonations > 0
+                ? amountRaised.divide(BigDecimal.valueOf(totalDonations), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
         return CampaignStatisticsDTO.builder()
                 .campaignId(campaignId)
                 .campaignName(campaign.getName())
-                .amountGoal(goalAmount)
-                .amountRaised(totalRaised)
+                .amountGoal(amountGoal)
+                .amountRaised(amountRaised)
                 .percentageReached(percentage)
-                .isGoalReached(totalRaised.compareTo(goalAmount) >= 0)
+                .isGoalReached(amountRaised.compareTo(amountGoal) >= 0)
                 .status(goal != null ? goal.getStatus() : null)
                 .totalDonors(uniqueDonors)
+                .totalDonations(totalDonations)
+                .averageDonation(averageDonation)
                 .build();
     }
 
