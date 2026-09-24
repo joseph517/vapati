@@ -54,7 +54,8 @@ public class ReportActionService {
     }
 
     /**
-     * Ban the reported user permanently
+     * Ban the reported user permanently.
+     * Also reaches a deleted account, so logging in cannot restore it. Banning twice keeps the original ban.
      */
     private void executeBan(Report report) {
         // Only ban if the reported entity is a user
@@ -62,8 +63,11 @@ public class ReportActionService {
             return;
         }
 
-        User user = userRepository.findById(report.getReportedEntityId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = findReportedUser(report.getReportedEntityId());
+
+        if (Boolean.TRUE.equals(user.getBanned())) {
+            return;
+        }
 
         user.setBanned(true);
         user.setBannedAt(LocalDateTime.now());
@@ -73,7 +77,8 @@ public class ReportActionService {
     }
 
     /**
-     * Suspend the reported user temporarily (30 days)
+     * Suspend the reported user temporarily (30 days).
+     * Also reaches a deleted account. A banned user or a running suspension is left as is.
      */
     private void executeSuspension(Report report) {
         // Only suspend if the reported entity is a user
@@ -81,13 +86,24 @@ public class ReportActionService {
             return;
         }
 
-        User user = userRepository.findById(report.getReportedEntityId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = findReportedUser(report.getReportedEntityId());
 
-        user.setSuspendedUntil(LocalDateTime.now().plusDays(30));
+        LocalDateTime now = LocalDateTime.now();
+        boolean suspended = user.getSuspendedUntil() != null && user.getSuspendedUntil().isAfter(now);
+        if (Boolean.TRUE.equals(user.getBanned()) || suspended) {
+            return;
+        }
+
+        user.setSuspendedUntil(now.plusDays(30));
         user.setBannedReason(report.getAdminNotes() != null ? report.getAdminNotes() : "Suspended by admin");
 
         userRepository.save(user);
+    }
+
+    // Sanctions only touch the sanction columns, so deletedAt stays as it is
+    private User findReportedUser(Long userId) {
+        return userRepository.findByIdIncludingDeleted(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     /**
@@ -108,26 +124,22 @@ public class ReportActionService {
     }
 
     /**
-     * Soft delete a publication
+     * Soft delete a publication.
+     * A report always points to an entity that existed, so an empty lookup means it was already removed: nothing to do.
      */
     private void removePublication(Long publicationId) {
-        Publication publication = publicationRepository.findById(publicationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Publication not found"));
-
         // Soft delete is handled by @SQLDelete annotation
-        publicationRepository.delete(publication);
+        publicationRepository.findById(publicationId).ifPresent(publicationRepository::delete);
     }
 
     /**
      * Close and soft delete a campaign, recording the transition with the reviewing admin.
      * Uses findById (not the active-owner lookup) so an admin can still resolve a report
-     * after the campaign owner deleted their account.
+     * after the campaign owner deleted their account. An empty lookup means it was already removed.
      */
     private void removeCampaign(Long campaignId, Long adminId) {
-        Campaign campaign = campaignRepository.findById(campaignId)
-                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found"));
-
-        campaignService.closeAndSoftDelete(campaign, adminId);
+        campaignRepository.findById(campaignId)
+                .ifPresent(campaign -> campaignService.closeAndSoftDelete(campaign, adminId));
     }
 
     /**
