@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,16 +48,21 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT DISTINCT u FROM User u")
     List<User> findAllWithDetails();
 
-    // Version with pagination
-    @EntityGraph(
-            attributePaths = {
-                    "userInfo",
-                    "userCategories",
-                    "userCategories.category"
-            }
-    )
-    @Query("SELECT DISTINCT u FROM User u")
-    Page<User> findAllWithDetails(Pageable pageable);
+    // Pagination, step 1: the ids of the page, paginated in SQL. Spring Data adds the ORDER BY of the Pageable
+    @Query(value = "SELECT u.id FROM User u", countQuery = "SELECT COUNT(u) FROM User u")
+    Page<Long> findPageOfIds(Pageable pageable);
+
+    // Pagination, step 2: those users with everything UserMapper.toUserDTO reads. The order is not guaranteed.
+    // userCategories and bankAccounts are Sets, so fetching both doesn't throw MultipleBagFetchException
+    @EntityGraph(attributePaths = {
+            "userInfo",
+            "verificationRequest",
+            "userCategories",
+            "userCategories.category",
+            "bankAccounts",
+    })
+    @Query("SELECT DISTINCT u FROM User u WHERE u.id IN :ids")
+    List<User> findAllWithDetailsByIdIn(@Param("ids") Collection<Long> ids);
 
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.deletedAt IS NOT NULL")
     Optional<User> findDeletedById(@Param("id") Long id);

@@ -11,12 +11,18 @@ import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.*;
 
@@ -295,6 +301,69 @@ class UserServiceListUsersTest {
         verify(userRepository, never()).findAll(); // Should not call generic findAll
         verify(userRepository, never()).findById(anyLong()); // Should not call findById
         verifyNoMoreInteractions(userRepository);
+    }
+
+    @Nested
+    @DisplayName("listUsersWithPagination()")
+    class ListUsersWithPaginationTests {
+
+        private final Pageable pageable = PageRequest.of(1, 2, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        @Test
+        @DisplayName("Content follows the order of the page ids, not the order of findAllWithDetailsByIdIn")
+        void listUsersWithPagination_ShouldKeepThePageOrder() {
+            when(userRepository.findPageOfIds(pageable)).thenReturn(new PageImpl<>(List.of(2L, 1L), pageable, 5));
+            when(userRepository.findAllWithDetailsByIdIn(List.of(2L, 1L))).thenReturn(List.of(user1, user2));
+            when(userMapper.toUserDTO(user1)).thenReturn(userDTO1);
+            when(userMapper.toUserDTO(user2)).thenReturn(userDTO2);
+
+            Page<UserDTO> result = userService.listUsersWithPagination(pageable);
+
+            assertThat(result.getContent()).containsExactly(userDTO2, userDTO1);
+        }
+
+        @Test
+        @DisplayName("totalElements, number and size come from the page of ids")
+        void listUsersWithPagination_ShouldTakePageMetadataFromTheIdsPage() {
+            when(userRepository.findPageOfIds(pageable)).thenReturn(new PageImpl<>(List.of(1L, 2L), pageable, 5));
+            when(userRepository.findAllWithDetailsByIdIn(List.of(1L, 2L))).thenReturn(users);
+            when(userMapper.toUserDTO(any(User.class))).thenReturn(new UserDTO());
+
+            Page<UserDTO> result = userService.listUsersWithPagination(pageable);
+
+            assertThat(result.getTotalElements()).isEqualTo(5);
+            assertThat(result.getNumber()).isEqualTo(1);
+            assertThat(result.getSize()).isEqualTo(2);
+            assertThat(result.getTotalPages()).isEqualTo(3);
+            assertThat(result.getSort()).isEqualTo(pageable.getSort());
+        }
+
+        @Test
+        @DisplayName("Empty page: empty content, keeps totalElements and doesn't query the details")
+        void listUsersWithPagination_WithEmptyPage_ShouldNotQueryDetails() {
+            Pageable outOfRange = PageRequest.of(9999, 2);
+            when(userRepository.findPageOfIds(outOfRange)).thenReturn(new PageImpl<>(List.of(), outOfRange, 5));
+
+            Page<UserDTO> result = userService.listUsersWithPagination(outOfRange);
+
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isEqualTo(5);
+            verify(userRepository, never()).findAllWithDetailsByIdIn(any());
+            verifyNoInteractions(userMapper);
+        }
+
+        @Test
+        @DisplayName("A user deleted between both queries is skipped; totalElements still comes from the count")
+        void listUsersWithPagination_WhenAUserIsMissingFromTheDetails_ShouldSkipIt() {
+            when(userRepository.findPageOfIds(pageable)).thenReturn(new PageImpl<>(List.of(1L, 2L), pageable, 5));
+            when(userRepository.findAllWithDetailsByIdIn(List.of(1L, 2L))).thenReturn(List.of(user2));
+            when(userMapper.toUserDTO(user2)).thenReturn(userDTO2);
+
+            Page<UserDTO> result = userService.listUsersWithPagination(pageable);
+
+            assertThat(result.getContent()).containsExactly(userDTO2);
+            assertThat(result.getTotalElements()).isEqualTo(5);
+        }
     }
 
 }
