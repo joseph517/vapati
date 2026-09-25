@@ -93,6 +93,7 @@ public class DonationService {
         return donationMapper.toDTO(savedDonation);
     }
 
+    @Transactional
     public List<DonationResponseDTO> getDonationsByAuthenticatedUser() {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         List<Donation> donations = donationRepository.findByDonorIdOrderByCreatedAtDesc(userId);
@@ -120,6 +121,7 @@ public class DonationService {
                         CampaignRepository.CampaignNameProjection::getName));
     }
 
+    @Transactional
     public List<DonationResponseDTO> getDonationsByCampaign(Long campaignId) {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         Campaign campaign = donationValidationService.validateAndGetCampaign(campaignId, callerId);
