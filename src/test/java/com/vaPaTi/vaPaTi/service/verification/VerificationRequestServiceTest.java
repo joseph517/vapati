@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.verification;
 
 import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.verification.ProcessVerificationRequestDTO;
@@ -9,7 +9,6 @@ import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.verification.VerificationRequestMapper;
 import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
-import com.vaPaTi.vaPaTi.service.verification.VerificationRequestService;
 import com.vaPaTi.vaPaTi.validation.verification.VerificationRequestValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

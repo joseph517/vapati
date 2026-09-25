@@ -1,7 +1,5 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.category;
 
-import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;
-import com.vaPaTi.vaPaTi.dtos.category.UpdateCategoryDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

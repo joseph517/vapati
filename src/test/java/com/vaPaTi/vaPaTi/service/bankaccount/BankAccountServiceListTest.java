@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service.bankAccount;
+package com.vaPaTi.vaPaTi.service.bankaccount;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -12,7 +12,6 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
-import com.vaPaTi.vaPaTi.service.bankaccount.BankAccountService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

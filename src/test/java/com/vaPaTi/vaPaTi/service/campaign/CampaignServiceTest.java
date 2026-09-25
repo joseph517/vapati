@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
@@ -16,8 +16,6 @@ import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
-import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import jakarta.persistence.EntityManager;

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
@@ -7,7 +7,6 @@ import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
-import com.vaPaTi.vaPaTi.mapper.campaign.CampaignMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

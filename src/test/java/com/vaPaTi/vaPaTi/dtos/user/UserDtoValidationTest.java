@@ -1,9 +1,5 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.user;
 
-import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
-import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
-import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
-import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -1,11 +1,10 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.bankaccount;
 
 import com.vaPaTi.vaPaTi.AbstractIntegrationTest;
 import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
-import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.junit.jupiter.api.Test;

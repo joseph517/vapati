@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.report;
 
 import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
@@ -16,7 +16,6 @@ import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
-import com.vaPaTi.vaPaTi.validation.report.ReportValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -714,7 +713,7 @@ class ReportValidationServiceTest {
         }
 
         @ParameterizedTest
-        @MethodSource("com.vaPaTi.vaPaTi.validation.ReportValidationServiceTest#nonResolvedStatusesWithAction")
+        @MethodSource("com.vaPaTi.vaPaTi.validation.report.ReportValidationServiceTest#nonResolvedStatusesWithAction")
         @DisplayName("Should throw MessageException when UNDER_REVIEW or REJECTED carry an action")
         void validateReviewInput_WithNonResolvedStatusAndAction_ShouldThrowException(ReportStatus status, ActionTaken action) {
             // When & Then
@@ -726,7 +725,7 @@ class ReportValidationServiceTest {
         }
 
         @ParameterizedTest
-        @MethodSource("com.vaPaTi.vaPaTi.validation.ReportValidationServiceTest#nonResolvedStatusesWithoutAction")
+        @MethodSource("com.vaPaTi.vaPaTi.validation.report.ReportValidationServiceTest#nonResolvedStatusesWithoutAction")
         @DisplayName("Should allow UNDER_REVIEW and REJECTED with a null or NO_ACTION action")
         void validateReviewInput_WithNonResolvedStatusAndNoAction_ShouldNotThrowException(ReportStatus status, ActionTaken action) {
             // When & Then
@@ -736,7 +735,7 @@ class ReportValidationServiceTest {
         }
 
         @ParameterizedTest(name = "RESOLVED {0} + {1} -> {2}")
-        @MethodSource("com.vaPaTi.vaPaTi.validation.ReportValidationServiceTest#resolvedActionMatrix")
+        @MethodSource("com.vaPaTi.vaPaTi.validation.report.ReportValidationServiceTest#resolvedActionMatrix")
         @DisplayName("Should apply the action matrix when RESOLVED (3 entity types x 6 actions)")
         void validateReviewInput_WithResolved_ShouldApplyActionMatrix(
                 ReportedEntityType entityType, ActionTaken action, String expectedMessage) {

@@ -1,7 +1,5 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.campaign;
 
-import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

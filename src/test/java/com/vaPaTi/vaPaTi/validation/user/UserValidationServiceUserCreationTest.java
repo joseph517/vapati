@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service.user;
+package com.vaPaTi.vaPaTi.validation.user;
 
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
@@ -8,7 +8,6 @@ import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserInfoRepository;
-import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

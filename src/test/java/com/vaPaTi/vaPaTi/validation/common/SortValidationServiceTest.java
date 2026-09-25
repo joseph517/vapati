@@ -1,7 +1,6 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.common;
 
 import com.vaPaTi.vaPaTi.exception.MessageException;
-import com.vaPaTi.vaPaTi.validation.common.SortValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -1,10 +1,9 @@
-package com.vaPaTi.vaPaTi.service.Authentication;
+package com.vaPaTi.vaPaTi.service.auth;
 
 import com.vaPaTi.vaPaTi.dtos.auth.UserTokenData;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
-import com.vaPaTi.vaPaTi.service.auth.JwtService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;

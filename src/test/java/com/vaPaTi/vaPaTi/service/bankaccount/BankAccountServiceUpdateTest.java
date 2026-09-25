@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service.bankAccount;
+package com.vaPaTi.vaPaTi.service.bankaccount;
 
 import com.vaPaTi.vaPaTi.dtos.bankaccount.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.bankaccount.UpdateBankAccountDTO;
@@ -7,7 +7,6 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
-import com.vaPaTi.vaPaTi.service.bankaccount.BankAccountService;
 import com.vaPaTi.vaPaTi.validation.bankaccount.BankAccountValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

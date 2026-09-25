@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service.campaign;
+package com.vaPaTi.vaPaTi.validation.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
@@ -10,8 +10,6 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -32,7 +30,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CampaignValidationService - Unit Tests")
-class CampaignServiceValidationTest {
+class CampaignValidationServiceTest {
 
     @Mock
     private CampaignRepository campaignRepository;

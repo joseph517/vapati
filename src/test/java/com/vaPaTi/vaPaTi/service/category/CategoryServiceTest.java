@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.category;
 
 import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;
@@ -8,7 +8,6 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.category.CategoryMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
-import com.vaPaTi.vaPaTi.service.category.CategoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

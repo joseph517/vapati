@@ -1,8 +1,7 @@
-package com.vaPaTi.vaPaTi.service.Authentication;
+package com.vaPaTi.vaPaTi.service.auth;
 
 import com.vaPaTi.vaPaTi.entity.auth.RevokedToken;
 import com.vaPaTi.vaPaTi.repository.auth.RevokedTokenRepository;
-import com.vaPaTi.vaPaTi.service.auth.TokenBlackListService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

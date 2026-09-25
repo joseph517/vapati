@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service.user;
+package com.vaPaTi.vaPaTi.validation.verification;
 
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
@@ -6,7 +6,6 @@ import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
-import com.vaPaTi.vaPaTi.validation.verification.VerificationRequestValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,7 +25,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("VerificationRequestValidationService Tests")
-public class VerificationRequestValitationTest {
+public class VerificationRequestValidationServiceTest {
 
     @Mock
     private UserRepository userRepository;

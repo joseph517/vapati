@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service.Authentication;
+package com.vaPaTi.vaPaTi.service.auth;
 
 import com.vaPaTi.vaPaTi.dtos.auth.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.auth.AuthResponse;
@@ -9,9 +9,6 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.service.auth.AuthenticationService;
-import com.vaPaTi.vaPaTi.service.auth.JwtService;
-import com.vaPaTi.vaPaTi.service.auth.TokenBlackListService;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
