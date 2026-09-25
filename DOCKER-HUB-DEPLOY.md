@@ -208,10 +208,12 @@ El workflow [`.github/workflows/docker-publish.yml`](.github/workflows/docker-pu
 | Evento | Qué hace el workflow | Tags publicados en Docker Hub |
 |---|---|---|
 | Se abre/actualiza un PR hacia `main` | Corre los tests (`./mvnw -B test`), **no publica** | — |
-| Merge (push) a `main` | Tests → build → push | `latest`, `sha-<commit>` |
-| Push de un tag de git `vX.Y.Z` | Tests → build → push | `X.Y.Z`, `X.Y`, `sha-<commit>` |
+| Merge (push) a `main` | Tests → build → push | `latest` |
+| Push de un tag de git `vX.Y.Z` | Tests → build → push | `X.Y.Z`, `X.Y` |
 
-Si los tests fallan, la imagen **no** se publica. Los tests incluyen los de integración con Testcontainers: los runners de GitHub traen Docker, así que no hay que configurar nada extra.
+Si los tests fallan, la imagen **no** se publica. Los tests incluyen los de integración con Testcontainers: los runners de GitHub traen Docker. El workflow le pasa a Maven `-Ddocker.remote.api.version=<versión del daemon del runner>`, porque el `pom.xml` fija la versión de la API de Docker para correr los tests en local, y esa versión puede no coincidir con la del runner. En local no cambia nada.
+
+> **Tag `sha-<commit>` (desactivado)**: el paso `Docker meta` del workflow tiene la línea `# type=sha` comentada. Si la descomentás, cada imagen publicada lleva además un tag `sha-<commit>` (ej. `sha-a1b2c3d`), que sirve para identificar de qué commit salió y para volver a un merge que no tiene versión. La contra: se agrega un tag por cada merge en la lista de Docker Hub. Está desactivado porque las versiones `vX.Y.Z` ya cubren el rollback (sección 7.4).
 
 ### 7.1. Configuración inicial (una sola vez)
 
@@ -247,7 +249,7 @@ git fetch origin
 git push origin origin/dev:refs/heads/main
 ```
 
-Esto crea `main` en GitHub apuntando al mismo commit que `dev`. Como es un push a `main`, **dispara la primera publicación**: en la pestaña **Actions** vas a ver el workflow corriendo. Cuando termine en verde, en `https://hub.docker.com/r/<usuario>/vapati/tags` deberían aparecer `latest` y `sha-xxxxxxx`.
+Esto crea `main` en GitHub apuntando al mismo commit que `dev`. Como es un push a `main`, **dispara la primera publicación**: en la pestaña **Actions** vas a ver el workflow corriendo. Cuando termine en verde, en `https://hub.docker.com/r/<usuario>/vapati/tags` debería aparecer `latest`.
 
 > `dev` sigue siendo la rama por defecto del repo, y está bien: los PRs de features siguen apuntando a `dev`. No hace falta cambiarla.
 
@@ -279,7 +281,7 @@ Con esto, un `git push origin main` directo es rechazado, y el botón de merge d
 2. Cuando querés publicar: en GitHub, **Pull requests → New pull request** → *base:* `main` ← *compare:* `dev` → **Create pull request**.
 3. En el PR corre el check **Tests**. Si falla, arreglás en `dev` y pusheás: el PR se actualiza y el check se vuelve a correr.
 4. Con el check en verde → **Merge pull request** (merge commit).
-5. El merge dispara el workflow en `main`: tests → build → push de `latest` y `sha-<commit>`. Lo seguís en la pestaña **Actions**. Tarda unos minutos, más la primera vez porque no hay caché.
+5. El merge dispara el workflow en `main`: tests → build → push de `latest`. Lo seguís en la pestaña **Actions**. Tarda unos minutos, más la primera vez porque no hay caché.
 6. Verificás el tag nuevo en Docker Hub.
 
 > Un **Rerun** de un workflow viejo en `main` vuelve a publicar ese código viejo como `latest`. Si necesitás volver atrás, preferí el rollback por tag (sección 7.4).
@@ -294,23 +296,62 @@ Con esto, un `git push origin main` directo es rechazado, y el botón de merge d
 - **MENOR** (`v1.2.1 → v1.3.0`): funcionalidad nueva compatible (endpoints nuevos, campos nuevos opcionales).
 - **MAYOR** (`v1.3.0 → v2.0.0`): cambios que rompen a los clientes (endpoints que cambian o desaparecen, cambios de contrato).
 
+Al subir un número, los de su derecha vuelven a `0`: `1.2.3` + MENOR = `1.3.0`, `1.3.0` + MAYOR = `2.0.0`.
+
+**Cómo decidir el número.** El workflow no decide nada: publica exactamente el número que escribas en el tag. La decisión se toma mirando qué entró a `main` desde la última versión y quedándose con el cambio **más grande**:
+
+```bash
+git log --oneline <última-versión>..origin/main      # ej. git log --oneline v1.1.0..origin/main
+```
+
+| Si desde la última versión hubo... | Ejemplo en VaPaTi | Sube |
+|---|---|---|
+| Algo que obliga al frontend/cliente a cambiar | Renombrar o borrar un endpoint, hacer obligatorio un campo de un `Create*DTO`, cambiar la forma de un `*ResponseDTO` | **MAYOR** |
+| Algo nuevo que el cliente puede usar, sin romper lo existente | Endpoint nuevo, campo nuevo opcional en un DTO, filtro nuevo en un listado | **MENOR** |
+| Solo arreglos o mejoras internas, sin cambios visibles en la API | Fix de una validación, optimización de queries con `JOIN FETCH`, refactor, tests | **PARCHE** |
+
+Si en un mismo release hay un fix y un endpoint nuevo, sube MENOR (gana el más grande). No hace falta taguear cada merge: podés juntar varios merges y crear una sola versión cuando quieras publicar a producción.
+
+**Primera versión**: las versiones anteriores (`v1.0`, `1.0.1`) se publicaron a mano y solo existen como imágenes en Docker Hub; en git no hay tags. Empezá con **`v1.1.0`**. De ahí en adelante, aplicá la tabla.
+
+**Cómo funciona**: el tag **no toma la imagen `latest`**. Etiqueta un **commit**, y el workflow vuelve a construir la imagen desde ese código y la publica como `X.Y.Z` y `X.Y`. Por eso el orden es:
+
+1. Merge del PR `dev → main`: se publica `latest`.
+2. Esperá a que ese workflow termine en verde en **Actions**. No es obligatorio, porque la ejecución del tag es independiente, pero si los tests fallaron ahí también van a fallar en la del tag.
+3. Creá y subí el tag (comandos de abajo): se publican `X.Y.Z` y `X.Y`.
+
 **Cómo crear una versión**, después de mergear el PR `dev → main`:
 
 ```bash
 # 1. Traer main actualizado
-git fetch origin
+git fetch origin --tags
 
 # 2. Ver cuál fue la última versión, para decidir el número siguiente
 git tag --list 'v*' --sort=-v:refname | head -5
 
-# 3. Crear el tag (anotado, con mensaje) sobre el último commit de main
-git tag -a v1.1.0 origin/main -m "v1.1.0: optimización de queries con JOIN FETCH"
+# 3. Crear el tag (anotado, con mensaje) sobre el commit donde está main ahora
+git tag -a v1.1.0 origin/main -m "v1.1.0: <resumen de los cambios>"
 
 # 4. Subir el tag: esto dispara el workflow
 git push origin v1.1.0
 ```
 
-Resultado en Docker Hub: `<usuario>/vapati:1.1.0`, `<usuario>/vapati:1.1` y `<usuario>/vapati:sha-<commit>`. La `v` del tag de git **no** aparece en el tag de la imagen: `v1.1.0` → `1.1.0`, que es la convención de Docker.
+Resultado en Docker Hub: `<usuario>/vapati:1.1.0` y `<usuario>/vapati:1.1`.
+
+`origin/main` es "el commit donde está `main` en este momento", por eso el `git fetch` del paso 1 es obligatorio: sin él, tu `origin/main` local puede estar desactualizado y etiquetarías un commit viejo. Si **ya hubo otro merge** y querés versionar uno anterior, usá el hash de ese commit en lugar de `origin/main`:
+
+```bash
+git fetch origin
+git log --oneline origin/main            # buscar el commit del merge a versionar
+git tag -a v1.1.0 a1b2c3d -m "v1.1.0"    # a1b2c3d = hash de ese commit
+git push origin v1.1.0
+```
+
+Esto publica `1.1.0` y `1.1` con el código de ese commit; `latest` no se mueve.
+
+> **El push del tag no choca con la protección de `main`**: `git push origin v1.1.0` sube solo el tag (`refs/tags/v1.1.0`), no la rama. El ruleset de la sección 7.1 protege `refs/heads/main`, y el tag no mueve `main`: solo nombra un commit que ya llegó ahí por un PR. La excepción es si creaste además un ruleset de **tags** con *Restrict creations*.
+
+La `v` del tag de git **no** aparece en el tag de la imagen: `v1.1.0` → `1.1.0`, que es la convención de Docker. La `v` del tag de git **no** aparece en el tag de la imagen: `v1.1.0` → `1.1.0`, que es la convención de Docker.
 
 Reglas importantes:
 
@@ -337,7 +378,7 @@ docker compose -f docker-compose.prod.yml pull app
 docker compose -f docker-compose.prod.yml up -d app
 ```
 
-Si el commit malo no tenía versión, usá su tag `sha-<commit>`: en Docker Hub cada imagen publicada tiene uno, y en GitHub se ve el commit que corresponde a cada `sha-`.
+Solo se puede volver a imágenes que tienen versión. Un merge sin tag `vX.Y.Z` queda publicado únicamente como `latest`, y el siguiente merge lo reemplaza. Para poder volver a cualquier merge, activá el tag `sha-<commit>` (nota de la sección 7).
 
 > ⚠️ El rollback de la imagen **no revierte cambios en la base de datos**. Si la versión nueva modificó el esquema (`schema.sql`/`data.sql`), revisá que la versión anterior siga siendo compatible.
 
@@ -346,6 +387,7 @@ Si el commit malo no tenía versión, usá su tag `sha-<commit>`: en Docker Hub 
 - **El workflow falla en "Login to Docker Hub" con `unauthorized`**: el token es incorrecto, expiró o es de solo lectura, o `DOCKERHUB_USERNAME` no coincide con el dueño del token. Regenerá el token (Read & Write) y actualizá el secret.
 - **Falla en "Docker meta" o el push con `invalid reference format`**: la variable `DOCKERHUB_USERNAME` no existe o se cargó como *secret* en lugar de *variable*. Revisá la pestaña **Variables**.
 - **El push de un tag no dispara nada**: el tag no cumple el formato `vX.Y.Z`.
+- **Los tests fallan con `Could not find a valid Docker environment`** (en `VaPaTiApplicationTests` y `BankAccountRepositoryTest`): Testcontainers está pidiendo una versión de la API de Docker que el daemon del runner no soporta. Verificá que el paso `Run tests` del workflow siga pasando `-Ddocker.remote.api.version="$(docker version --format '{{.Server.APIVersion}}')"`.
 - **No puedo mergear el PR y dice que falta el check `Tests`**: el ruleset exige un check que todavía no corrió en ese PR. Pusheá un commit a `dev` o usá **Re-run jobs** en la pestaña Checks del PR.
 
 ---
