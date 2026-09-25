@@ -1,10 +1,13 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
+import com.vaPaTi.vaPaTi.entity.CampaignCategory;
 import com.vaPaTi.vaPaTi.entity.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
@@ -31,8 +34,10 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -313,7 +318,7 @@ class CampaignServiceTest {
             CampaignResponseDTO dto2 = createResponseDTO(2L, "User Campaign 2");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
-            when(campaignRepository.findByUserId(TEST_USER_ID)).thenReturn(userCampaigns);
+            when(campaignRepository.findByUserIdWithDetails(TEST_USER_ID)).thenReturn(userCampaigns);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign1), any())).thenReturn(dto1);
@@ -329,7 +334,7 @@ class CampaignServiceTest {
                         .containsExactly(dto1, dto2);
 
                 verify(authenticatedUserService).getAuthenticatedUserId();
-                verify(campaignRepository).findByUserId(TEST_USER_ID);
+                verify(campaignRepository).findByUserIdWithDetails(TEST_USER_ID);
             }
         }
 
@@ -338,7 +343,7 @@ class CampaignServiceTest {
         void getCampaignsByAuthenticatedUser_WithNoCampaigns_ShouldReturnEmptyList() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
-            when(campaignRepository.findByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findByUserIdWithDetails(TEST_USER_ID)).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByAuthenticatedUser();
@@ -348,7 +353,7 @@ class CampaignServiceTest {
                     .isNotNull()
                     .isEmpty();
 
-            verify(campaignRepository).findByUserId(TEST_USER_ID);
+            verify(campaignRepository).findByUserIdWithDetails(TEST_USER_ID);
         }
 
         @Test
@@ -356,13 +361,156 @@ class CampaignServiceTest {
         void getCampaignsByAuthenticatedUser_ShouldGetAuthenticatedUserId() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
-            when(campaignRepository.findByUserId(TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findByUserIdWithDetails(TEST_USER_ID)).thenReturn(List.of());
 
             // When
             campaignService.getCampaignsByAuthenticatedUser();
 
             // Then
             verify(authenticatedUserService).getAuthenticatedUserId();
+        }
+    }
+
+    @Nested
+    @DisplayName("Listings: categories loaded in batch")
+    class ListingCategoriesBatchTests {
+
+        private Category category(Long id) {
+            return Category.builder().id(id).name("Category " + id).description("Description " + id).build();
+        }
+
+        private CampaignCategory campaignCategory(Campaign campaign, Category category) {
+            return CampaignCategory.builder().campaign(campaign).category(category).build();
+        }
+
+        private List<Long> categoryIds(CampaignResponseDTO dto) {
+            return dto.getCategories().stream().map(CategoryDTO::getId).toList();
+        }
+
+        @Test
+        @DisplayName("getAllCampaigns: one findByCampaignIdIn with every campaign id, never findByCampaignId")
+        void getAllCampaigns_ShouldLoadCategoriesInOneQuery() {
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of(campaign1, campaign2));
+
+            campaignService.getAllCampaigns();
+
+            verify(campaignCategoryRepository, times(1)).findByCampaignIdIn(List.of(1L, 2L));
+            verify(campaignCategoryRepository, never()).findByCampaignId(any());
+        }
+
+        @Test
+        @DisplayName("getCampaignsByStatus: one findByCampaignIdIn with every campaign id, never findByCampaignId")
+        void getCampaignsByStatus_ShouldLoadCategoriesInOneQuery() {
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
+            when(campaignServiceValidation.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.ACTIVE, TEST_USER_ID))
+                    .thenReturn(List.of(campaign1, campaign2));
+
+            campaignService.getCampaignsByStatus("ACTIVE");
+
+            verify(campaignCategoryRepository, times(1)).findByCampaignIdIn(List.of(1L, 2L));
+            verify(campaignCategoryRepository, never()).findByCampaignId(any());
+        }
+
+        @Test
+        @DisplayName("getCampaignsByCategoryId: one findByCampaignIdIn with every campaign id, never findByCampaignId")
+        void getCampaignsByCategoryId_ShouldLoadCategoriesInOneQuery() {
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findByCategoryIdVisibleTo(5L, TEST_USER_ID)).thenReturn(List.of(campaign1, campaign2));
+
+            campaignService.getCampaignsByCategoryId(5L);
+
+            verify(campaignCategoryRepository, times(1)).findByCampaignIdIn(List.of(1L, 2L));
+            verify(campaignCategoryRepository, never()).findByCampaignId(any());
+        }
+
+        @Test
+        @DisplayName("getCampaignsByAuthenticatedUser: findByUserIdWithDetails and one findByCampaignIdIn, never findByUserId or findByCampaignId")
+        void getCampaignsByAuthenticatedUser_ShouldUseFetchQueryAndLoadCategoriesInOneQuery() {
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
+            when(campaignRepository.findByUserIdWithDetails(TEST_USER_ID)).thenReturn(List.of(campaign1, campaign2));
+
+            campaignService.getCampaignsByAuthenticatedUser();
+
+            verify(campaignRepository).findByUserIdWithDetails(TEST_USER_ID);
+            verify(campaignRepository, never()).findByUserId(any());
+            verify(campaignCategoryRepository, times(1)).findByCampaignIdIn(List.of(1L, 2L));
+            verify(campaignCategoryRepository, never()).findByCampaignId(any());
+        }
+
+        @Test
+        @DisplayName("Each DTO gets only its own categories, in the order of the campaign list; a campaign without categories gets []")
+        void listing_ShouldGroupCategoriesByCampaignAndKeepOrder() {
+            Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
+            Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
+            Campaign campaign3 = createTestCampaign(3L, "Campaign 3");
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of(campaign2, campaign3, campaign1));
+            // Rows come back interleaved: the grouping must not depend on the query order
+            when(campaignCategoryRepository.findByCampaignIdIn(List.of(2L, 3L, 1L))).thenReturn(List.of(
+                    campaignCategory(campaign1, category(10L)),
+                    campaignCategory(campaign2, category(20L)),
+                    campaignCategory(campaign1, category(11L)),
+                    campaignCategory(campaign2, category(10L))));
+
+            List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
+
+            assertThat(result).extracting(CampaignResponseDTO::getId).containsExactly(2L, 3L, 1L);
+            assertThat(categoryIds(result.get(0))).containsExactly(20L, 10L);
+            assertThat(categoryIds(result.get(1))).isEmpty();
+            assertThat(categoryIds(result.get(2))).containsExactly(10L, 11L);
+        }
+
+        @Test
+        @DisplayName("An empty listing doesn't query the categories (SQL Server rejects IN ())")
+        void listing_WithNoCampaigns_ShouldNotQueryCategories() {
+            givenCaller(null, false);
+            when(campaignRepository.findAllVisibleTo(null)).thenReturn(List.of());
+
+            List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
+
+            assertThat(result).isEmpty();
+            verify(campaignCategoryRepository, never()).findByCampaignIdIn(any());
+        }
+
+        @Test
+        @DisplayName("1001 campaigns: findByCampaignIdIn is called twice, with 1000 and 1 ids")
+        void listing_WithMoreThanChunkSize_ShouldQueryCategoriesInChunks() {
+            List<Campaign> campaigns = LongStream.rangeClosed(1, 1001)
+                    .mapToObj(id -> createTestCampaign(id, "Campaign " + id))
+                    .toList();
+            givenCaller(TEST_USER_ID, false);
+            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(campaigns);
+
+            List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Collection<Long>> idsCaptor = ArgumentCaptor.forClass(Collection.class);
+            verify(campaignCategoryRepository, times(2)).findByCampaignIdIn(idsCaptor.capture());
+            assertThat(idsCaptor.getAllValues().get(0)).hasSize(1000).first().isEqualTo(1L);
+            assertThat(idsCaptor.getAllValues().get(1)).containsExactly(1001L);
+            assertThat(result).hasSize(1001);
+        }
+
+        @Test
+        @DisplayName("getCampaignById keeps using findByCampaignId")
+        void getCampaignById_ShouldKeepUsingFindByCampaignId() {
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
+            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
+
+            campaignService.getCampaignById(TEST_CAMPAIGN_ID);
+
+            verify(campaignCategoryRepository).findByCampaignId(TEST_CAMPAIGN_ID);
+            verify(campaignCategoryRepository, never()).findByCampaignIdIn(any());
         }
     }
 

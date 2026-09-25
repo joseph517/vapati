@@ -7,11 +7,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface CampaignCategoryRepository extends JpaRepository<CampaignCategory, Long> {
     List<CampaignCategory> findByCampaignId(Long campaignId);
+
+    // Categories of a whole listing in one SELECT. cc.campaign comes from the persistence context: the campaigns were
+    // loaded earlier in the same transaction
+    @Query("SELECT cc FROM CampaignCategory cc JOIN FETCH cc.category WHERE cc.campaign.id IN :campaignIds")
+    List<CampaignCategory> findByCampaignIdIn(@Param("campaignIds") Collection<Long> campaignIds);
+
     void deleteByCampaignId(Long campaignId);
 
     @Modifying

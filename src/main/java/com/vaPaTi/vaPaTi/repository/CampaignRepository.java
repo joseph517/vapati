@@ -12,28 +12,38 @@ import java.util.Optional;
 
 @Repository
 public interface CampaignRepository extends JpaRepository<Campaign, Long> {
+
+    // Listings load the owner, its inverse @OneToOne (userInfo for userName, verificationRequest) and the goal in the
+    // same SELECT. goal is a LEFT JOIN: a campaign whose goal is soft-deleted keeps showing up with goal = null
+    String LISTING_FETCH = "JOIN FETCH c.user u LEFT JOIN FETCH u.userInfo LEFT JOIN FETCH u.verificationRequest " +
+            "LEFT JOIN FETCH c.goal ";
+
+    // Used by closeAllByOwner, which doesn't need the fetches
     List<Campaign> findByUserId(Long userId);
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL")
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.id = :userId")
+    List<Campaign> findByUserIdWithDetails(@Param("userId") Long userId);
+
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL")
     List<Campaign> findAllWithActiveOwner();
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.goal.status = :status")
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL AND c.goal.status = :status")
     List<Campaign> findByGoalStatusWithActiveOwner(@Param("status") CampaignStatus status);
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND EXISTS (" +
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL AND EXISTS (" +
             "SELECT 1 FROM CampaignCategory cc WHERE cc.campaign.id = c.id AND cc.category.id = :categoryId)")
     List<Campaign> findByCategoryIdWithActiveOwner(@Param("categoryId") Long categoryId);
 
     // *VisibleTo queries are for non-admins: CLOSED campaigns only for their owner. A null callerId (anonymous) never matches u.id
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL " +
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL " +
             "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
     List<Campaign> findAllVisibleTo(@Param("callerId") Long callerId);
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.goal.status = :status " +
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL AND c.goal.status = :status " +
             "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
     List<Campaign> findByGoalStatusVisibleTo(@Param("status") CampaignStatus status, @Param("callerId") Long callerId);
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND EXISTS (" +
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL AND EXISTS (" +
             "SELECT 1 FROM CampaignCategory cc WHERE cc.campaign.id = c.id AND cc.category.id = :categoryId) " +
             "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
     List<Campaign> findByCategoryIdVisibleTo(@Param("categoryId") Long categoryId, @Param("callerId") Long callerId);
