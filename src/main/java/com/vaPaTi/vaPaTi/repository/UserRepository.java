@@ -38,11 +38,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByIdWithFullDetails(@Param("id") Long id);
 
 
+    // Everything UserMapper.toUserDTO reads, in one SELECT
     @EntityGraph(
             attributePaths = {
                     "userInfo",
+                    "verificationRequest",
                     "userCategories",
-                    "userCategories.category"
+                    "userCategories.category",
+                    "bankAccounts"
             }
     )
     @Query("SELECT DISTINCT u FROM User u")
