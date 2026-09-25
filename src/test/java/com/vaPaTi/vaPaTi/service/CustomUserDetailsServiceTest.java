@@ -260,9 +260,9 @@ class CustomUserDetailsServiceTest {
     class LoadUserForRequestTests {
 
         @Test
-        @DisplayName("Active account: returns the user and its UserDetails, looked up by id")
+        @DisplayName("Active account: returns the user and its UserDetails, loaded with findByIdForRequest")
         void loadUserForRequest_WithActiveUser_ShouldReturnUserAndDetails() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(userRepository.findByIdForRequest(1L)).thenReturn(Optional.of(testUser));
 
             CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest(1L);
 
@@ -271,14 +271,16 @@ class CustomUserDetailsServiceTest {
             assertThat(result.userDetails().getAuthorities())
                     .extracting(GrantedAuthority::getAuthority)
                     .containsExactly("ROLE_USER");
+            verify(userRepository).findByIdForRequest(1L);
+            verify(userRepository, never()).findById(any());
             verify(userRepository, never()).findByEmailIncludingDeleted(any());
             verify(userRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("Deleted account: findById doesn't see it, throws and is not restored")
+        @DisplayName("Deleted account: findByIdForRequest doesn't see it, throws and is not restored")
         void loadUserForRequest_WithDeletedUser_ShouldThrowWithoutRestoring() {
-            when(userRepository.findById(1L)).thenReturn(Optional.empty());
+            when(userRepository.findByIdForRequest(1L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userDetailsService.loadUserForRequest(1L))
                     .isInstanceOf(UsernameNotFoundException.class)
@@ -290,18 +292,20 @@ class CustomUserDetailsServiceTest {
         @Test
         @DisplayName("Missing account: throws")
         void loadUserForRequest_WithMissingUser_ShouldThrow() {
-            when(userRepository.findById(999L)).thenReturn(Optional.empty());
+            when(userRepository.findByIdForRequest(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> userDetailsService.loadUserForRequest(999L))
                     .isInstanceOf(UsernameNotFoundException.class)
                     .hasMessage("User not found with id: 999");
+
+            verify(userRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("Banned account: returned as is (the filter answers 403)")
         void loadUserForRequest_WithBannedUser_ShouldReturnUser() {
             testUser.setBanned(true);
-            when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+            when(userRepository.findByIdForRequest(1L)).thenReturn(Optional.of(testUser));
 
             CustomUserDetailsService.RequestUser result = userDetailsService.loadUserForRequest(1L);
 

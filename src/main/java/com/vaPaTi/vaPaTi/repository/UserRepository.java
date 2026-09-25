@@ -18,6 +18,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @NotNull Optional<User> findById(@NotNull Long id);
 
+    // Used by the JWT filter on every request: one SELECT. userInfo and verificationRequest are inverse @OneToOne,
+    // Hibernate would load them with separate SELECTs otherwise. @SQLRestriction still hides deleted accounts
+    @EntityGraph(attributePaths = {"userInfo", "role", "verificationRequest"})
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdForRequest(@Param("id") Long id);
+
     @EntityGraph(attributePaths = {
             "userInfo",
             "userCategories",
