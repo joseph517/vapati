@@ -24,6 +24,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForRequest(@Param("id") Long id);
 
+    // One SELECT. @SQLRestriction hides deleted accounts, so a deleted admin gives false
+    boolean existsByIdAndRole_Name(Long id, String roleName);
+
     @EntityGraph(attributePaths = {
             "userInfo",
             "userCategories",
