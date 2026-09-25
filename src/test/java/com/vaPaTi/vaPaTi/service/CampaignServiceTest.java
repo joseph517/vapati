@@ -14,7 +14,6 @@ import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
-import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
@@ -61,8 +60,6 @@ class CampaignServiceTest {
     private CampaignAuthorizationService campaignAuthorizationService;
     @Mock
     private CampaignCategoryRepository campaignCategoryRepository;
-    @Mock
-    private CategoryRepository categoryRepository;
     @Mock
     private CampaignStatusHistoryService campaignStatusHistoryService;
     @Mock
@@ -620,7 +617,8 @@ class CampaignServiceTest {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
             when(campaignRepository.save(any(Campaign.class))).thenReturn(savedCampaign);
-            when(categoryRepository.findAllById(createCampaignDTO.getCategoryIds())).thenReturn(List.of(category1));
+            when(campaignServiceValidation.validateAndGetCategories(createCampaignDTO.getCategoryIds()))
+                    .thenReturn(List.of(category1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toEntity(any(), any())).thenReturn(savedCampaign);
@@ -630,11 +628,12 @@ class CampaignServiceTest {
                 campaignService.createCampaign(createCampaignDTO);
 
                 // Then
-                verify(campaignServiceValidation).validateCategoryIds(createCampaignDTO.getCategoryIds());
-                verify(categoryRepository).findAllById(createCampaignDTO.getCategoryIds());
+                // The categories returned by the validation are saved as they are, without querying them again
+                verify(campaignServiceValidation).validateAndGetCategories(createCampaignDTO.getCategoryIds());
                 verify(campaignCategoryRepository).saveAll(argThat(list -> {
-                    List<?> saved = (List<?>) list;
-                    return saved.size() == 1;
+                    List<CampaignCategory> saved = (List<CampaignCategory>) list;
+                    return saved.size() == 1 && saved.get(0).getCategory() == category1
+                            && saved.get(0).getCampaign() == savedCampaign;
                 }));
             }
         }
@@ -796,7 +795,8 @@ class CampaignServiceTest {
             com.vaPaTi.vaPaTi.entity.Category newCategory = new com.vaPaTi.vaPaTi.entity.Category();
             newCategory.setId(2L);
             updateCampaignDTO.setCategoryIds(List.of(2L));
-            when(categoryRepository.findAllById(updateCampaignDTO.getCategoryIds())).thenReturn(List.of(newCategory));
+            when(campaignServiceValidation.validateAndGetCategories(updateCampaignDTO.getCategoryIds()))
+                    .thenReturn(List.of(newCategory));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any()))
@@ -806,10 +806,14 @@ class CampaignServiceTest {
                 campaignService.updateCampaign(TEST_CAMPAIGN_ID, updateCampaignDTO);
 
                 // Then
-                verify(campaignServiceValidation).validateCategoryIds(updateCampaignDTO.getCategoryIds());
-                verify(campaignCategoryRepository).deleteByCampaignId(testCampaign.getId());
-                verify(categoryRepository).findAllById(updateCampaignDTO.getCategoryIds());
-                verify(campaignCategoryRepository).saveAll(argThat(list -> ((List<?>) list).size() == 1));
+                // The old rows are deleted before saving the categories returned by the validation
+                InOrder inOrder = inOrder(campaignServiceValidation, campaignCategoryRepository);
+                inOrder.verify(campaignServiceValidation).validateAndGetCategories(updateCampaignDTO.getCategoryIds());
+                inOrder.verify(campaignCategoryRepository).deleteByCampaignId(testCampaign.getId());
+                inOrder.verify(campaignCategoryRepository).saveAll(argThat(list -> {
+                    List<CampaignCategory> saved = (List<CampaignCategory>) list;
+                    return saved.size() == 1 && saved.get(0).getCategory() == newCategory;
+                }));
             }
         }
     }

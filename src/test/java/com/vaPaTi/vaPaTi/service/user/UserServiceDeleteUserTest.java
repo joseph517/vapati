@@ -9,7 +9,6 @@ import com.vaPaTi.vaPaTi.mapper.UserMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
-import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -312,7 +311,6 @@ class UserServiceDeleteUserTest {
                     mock(CampaignServiceValidation.class),
                     mock(CampaignAuthorizationService.class),
                     mock(CampaignCategoryRepository.class),
-                    mock(CategoryRepository.class),
                     campaignStatusHistoryService,
                     mock(CampaignStatusHistoryRepository.class),
                     mock(EntityManager.class)
