@@ -19,12 +19,15 @@ public interface FollowerRepository extends JpaRepository<Follower, Long> {
     // Get the specific relationship in order to delete it
     Optional<Follower> findByUserAndFollower(User user, User follower);
 
-    // Get all followers of a user (who follows him)
-    @Query("SELECT f FROM Follower f JOIN FETCH f.follower JOIN FETCH f.follower.userInfo WHERE f.user = :user")
+    // Get all followers of a user (who follows him). The inner joins keep deleted followers out; verificationRequest
+    // is a LEFT JOIN FETCH so its inverse @OneToOne doesn't cost a SELECT per row
+    @Query("SELECT f FROM Follower f JOIN FETCH f.follower u JOIN FETCH u.userInfo " +
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.user = :user")
     List<Follower> findFollowersByUser(@Param("user") User user);
 
-    // Get all users that a user follows (who he follows)
-    @Query("SELECT f FROM Follower f JOIN FETCH f.user JOIN FETCH f.user.userInfo WHERE f.follower = :follower")
+    // Get all users that a user follows (who he follows). Same joins as findFollowersByUser
+    @Query("SELECT f FROM Follower f JOIN FETCH f.user u JOIN FETCH u.userInfo " +
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.follower = :follower")
     List<Follower> findFollowingsByFollower(@Param("follower") User follower);
 
     // Count followers, excluding deleted ones (same rule as findFollowersByUser)

@@ -103,7 +103,8 @@ public class FollowerValidation {
      * @throws ResourceNotFoundException if the user does not exist
      */
     public User validateAndGetUser(Long userId) {
-        return userRepository.findById(userId)
+        // One SELECT with userInfo, role and verificationRequest, instead of findById plus the inverse @OneToOne
+        return userRepository.findByIdForRequest(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
     }
 
