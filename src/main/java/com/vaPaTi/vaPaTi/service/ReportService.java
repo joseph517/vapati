@@ -75,7 +75,7 @@ public class ReportService {
      * Get all reports with pagination (ADMIN only)
      */
     public Page<ReportDTO> getAllReports(Pageable pageable) {
-        Page<Report> reports = reportRepository.findAll(pageable);
+        Page<Report> reports = reportRepository.findAllWithUsers(pageable);
         return reports.map(reportMapper::toDTO);
     }
 

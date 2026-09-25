@@ -16,13 +16,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -282,7 +285,7 @@ class ReportServiceTest {
         void getAllReports_ShouldReturnPaginatedReports() {
             // Given
             Page<Report> reportPage = new PageImpl<>(List.of(report));
-            when(reportRepository.findAll(pageable)).thenReturn(reportPage);
+            when(reportRepository.findAllWithUsers(pageable)).thenReturn(reportPage);
             when(reportMapper.toDTO(report)).thenReturn(reportDTO);
 
             // When
@@ -295,7 +298,8 @@ class ReportServiceTest {
                     .hasSize(1)
                     .element(0).isEqualTo(reportDTO);
 
-            verify(reportRepository).findAll(pageable);
+            verify(reportRepository).findAllWithUsers(pageable);
+            verify(reportRepository, never()).findAll(any(Pageable.class));
             verify(reportMapper).toDTO(report);
         }
 
@@ -304,7 +308,7 @@ class ReportServiceTest {
         void getAllReports_ShouldMapReportsToDTOs() {
             // Given
             Page<Report> reportPage = new PageImpl<>(List.of(report));
-            when(reportRepository.findAll(pageable)).thenReturn(reportPage);
+            when(reportRepository.findAllWithUsers(pageable)).thenReturn(reportPage);
             when(reportMapper.toDTO(report)).thenReturn(reportDTO);
 
             // When
@@ -318,14 +322,21 @@ class ReportServiceTest {
         @DisplayName("Should handle pagination parameters")
         void getAllReports_ShouldHandlePagination() {
             // Given
-            Page<Report> reportPage = new PageImpl<>(List.of());
-            when(reportRepository.findAll(pageable)).thenReturn(reportPage);
+            Pageable secondPageByStatus = PageRequest.of(1, 5, Sort.by(Sort.Direction.ASC, "status"));
+            Page<Report> reportPage = new PageImpl<>(List.of(), secondPageByStatus, 6);
+            when(reportRepository.findAllWithUsers(secondPageByStatus)).thenReturn(reportPage);
 
             // When
-            reportService.getAllReports(pageable);
+            Page<ReportDTO> result = reportService.getAllReports(secondPageByStatus);
 
-            // Then
-            verify(reportRepository).findAll(pageable);
+            // Then: the same Pageable reaches the repository, and the page data is kept
+            ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+            verify(reportRepository).findAllWithUsers(captor.capture());
+            assertThat(captor.getValue()).isSameAs(secondPageByStatus);
+            assertThat(result.getNumber()).isEqualTo(1);
+            assertThat(result.getSize()).isEqualTo(5);
+            assertThat(result.getTotalElements()).isEqualTo(6);
+            verify(reportRepository, never()).findAll(any(Pageable.class));
         }
     }
 
@@ -794,7 +805,7 @@ class ReportServiceTest {
         void getAllReports_WithDeletedReporter_ShouldReturnReportWithNullReporterFields() {
             // Given: @NotFound(IGNORE) leaves the reporter relation null when the user is soft deleted
             report.setReporter(null);
-            when(reportRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(report)));
+            when(reportRepository.findAllWithUsers(pageable)).thenReturn(new PageImpl<>(List.of(report)));
 
             // When
             Page<ReportDTO> result = serviceWithRealMapper.getAllReports(pageable);
