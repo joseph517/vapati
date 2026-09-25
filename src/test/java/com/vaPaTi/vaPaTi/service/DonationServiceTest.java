@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.CampaignStatisticsDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
-import com.vaPaTi.vaPaTi.dtos.DonationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;

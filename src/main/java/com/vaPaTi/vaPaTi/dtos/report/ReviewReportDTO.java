@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.report;
 
 import com.vaPaTi.vaPaTi.entity.report.ActionTaken;
 import com.vaPaTi.vaPaTi.entity.report.ReportStatus;

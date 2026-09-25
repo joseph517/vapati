@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.mapper;
 
-import com.vaPaTi.vaPaTi.dtos.DonationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;

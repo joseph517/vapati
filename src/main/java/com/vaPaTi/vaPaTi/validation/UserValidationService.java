@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.dtos.CreateUserDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserCategory;

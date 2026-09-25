@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.user;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.annotation.Nullable;

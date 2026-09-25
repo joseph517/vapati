@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.CreateVerificationRequestDTO;
-import com.vaPaTi.vaPaTi.dtos.ProcessVerificationRequestDTO;
-import com.vaPaTi.vaPaTi.dtos.VerificationStatusResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.verification.ProcessVerificationRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.verification.VerificationStatusResponseDTO;
 import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
 import com.vaPaTi.vaPaTi.service.VerificationRequestService;
 import io.swagger.v3.oas.annotations.Operation;

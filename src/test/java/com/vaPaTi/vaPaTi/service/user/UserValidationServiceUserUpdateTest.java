@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.service.user;
 
-import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 

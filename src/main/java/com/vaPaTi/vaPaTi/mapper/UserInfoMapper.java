@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper;
 
-import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
-import com.vaPaTi.vaPaTi.dtos.UserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.springframework.stereotype.Component;
 

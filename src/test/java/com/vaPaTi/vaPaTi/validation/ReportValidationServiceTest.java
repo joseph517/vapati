@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
+import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
 import com.vaPaTi.vaPaTi.entity.report.ActionTaken;

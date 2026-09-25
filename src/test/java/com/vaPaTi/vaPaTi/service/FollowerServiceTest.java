@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.FollowResponseDto;
-import com.vaPaTi.vaPaTi.dtos.FollowerUserDto;
-import com.vaPaTi.vaPaTi.dtos.FollowersListResponseDto;
-import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowerUserDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowersListResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.UnfollowResponseDTO;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
@@ -65,9 +65,9 @@ class FollowerServiceTest {
     private UserInfo currentUserInfo;
     private UserInfo otherUserInfo;
     private Follower followerRelationship;
-    private FollowResponseDto followResponseDto;
-    private UnfollowResponseDto unfollowResponseDto;
-    private FollowersListResponseDto followersListResponseDto;
+    private FollowResponseDTO followResponseDto;
+    private UnfollowResponseDTO unfollowResponseDto;
+    private FollowersListResponseDTO followersListResponseDto;
 
     @BeforeEach
     void setUp() {
@@ -91,7 +91,7 @@ class FollowerServiceTest {
         followerRelationship.setFollower(currentUser);
         followerRelationship.setCreatedAt(LocalDateTime.now());
 
-        FollowerUserDto mockFollowerUser = new FollowerUserDto(
+        FollowerUserDTO mockFollowerUser = new FollowerUserDTO(
                 OTHER_USER_ID,
                 "John",
                 "Doe",
@@ -100,19 +100,19 @@ class FollowerServiceTest {
                 LocalDateTime.now()
         );
 
-        followResponseDto = new FollowResponseDto(
+        followResponseDto = new FollowResponseDTO(
                 "Successfully started following other_user",
                 true,
                 mockFollowerUser
         );
 
-        unfollowResponseDto = new UnfollowResponseDto(
+        unfollowResponseDto = new UnfollowResponseDTO(
                 "Successfully unfollowed other_user",
                 true,
                 OTHER_USER_ID
         );
 
-        followersListResponseDto = new FollowersListResponseDto(
+        followersListResponseDto = new FollowersListResponseDTO(
                 CURRENT_USER_ID,
                 0,
                 List.of()
@@ -134,7 +134,7 @@ class FollowerServiceTest {
             when(followerMapper.toFollowResponseDto(any(Follower.class), anyString())).thenReturn(followResponseDto);
 
             // When
-            FollowResponseDto result = followerService.followUser(OTHER_USER_ID);
+            FollowResponseDTO result = followerService.followUser(OTHER_USER_ID);
 
             // Then
             assertThat(result)
@@ -344,7 +344,7 @@ class FollowerServiceTest {
             when(followerMapper.toUnfollowResponseDto(anyLong(), anyString())).thenReturn(unfollowResponseDto);
 
             // When
-            UnfollowResponseDto result = followerService.unfollowUser(OTHER_USER_ID);
+            UnfollowResponseDTO result = followerService.unfollowUser(OTHER_USER_ID);
 
             // Then
             assertThat(result)
@@ -489,7 +489,7 @@ class FollowerServiceTest {
                     .thenReturn(followersListResponseDto);
 
             // When
-            FollowersListResponseDto result = followerService.getFollowers(CURRENT_USER_ID);
+            FollowersListResponseDTO result = followerService.getFollowers(CURRENT_USER_ID);
 
             // Then
             assertThat(result)
@@ -509,7 +509,7 @@ class FollowerServiceTest {
                     .thenReturn(followersListResponseDto);
 
             // When
-            FollowersListResponseDto result = followerService.getFollowers(CURRENT_USER_ID);
+            FollowersListResponseDTO result = followerService.getFollowers(CURRENT_USER_ID);
 
             // Then
             assertThat(result).isNotNull();
@@ -564,7 +564,7 @@ class FollowerServiceTest {
                     .thenReturn(followersListResponseDto);
 
             // When
-            FollowersListResponseDto result = followerService.getFollowing(CURRENT_USER_ID);
+            FollowersListResponseDTO result = followerService.getFollowing(CURRENT_USER_ID);
 
             // Then
             assertThat(result)
@@ -584,7 +584,7 @@ class FollowerServiceTest {
                     .thenReturn(followersListResponseDto);
 
             // When
-            FollowersListResponseDto result = followerService.getFollowing(CURRENT_USER_ID);
+            FollowersListResponseDTO result = followerService.getFollowing(CURRENT_USER_ID);
 
             // Then
             assertThat(result).isNotNull();

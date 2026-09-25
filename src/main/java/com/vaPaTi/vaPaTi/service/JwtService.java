@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.UserTokenData;
+import com.vaPaTi.vaPaTi.dtos.auth.UserTokenData;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;

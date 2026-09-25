@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.publication;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.mapper;
 
-import com.vaPaTi.vaPaTi.dtos.FollowResponseDto;
-import com.vaPaTi.vaPaTi.dtos.FollowerUserDto;
-import com.vaPaTi.vaPaTi.dtos.FollowersListResponseDto;
-import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowerUserDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowersListResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.UnfollowResponseDTO;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
@@ -17,10 +17,10 @@ import java.util.Objects;
 public class FollowerMapper {
 
     /**
-     * Maps a User entity to FollowerUserDto from a Follower relationship
+     * Maps a User entity to FollowerUserDTO from a Follower relationship
      * This is used when getting followers (people who follow a specific user)
      */
-    public FollowerUserDto toFollowerUserDto(Follower followerRelation) {
+    public FollowerUserDTO toFollowerUserDto(Follower followerRelation) {
         if (followerRelation == null || followerRelation.getFollower() == null ||
                 followerRelation.getFollower().getUserInfo() == null) {
             return null;
@@ -29,7 +29,7 @@ public class FollowerMapper {
         User followerUser = followerRelation.getFollower();
         UserInfo userInfo = followerUser.getUserInfo();
 
-        return new FollowerUserDto(
+        return new FollowerUserDTO(
                 followerUser.getId(),
                 userInfo.getFirstName(),
                 userInfo.getLastName(),
@@ -40,10 +40,10 @@ public class FollowerMapper {
     }
 
     /**
-     * Maps a User entity to FollowerUserDto from a Following relationship
+     * Maps a User entity to FollowerUserDTO from a Following relationship
      * This is used when getting following list (people that a specific user follows)
      */
-    public FollowerUserDto toFollowingUserDto(Follower followingRelation) {
+    public FollowerUserDTO toFollowingUserDto(Follower followingRelation) {
         if (followingRelation == null || followingRelation.getUser() == null ||
                 followingRelation.getUser().getUserInfo() == null) {
             return null;
@@ -52,7 +52,7 @@ public class FollowerMapper {
         User followedUser = followingRelation.getUser();
         UserInfo userInfo = followedUser.getUserInfo();
 
-        return new FollowerUserDto(
+        return new FollowerUserDTO(
                 followedUser.getId(),
                 userInfo.getFirstName(),
                 userInfo.getLastName(),
@@ -63,10 +63,10 @@ public class FollowerMapper {
     }
 
     /**
-     * Maps a list of Follower entities to FollowerUserDto list
+     * Maps a list of Follower entities to FollowerUserDTO list
      * Used for followers list (who follows the user)
      */
-    public List<FollowerUserDto> toFollowerUserDtoList(List<Follower> followers) {
+    public List<FollowerUserDTO> toFollowerUserDtoList(List<Follower> followers) {
         if (followers == null || followers.isEmpty()) {
             return new ArrayList<>();
         }
@@ -78,10 +78,10 @@ public class FollowerMapper {
     }
 
     /**
-     * Maps a list of Following entities to FollowerUserDto list
+     * Maps a list of Following entities to FollowerUserDTO list
      * Used for following list (who the user follows)
      */
-    public List<FollowerUserDto> toFollowingUserDtoList(List<Follower> followings) {
+    public List<FollowerUserDTO> toFollowingUserDtoList(List<Follower> followings) {
         if (followings == null || followings.isEmpty()) {
             return new ArrayList<>();
         }
@@ -93,34 +93,34 @@ public class FollowerMapper {
     }
 
     /**
-     * Creates a FollowResponseDto for successful follow operation
+     * Creates a FollowResponseDTO for successful follow operation
      */
-    public FollowResponseDto toFollowResponseDto(Follower newFollowerRelation, String message) {
-        FollowerUserDto followedUserDto = toFollowingUserDto(newFollowerRelation);
-        return new FollowResponseDto(message, true, followedUserDto);
+    public FollowResponseDTO toFollowResponseDto(Follower newFollowerRelation, String message) {
+        FollowerUserDTO followedUserDto = toFollowingUserDto(newFollowerRelation);
+        return new FollowResponseDTO(message, true, followedUserDto);
     }
 
     /**
-     * Creates an UnfollowResponseDto for successful unfollow operation
+     * Creates an UnfollowResponseDTO for successful unfollow operation
      */
-    public UnfollowResponseDto toUnfollowResponseDto(Long unfollowedUserId, String message) {
-        return new UnfollowResponseDto(message, true, unfollowedUserId);
+    public UnfollowResponseDTO toUnfollowResponseDto(Long unfollowedUserId, String message) {
+        return new UnfollowResponseDTO(message, true, unfollowedUserId);
     }
 
     /**
-     * Creates a FollowersListResponseDto with followers information
+     * Creates a FollowersListResponseDTO with followers information
      */
-    public FollowersListResponseDto toFollowersListResponseDto(Long userId, List<Follower> followers) {
-        List<FollowerUserDto> followerDtos = toFollowerUserDtoList(followers);
-        return new FollowersListResponseDto(userId, followerDtos.size(), followerDtos);
+    public FollowersListResponseDTO toFollowersListResponseDto(Long userId, List<Follower> followers) {
+        List<FollowerUserDTO> followerDtos = toFollowerUserDtoList(followers);
+        return new FollowersListResponseDTO(userId, followerDtos.size(), followerDtos);
     }
 
     /**
-     * Creates a FollowersListResponseDto with following information
+     * Creates a FollowersListResponseDTO with following information
      * (reusing the same DTO structure but for following list)
      */
-    public FollowersListResponseDto toFollowingListResponseDto(Long userId, List<Follower> followings) {
-        List<FollowerUserDto> followingDtos = toFollowingUserDtoList(followings);
-        return new FollowersListResponseDto(userId, followingDtos.size(), followingDtos);
+    public FollowersListResponseDTO toFollowingListResponseDto(Long userId, List<Follower> followings) {
+        List<FollowerUserDTO> followingDtos = toFollowingUserDtoList(followings);
+        return new FollowersListResponseDTO(userId, followingDtos.size(), followingDtos);
     }
 }

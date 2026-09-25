@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.publication;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service.bankAccount;
 
-import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.BankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;

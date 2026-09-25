@@ -24,7 +24,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;

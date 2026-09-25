@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.service.user;
 
-import com.vaPaTi.vaPaTi.dtos.PublicUserProfileDTO;
-import com.vaPaTi.vaPaTi.dtos.UserDTO;
-import com.vaPaTi.vaPaTi.dtos.UserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.PublicUserProfileDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;

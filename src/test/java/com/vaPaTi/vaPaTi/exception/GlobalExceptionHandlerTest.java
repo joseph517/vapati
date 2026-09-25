@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -1,5 +1,7 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.verification.ProcessVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

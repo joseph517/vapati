@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.follower;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -6,8 +6,8 @@ import lombok.Data;
 // Response DTO for follow operation
 @Data
 @AllArgsConstructor
-public class FollowResponseDto {
+public class FollowResponseDTO {
     private String message;
     private boolean success;
-    private FollowerUserDto followedUser;
+    private FollowerUserDTO followedUser;
 }

@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service.bankAccount;
 
-import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.CreateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
 import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;

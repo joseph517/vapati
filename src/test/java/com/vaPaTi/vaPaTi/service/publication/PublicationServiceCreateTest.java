@@ -11,8 +11,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
-import com.vaPaTi.vaPaTi.dtos.CreatePublicationDTO;
-import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;

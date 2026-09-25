@@ -1,5 +1,6 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.campaign;
 
+import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;

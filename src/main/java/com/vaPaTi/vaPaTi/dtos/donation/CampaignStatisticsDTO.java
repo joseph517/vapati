@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.donation;
 
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import lombok.AllArgsConstructor;

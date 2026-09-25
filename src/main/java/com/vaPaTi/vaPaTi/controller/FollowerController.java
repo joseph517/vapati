@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.FollowResponseDto;
-import com.vaPaTi.vaPaTi.dtos.FollowersListResponseDto;
-import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowersListResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.UnfollowResponseDTO;
 import com.vaPaTi.vaPaTi.service.FollowerService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
@@ -20,29 +20,29 @@ public class FollowerController {
 
     @PostMapping("/follow")
     @Operation(summary = "Follow user", description = "Current user (from the token) follows the user {userId}")
-    public ResponseEntity<FollowResponseDto> followUser(@PathVariable Long userId) {
-        FollowResponseDto response = followerService.followUser(userId);
+    public ResponseEntity<FollowResponseDTO> followUser(@PathVariable Long userId) {
+        FollowResponseDTO response = followerService.followUser(userId);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/follow")
     @Operation(summary = "Unfollow user", description = "Current user (from the token) unfollows the user {userId}")
-    public ResponseEntity<UnfollowResponseDto> unfollowUser(@PathVariable Long userId) {
-        UnfollowResponseDto response = followerService.unfollowUser(userId);
+    public ResponseEntity<UnfollowResponseDTO> unfollowUser(@PathVariable Long userId) {
+        UnfollowResponseDTO response = followerService.unfollowUser(userId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/followers")
     @Operation(summary = "Get followers", description = "Get list of users who follow this user")
-    public ResponseEntity<FollowersListResponseDto> getFollowers(@PathVariable Long userId) {
-        FollowersListResponseDto response = followerService.getFollowers(userId);
+    public ResponseEntity<FollowersListResponseDTO> getFollowers(@PathVariable Long userId) {
+        FollowersListResponseDTO response = followerService.getFollowers(userId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/followers/following")
     @Operation(summary = "Get following", description = "Get list of users that this user follows")
-    public ResponseEntity<FollowersListResponseDto> getFollowing(@PathVariable Long userId) {
-        FollowersListResponseDto response = followerService.getFollowing(userId);
+    public ResponseEntity<FollowersListResponseDTO> getFollowing(@PathVariable Long userId) {
+        FollowersListResponseDTO response = followerService.getFollowing(userId);
         return ResponseEntity.ok(response);
     }
 

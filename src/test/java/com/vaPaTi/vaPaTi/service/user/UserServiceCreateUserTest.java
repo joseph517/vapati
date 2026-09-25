@@ -7,10 +7,10 @@ import static org.mockito.Mockito.*;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import com.vaPaTi.vaPaTi.dtos.CreateUserDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
-import com.vaPaTi.vaPaTi.dtos.UserDTO;
-import com.vaPaTi.vaPaTi.dtos.UserUserInfoRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;

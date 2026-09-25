@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.BankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.CreateBankAccountDTO;
+import com.vaPaTi.vaPaTi.dtos.bankaccount.UpdateBankAccountDTO;
 import com.vaPaTi.vaPaTi.service.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

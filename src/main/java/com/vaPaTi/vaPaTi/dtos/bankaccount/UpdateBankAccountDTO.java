@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.bankaccount;
 
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;

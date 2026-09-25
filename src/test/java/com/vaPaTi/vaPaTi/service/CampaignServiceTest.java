@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
-import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignCategory;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;

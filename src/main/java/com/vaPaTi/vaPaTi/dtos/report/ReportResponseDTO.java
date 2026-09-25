@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.report;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.auth;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
-import com.vaPaTi.vaPaTi.dtos.UserDTO;
-import com.vaPaTi.vaPaTi.dtos.UserUserInfoRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.service.UserService;
 import com.vaPaTi.vaPaTi.validation.SortValidationService;
 import org.springframework.data.domain.Page;

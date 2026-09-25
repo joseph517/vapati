@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.security;
 
-import com.vaPaTi.vaPaTi.dtos.UserTokenData;
+import com.vaPaTi.vaPaTi.dtos.auth.UserTokenData;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;

@@ -1,5 +1,6 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.user;
 
+import com.vaPaTi.vaPaTi.dtos.bankaccount.BankAccountDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

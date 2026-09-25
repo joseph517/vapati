@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service.Authentication;
 
-import com.vaPaTi.vaPaTi.dtos.AuthRequest;
-import com.vaPaTi.vaPaTi.dtos.AuthResponse;
+import com.vaPaTi.vaPaTi.dtos.auth.AuthRequest;
+import com.vaPaTi.vaPaTi.dtos.auth.AuthResponse;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;

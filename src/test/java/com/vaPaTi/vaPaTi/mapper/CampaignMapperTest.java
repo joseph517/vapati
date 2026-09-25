@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper;
 
-import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;

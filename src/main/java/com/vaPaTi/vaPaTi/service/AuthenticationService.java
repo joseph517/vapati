@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.AuthRequest;
-import com.vaPaTi.vaPaTi.dtos.AuthResponse;
+import com.vaPaTi.vaPaTi.dtos.auth.AuthRequest;
+import com.vaPaTi.vaPaTi.dtos.auth.AuthResponse;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;

@@ -1,6 +1,10 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.*;
+import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReportDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReportResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReportStatsDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReviewReportDTO;
 import com.vaPaTi.vaPaTi.entity.report.ActionTaken;
 import com.vaPaTi.vaPaTi.entity.report.Report;
 import com.vaPaTi.vaPaTi.entity.report.ReportReason;

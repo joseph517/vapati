@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.CreatePublicationDTO;
-import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.service.PublicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

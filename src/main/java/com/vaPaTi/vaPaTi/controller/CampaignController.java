@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
-import com.vaPaTi.vaPaTi.dtos.CampaignStatusHistoryResponseDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CampaignStatusHistoryResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.service.CampaignService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;

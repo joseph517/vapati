@@ -1,6 +1,10 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.*;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;

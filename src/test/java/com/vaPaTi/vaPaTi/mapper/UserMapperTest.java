@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.mapper;
 
-import com.vaPaTi.vaPaTi.dtos.PublicUserProfileDTO;
+import com.vaPaTi.vaPaTi.dtos.user.PublicUserProfileDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserCategory;

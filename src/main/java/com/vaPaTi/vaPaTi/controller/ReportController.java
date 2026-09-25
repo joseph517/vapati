@@ -1,6 +1,10 @@
 package com.vaPaTi.vaPaTi.controller;
 
-import com.vaPaTi.vaPaTi.dtos.*;
+import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReportDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReportResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReportStatsDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReviewReportDTO;
 import com.vaPaTi.vaPaTi.service.ReportService;
 import com.vaPaTi.vaPaTi.validation.SortValidationService;
 import io.swagger.v3.oas.annotations.Operation;

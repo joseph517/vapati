@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.dtos;
+package com.vaPaTi.vaPaTi.dtos.follower;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 // Response DTO for displaying user basic info in follower lists
 @Data
 @AllArgsConstructor
-public class FollowerUserDto {
+public class FollowerUserDTO {
     private Long id;
     private String firstName;
     private String lastName;

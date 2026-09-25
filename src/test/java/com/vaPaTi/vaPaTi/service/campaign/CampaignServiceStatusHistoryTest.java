@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service.campaign;
 
-import com.vaPaTi.vaPaTi.dtos.CampaignStatusHistoryResponseDTO;
-import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CampaignStatusHistoryResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatusHistory;

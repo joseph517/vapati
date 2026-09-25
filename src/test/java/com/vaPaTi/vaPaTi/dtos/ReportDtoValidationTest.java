@@ -1,5 +1,7 @@
 package com.vaPaTi.vaPaTi.dtos;
 
+import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
+import com.vaPaTi.vaPaTi.dtos.report.ReviewReportDTO;
 import com.vaPaTi.vaPaTi.entity.report.ReportReason;
 import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
 import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;

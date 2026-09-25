@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.dtos.FollowResponseDto;
-import com.vaPaTi.vaPaTi.dtos.FollowersListResponseDto;
-import com.vaPaTi.vaPaTi.dtos.UnfollowResponseDto;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.FollowersListResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.follower.UnfollowResponseDTO;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
@@ -31,16 +31,16 @@ public class FollowerService {
     /**
      * Follows a user by creating a new follower relationship.
      *
-     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), and that the user to follow is not banned or suspended. It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDto with the result.
+     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), and that the user to follow is not banned or suspended. It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDTO with the result.
      *
      * @param userToFollowId the ID of the user to follow
-     * @return a FollowResponseDto with the result of the follow operation
+     * @return a FollowResponseDTO with the result of the follow operation
      * @throws MessageException if the current user is trying to follow themselves, or the user to follow is banned or suspended
      * @throws ConflictException if the current user is already following the user to follow
      * @throws ResourceNotFoundException if the current user or the user to follow is not found
      */
     @Transactional
-    public FollowResponseDto followUser(Long userToFollowId) {
+    public FollowResponseDTO followUser(Long userToFollowId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
         followerValidation.validateNotSelfFollow(userId, userToFollowId);
@@ -72,7 +72,7 @@ public class FollowerService {
      * @throws MessageException if the user is trying to unfollow themselves
      */
     @Transactional
-    public UnfollowResponseDto unfollowUser(Long userToUnfollowId) {
+    public UnfollowResponseDTO unfollowUser(Long userToUnfollowId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
         followerValidation.validateNotSelfUnfollow(userId, userToUnfollowId);
@@ -92,9 +92,9 @@ public class FollowerService {
     /**
      * Get list of followers for a specific user
      * @param userId ID of the user whose followers we want to retrieve
-     * @return FollowersListResponseDto with followers list
+     * @return FollowersListResponseDTO with followers list
      */
-    public FollowersListResponseDto getFollowers(Long userId) {
+    public FollowersListResponseDTO getFollowers(Long userId) {
         User user = followerValidation.validateAndGetUser(userId);
 
         // Get followers
@@ -106,9 +106,9 @@ public class FollowerService {
     /**
      * Get list of users that a specific user follows
      * @param userId ID of the user whose following list we want to retrieve
-     * @return FollowersListResponseDto with following list
+     * @return FollowersListResponseDTO with following list
      */
-    public FollowersListResponseDto getFollowing(Long userId) {
+    public FollowersListResponseDTO getFollowing(Long userId) {
         User user = followerValidation.validateAndGetUser(userId);
 
         // Get following
