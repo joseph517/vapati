@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.controller;
 import com.vaPaTi.vaPaTi.dtos.bankaccount.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.bankaccount.CreateBankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.bankaccount.UpdateBankAccountDTO;
-import com.vaPaTi.vaPaTi.service.BankAccountService;
+import com.vaPaTi.vaPaTi.service.bankaccount.BankAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

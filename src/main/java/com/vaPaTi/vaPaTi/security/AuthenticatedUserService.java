@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.security;
 
-import com.vaPaTi.vaPaTi.service.JwtService;
+import com.vaPaTi.vaPaTi.service.auth.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;

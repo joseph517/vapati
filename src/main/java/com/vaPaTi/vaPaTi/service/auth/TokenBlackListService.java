@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.auth;
 
 import com.vaPaTi.vaPaTi.entity.auth.RevokedToken;
 import com.vaPaTi.vaPaTi.repository.auth.RevokedTokenRepository;

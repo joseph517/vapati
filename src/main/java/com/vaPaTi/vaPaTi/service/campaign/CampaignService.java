@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignStatusHistoryResponseDTO;

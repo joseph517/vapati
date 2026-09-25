@@ -7,7 +7,7 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
-import com.vaPaTi.vaPaTi.service.BankAccountService;
+import com.vaPaTi.vaPaTi.service.bankaccount.BankAccountService;
 import com.vaPaTi.vaPaTi.validation.bankaccount.AccountValidationResult;
 import com.vaPaTi.vaPaTi.validation.bankaccount.BankAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;

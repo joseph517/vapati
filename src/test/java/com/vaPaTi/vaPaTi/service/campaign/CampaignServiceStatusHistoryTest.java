@@ -14,8 +14,6 @@ import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.service.CampaignService;
-import com.vaPaTi.vaPaTi.service.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import jakarta.persistence.EntityManager;

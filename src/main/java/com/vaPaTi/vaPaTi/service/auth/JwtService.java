@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.auth;
 
 import com.vaPaTi.vaPaTi.dtos.auth.UserTokenData;
 import com.vaPaTi.vaPaTi.entity.user.User;

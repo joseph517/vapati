@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.category;
 
 import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;

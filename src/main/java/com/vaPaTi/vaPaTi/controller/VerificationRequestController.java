@@ -4,7 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.verification.ProcessVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.verification.VerificationStatusResponseDTO;
 import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
-import com.vaPaTi.vaPaTi.service.VerificationRequestService;
+import com.vaPaTi.vaPaTi.service.verification.VerificationRequestService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

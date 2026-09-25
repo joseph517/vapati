@@ -2,10 +2,10 @@ package com.vaPaTi.vaPaTi.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
-import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
-import com.vaPaTi.vaPaTi.service.CustomUserDetailsService.RequestUser;
-import com.vaPaTi.vaPaTi.service.JwtService;
-import com.vaPaTi.vaPaTi.service.TokenBlackListService;
+import com.vaPaTi.vaPaTi.service.auth.CustomUserDetailsService;
+import com.vaPaTi.vaPaTi.service.auth.CustomUserDetailsService.RequestUser;
+import com.vaPaTi.vaPaTi.service.auth.JwtService;
+import com.vaPaTi.vaPaTi.service.auth.TokenBlackListService;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

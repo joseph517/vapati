@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.controller;
 import com.vaPaTi.vaPaTi.dtos.auth.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.auth.AuthResponse;
 import com.vaPaTi.vaPaTi.dtos.auth.RefreshTokenRequest;
-import com.vaPaTi.vaPaTi.service.AuthenticationService;
+import com.vaPaTi.vaPaTi.service.auth.AuthenticationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

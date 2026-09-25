@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.controller;
 import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
-import com.vaPaTi.vaPaTi.service.DonationService;
+import com.vaPaTi.vaPaTi.service.donation.DonationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

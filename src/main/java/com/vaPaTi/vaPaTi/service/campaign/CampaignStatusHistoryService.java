@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.campaign;
 
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;

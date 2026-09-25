@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.user;
 
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
@@ -16,6 +16,7 @@ import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

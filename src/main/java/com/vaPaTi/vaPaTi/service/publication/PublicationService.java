@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.publication;
 
 import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;

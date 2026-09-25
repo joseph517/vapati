@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.controller;
 import com.vaPaTi.vaPaTi.dtos.follower.FollowResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.follower.FollowersListResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.follower.UnfollowResponseDTO;
-import com.vaPaTi.vaPaTi.service.FollowerService;
+import com.vaPaTi.vaPaTi.service.follower.FollowerService;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

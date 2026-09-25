@@ -2,7 +2,7 @@ package com.vaPaTi.vaPaTi.controller;
 
 import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
-import com.vaPaTi.vaPaTi.service.PublicationService;
+import com.vaPaTi.vaPaTi.service.publication.PublicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

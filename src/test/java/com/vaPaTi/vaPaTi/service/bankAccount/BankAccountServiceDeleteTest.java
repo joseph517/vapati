@@ -4,7 +4,7 @@ import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
-import com.vaPaTi.vaPaTi.service.BankAccountService;
+import com.vaPaTi.vaPaTi.service.bankaccount.BankAccountService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

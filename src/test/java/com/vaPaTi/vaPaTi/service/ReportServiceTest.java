@@ -17,6 +17,8 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.report.ReportMapper;
 import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.service.report.ReportActionService;
+import com.vaPaTi.vaPaTi.service.report.ReportService;
 import com.vaPaTi.vaPaTi.validation.report.ReportValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

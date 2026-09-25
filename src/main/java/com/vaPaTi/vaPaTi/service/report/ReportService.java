@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.service;
+package com.vaPaTi.vaPaTi.service.report;
 
 import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
 import com.vaPaTi.vaPaTi.dtos.report.ReportDTO;

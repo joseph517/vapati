@@ -5,7 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.report.ReportDTO;
 import com.vaPaTi.vaPaTi.dtos.report.ReportResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.report.ReportStatsDTO;
 import com.vaPaTi.vaPaTi.dtos.report.ReviewReportDTO;
-import com.vaPaTi.vaPaTi.service.ReportService;
+import com.vaPaTi.vaPaTi.service.report.ReportService;
 import com.vaPaTi.vaPaTi.validation.common.SortValidationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

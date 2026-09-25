@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.controller;
 import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.category.UpdateCategoryDTO;
-import com.vaPaTi.vaPaTi.service.CategoryService;
+import com.vaPaTi.vaPaTi.service.category.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

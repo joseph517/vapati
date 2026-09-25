@@ -4,7 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignStatusHistoryResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.service.CampaignService;
+import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
