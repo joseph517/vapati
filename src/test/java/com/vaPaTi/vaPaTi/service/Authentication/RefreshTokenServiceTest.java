@@ -119,7 +119,7 @@ class RefreshTokenServiceTest {
         // Given
         stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -143,10 +143,11 @@ class RefreshTokenServiceTest {
         InOrder inOrder = inOrder(jwtService, tokenBlackListService, userRepository);
         inOrder.verify(jwtService).isRefreshToken(validRefreshToken);
         inOrder.verify(tokenBlackListService).isTokenRevoked(refreshJti);
-        inOrder.verify(userRepository).findById(activeUser.getId());
+        inOrder.verify(userRepository).findByIdForRequest(activeUser.getId());
         inOrder.verify(tokenBlackListService).revokeToken(refreshJti, refreshExpiration);
         inOrder.verify(jwtService).generateToken(activeUser);
         inOrder.verify(jwtService).generateRefreshToken(activeUser);
+        verify(userRepository, never()).findById(any());
     }
 
     @Test
@@ -249,9 +250,9 @@ class RefreshTokenServiceTest {
     @Test
     @DisplayName("Should respond 401 (not 404) when the user is not found or deleted")
     void shouldThrowInvalidCredentialsWhenUserIsNotFound() {
-        // Given - findById doesn't return deleted users
+        // Given - findByIdForRequest doesn't return deleted users
         stubUsableRefreshToken(activeUser.getId());
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.empty());
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.empty());
 
         // When & Then
         InvalidCredentialsException exception = assertThrows(
@@ -261,6 +262,7 @@ class RefreshTokenServiceTest {
 
         assertEquals(INVALID_REFRESH_TOKEN_MSG, exception.getMessage());
         verify(tokenBlackListService, never()).revokeToken(any(), any());
+        verify(userRepository, never()).findById(any());
     }
 
     @Test
@@ -270,7 +272,7 @@ class RefreshTokenServiceTest {
         LocalDateTime tokensValidAfter = LocalDateTime.now();
         activeUser.setTokensValidAfter(tokensValidAfter);
         stubUsableRefreshToken(activeUser.getId());
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.isIssuedBefore(validRefreshToken, tokensValidAfter)).thenReturn(true);
 
         // When & Then
@@ -309,7 +311,7 @@ class RefreshTokenServiceTest {
         userInfo.setEmail("changed@example.com");
         stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -330,7 +332,7 @@ class RefreshTokenServiceTest {
         activeUser.setBanned(true);
         activeUser.setBannedReason("Spam");
         stubUsableRefreshToken(activeUser.getId());
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
         // When & Then
         ForbiddenActionException exception = assertThrows(
@@ -349,7 +351,7 @@ class RefreshTokenServiceTest {
         // Given
         activeUser.setSuspendedUntil(LocalDateTime.now().plusDays(3));
         stubUsableRefreshToken(activeUser.getId());
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
         // When & Then
         ForbiddenActionException exception = assertThrows(
@@ -367,7 +369,7 @@ class RefreshTokenServiceTest {
         // Given
         stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         doThrow(new DataIntegrityViolationException("Violation of UNIQUE KEY constraint"))
                 .when(tokenBlackListService).revokeToken(refreshJti, refreshExpiration);
 
@@ -422,7 +424,7 @@ class RefreshTokenServiceTest {
     void shouldThrowMessageExceptionWhenUserRepositoryThrowsException() {
         // Given
         stubUsableRefreshToken(activeUser.getId());
-        when(userRepository.findById(activeUser.getId()))
+        when(userRepository.findByIdForRequest(activeUser.getId()))
                 .thenThrow(new RuntimeException("Database connection error"));
 
         // When & Then
@@ -441,7 +443,7 @@ class RefreshTokenServiceTest {
         // Given
         stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser))
                 .thenThrow(new RuntimeException("Token generation error"));
 
@@ -461,7 +463,7 @@ class RefreshTokenServiceTest {
         // Given
         stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -471,7 +473,8 @@ class RefreshTokenServiceTest {
         // Then
         assertNotNull(result);
         assertEquals(activeUser.getId(), result.getUserInfo().userId);
-        verify(userRepository).findById(activeUser.getId());
+        verify(userRepository).findByIdForRequest(activeUser.getId());
+        verify(userRepository, never()).findById(any());
         verify(userRepository, never()).findAllWithDetails();
     }
 
@@ -481,7 +484,7 @@ class RefreshTokenServiceTest {
         // Given
         stubUsableRefreshToken(activeUser.getId());
         stubRotation();
-        when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+        when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
         when(jwtService.generateToken(activeUser)).thenReturn(newAccessToken);
         when(jwtService.generateRefreshToken(activeUser)).thenReturn(newRefreshToken);
 
@@ -576,7 +579,7 @@ class RefreshTokenServiceTest {
             String refreshToken = realJwtService.generateRefreshToken(activeUser);
             activeUser.setTokensValidAfter(LocalDateTime.now().plusSeconds(2));
             when(tokenBlackListService.isTokenRevoked(realJwtService.extractJti(refreshToken))).thenReturn(false);
-            when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+            when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
             InvalidCredentialsException exception = assertThrows(
                     InvalidCredentialsException.class,
@@ -593,7 +596,7 @@ class RefreshTokenServiceTest {
             String refreshToken = realJwtService.generateRefreshToken(activeUser);
             String jti = realJwtService.extractJti(refreshToken);
             when(tokenBlackListService.isTokenRevoked(jti)).thenReturn(false);
-            when(userRepository.findById(activeUser.getId())).thenReturn(Optional.of(activeUser));
+            when(userRepository.findByIdForRequest(activeUser.getId())).thenReturn(Optional.of(activeUser));
 
             AuthResponse result = realAuthService.refreshToken(refreshToken);
 

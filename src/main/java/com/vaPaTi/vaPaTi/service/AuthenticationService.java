@@ -83,8 +83,9 @@ public class AuthenticationService {
                 throw new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG);
             }
 
-            // findById doesn't see deleted accounts, so a deleted account gets 401 as well
-            User user = userRepository.findById(userId)
+            // findByIdForRequest doesn't see deleted accounts, so a deleted account gets 401 as well. It also brings
+            // userInfo and role in the same SELECT, which generateAuthResponse needs
+            User user = userRepository.findByIdForRequest(userId)
                     .orElseThrow(() -> new InvalidCredentialsException(INVALID_REFRESH_TOKEN_MSG));
 
             // Refresh tokens issued before the last email or password change are rejected
