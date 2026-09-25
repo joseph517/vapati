@@ -107,15 +107,15 @@ El flujo de producción es: build de la imagen → publicarla en Docker Hub → 
 
 ### 6. Publicar la imagen en Docker Hub
 
-Build y push manuales (no hay CI/CD automático):
+Automático con GitHub Actions ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)): `main` solo se actualiza con un PR `dev → main` (protegida, con los tests como check obligatorio). Cada merge publica `<usuario-dockerhub>/vapati:latest` y `:sha-<commit>`, y cada tag de git `vX.Y.Z` publica `:X.Y.Z` y `:X.Y`:
 
 ```bash
-docker build -t <usuario-dockerhub>/vapati:<tag> .
-docker login
-docker push <usuario-dockerhub>/vapati:<tag>
+git fetch origin
+git tag -a v1.1.0 origin/main -m "v1.1.0: <resumen>"
+git push origin v1.1.0
 ```
 
-Detalle completo, incluyendo cómo generar el access token y el troubleshooting de `docker login` en Linux: ver sección 1-3 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
+Configuración inicial (credenciales de Docker Hub en GitHub, creación de `main`, ruleset de protección), esquema de versiones y rollback: ver sección 7 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md). El build y push manuales siguen disponibles (secciones 1-3).
 
 ### 7. Desplegar en un servidor
 

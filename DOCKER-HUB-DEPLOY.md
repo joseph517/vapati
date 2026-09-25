@@ -1,6 +1,6 @@
 # Guía paso a paso: publicar en Docker Hub y desplegar en un servidor
 
-Esta guía es el detalle operativo completo (con troubleshooting) del flujo resumido en las secciones "Publicar la imagen en Docker Hub" y "Desplegar en un servidor" del [`README.md`](README.md). Pensada para ejecutarse manualmente, comando por comando.
+Esta guía es el detalle operativo completo (con troubleshooting) del flujo resumido en las secciones "Publicar la imagen en Docker Hub" y "Desplegar en un servidor" del [`README.md`](README.md). Las secciones 1-6 son el flujo manual, comando por comando. La sección 7 automatiza el build y push (secciones 2-3) con GitHub Actions: cada merge a `main` publica la imagen sola. La sección 8 describe cómo automatizar también el despliegue en el servidor (pendiente).
 
 ## 0. Requisitos previos
 
@@ -195,3 +195,215 @@ Para bajarlo **y borrar también el volumen de datos** (⚠️ irreversible, bor
 ```bash
 docker compose -f docker-compose.prod.yml down -v
 ```
+
+---
+
+## 7. Publicación automática con GitHub Actions
+
+El workflow [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml) reemplaza las secciones 2 y 3 (build y push manual). Ramas:
+
+- **`dev`**: desarrollo diario, igual que hasta ahora.
+- **`main`**: lo que está en producción. **Solo se actualiza con un Pull Request `dev → main`**, y cada merge publica una imagen nueva en Docker Hub.
+
+| Evento | Qué hace el workflow | Tags publicados en Docker Hub |
+|---|---|---|
+| Se abre/actualiza un PR hacia `main` | Corre los tests (`./mvnw -B test`), **no publica** | — |
+| Merge (push) a `main` | Tests → build → push | `latest`, `sha-<commit>` |
+| Push de un tag de git `vX.Y.Z` | Tests → build → push | `X.Y.Z`, `X.Y`, `sha-<commit>` |
+
+Si los tests fallan, la imagen **no** se publica. Los tests incluyen los de integración con Testcontainers: los runners de GitHub traen Docker, así que no hay que configurar nada extra.
+
+### 7.1. Configuración inicial (una sola vez)
+
+Hacé estos pasos **en orden**. Los pasos 1-2 tienen que estar listos antes del 4, porque crear `main` ya dispara la primera publicación.
+
+**Paso 1: access token de Docker Hub**
+
+Si ya tenés uno de la sección 1 podés reusarlo, pero conviene uno exclusivo para CI, así lo podés revocar sin afectar tu máquina: `hub.docker.com` → tu perfil → **Account Settings → Personal access tokens → Generate new token**. Nombre: `github-actions-vapati`, permisos **Read & Write**. Copialo: Docker Hub no lo vuelve a mostrar.
+
+**Paso 2: cargar las credenciales en GitHub**
+
+En el repo en GitHub: **Settings → Secrets and variables → Actions**. Esto requiere ser admin del repo.
+
+- Pestaña **Variables** → **New repository variable**:
+  - Name: `DOCKERHUB_USERNAME`
+  - Value: tu usuario de Docker Hub (ej. `joseph517`). La imagen se publica como `<DOCKERHUB_USERNAME>/vapati`.
+- Pestaña **Secrets** → **New repository secret**:
+  - Name: `DOCKERHUB_TOKEN`
+  - Value: el token del paso 1.
+
+> El usuario va como *variable* y no como *secret* a propósito: GitHub oculta los secrets en los logs como `***`, y el nombre de la imagen quedaría ilegible. El usuario no es sensible; el token sí.
+
+Verificá también en **Settings → Actions → General** que *Actions permissions* permita ejecutar acciones, sin bloquear las de terceros: el workflow usa `docker/*` y `actions/*`.
+
+**Paso 3: subir el workflow a `dev`**
+
+El archivo `.github/workflows/docker-publish.yml` tiene que estar commiteado en `dev` y pusheado (`git push origin dev`).
+
+**Paso 4: crear la rama `main` desde `dev`**
+
+```bash
+git fetch origin
+git push origin origin/dev:refs/heads/main
+```
+
+Esto crea `main` en GitHub apuntando al mismo commit que `dev`. Como es un push a `main`, **dispara la primera publicación**: en la pestaña **Actions** vas a ver el workflow corriendo. Cuando termine en verde, en `https://hub.docker.com/r/<usuario>/vapati/tags` deberían aparecer `latest` y `sha-xxxxxxx`.
+
+> `dev` sigue siendo la rama por defecto del repo, y está bien: los PRs de features siguen apuntando a `dev`. No hace falta cambiarla.
+
+**Paso 5: proteger `main` (ruleset)**
+
+**Settings → Rules → Rulesets → New ruleset → New branch ruleset**:
+
+1. **Ruleset name**: `proteger-main`.
+2. **Enforcement status**: `Active`.
+3. **Bypass list**: vacía. Si querés que un admin pueda saltearla en una emergencia, agregá el rol *Repository admin*, pero lo ideal es que nadie la saltee.
+4. **Target branches** → **Add target** → **Include by pattern** → `main`.
+5. **Rules**, marcar:
+   - ✅ **Restrict deletions**: nadie puede borrar `main`.
+   - ✅ **Require a pull request before merging**:
+     - *Required approvals*: `0` si trabajás solo; `1` si hay otra persona que revise. Con `1`, el autor del PR no puede aprobarse a sí mismo.
+     - *Allowed merge methods*: dejá **solo `Merge`** (merge commit), ver la nota de abajo.
+   - ✅ **Require status checks to pass**:
+     - **Add checks** → buscá `Tests`, que es el nombre del job del workflow. GitHub solo lo sugiere si ya corrió al menos una vez en el repo. Si no aparece, abrí un PR de prueba `dev → main` para que corra y volvé a este paso.
+   - ✅ **Block force pushes**.
+6. **Create**.
+
+Con esto, un `git push origin main` directo es rechazado, y el botón de merge de un PR queda deshabilitado mientras los tests no pasen.
+
+> **Por qué solo "Merge" y no "Squash" ni "Rebase"**: squash y rebase crean en `main` commits nuevos que no existen en `dev`. En el siguiente PR `dev → main`, GitHub ve historias distintas y aparecen conflictos o commits "duplicados". Con merge commit, `main` siempre es un ancestro de `dev` y cada PR trae exactamente lo nuevo.
+
+### 7.2. Flujo del día a día: publicar a producción
+
+1. Trabajás en `dev` como siempre (features, PRs de features hacia `dev`).
+2. Cuando querés publicar: en GitHub, **Pull requests → New pull request** → *base:* `main` ← *compare:* `dev` → **Create pull request**.
+3. En el PR corre el check **Tests**. Si falla, arreglás en `dev` y pusheás: el PR se actualiza y el check se vuelve a correr.
+4. Con el check en verde → **Merge pull request** (merge commit).
+5. El merge dispara el workflow en `main`: tests → build → push de `latest` y `sha-<commit>`. Lo seguís en la pestaña **Actions**. Tarda unos minutos, más la primera vez porque no hay caché.
+6. Verificás el tag nuevo en Docker Hub.
+
+> Un **Rerun** de un workflow viejo en `main` vuelve a publicar ese código viejo como `latest`. Si necesitás volver atrás, preferí el rollback por tag (sección 7.4).
+
+### 7.3. Versiones con tags de git (`vX.Y.Z`)
+
+`latest` siempre apunta al último merge a `main`, así que no sirve para saber qué versión corre en el servidor ni para volver atrás. Para eso se publican versiones con nombre, creando un **tag de git** sobre un commit de `main`.
+
+**Esquema de versiones ([SemVer](https://semver.org/lang/es/))**: `vMAYOR.MENOR.PARCHE`
+
+- **PARCHE** (`v1.2.0 → v1.2.1`): corrección de bugs, sin cambios en la API.
+- **MENOR** (`v1.2.1 → v1.3.0`): funcionalidad nueva compatible (endpoints nuevos, campos nuevos opcionales).
+- **MAYOR** (`v1.3.0 → v2.0.0`): cambios que rompen a los clientes (endpoints que cambian o desaparecen, cambios de contrato).
+
+**Cómo crear una versión**, después de mergear el PR `dev → main`:
+
+```bash
+# 1. Traer main actualizado
+git fetch origin
+
+# 2. Ver cuál fue la última versión, para decidir el número siguiente
+git tag --list 'v*' --sort=-v:refname | head -5
+
+# 3. Crear el tag (anotado, con mensaje) sobre el último commit de main
+git tag -a v1.1.0 origin/main -m "v1.1.0: optimización de queries con JOIN FETCH"
+
+# 4. Subir el tag: esto dispara el workflow
+git push origin v1.1.0
+```
+
+Resultado en Docker Hub: `<usuario>/vapati:1.1.0`, `<usuario>/vapati:1.1` y `<usuario>/vapati:sha-<commit>`. La `v` del tag de git **no** aparece en el tag de la imagen: `v1.1.0` → `1.1.0`, que es la convención de Docker.
+
+Reglas importantes:
+
+- **Tagueá siempre sobre `origin/main`**, nunca sobre `dev` ni sobre un commit local. Así la versión es exactamente lo que se mergeó y se probó en el PR.
+- **El formato tiene que ser `vX.Y.Z` con los tres números.** `v1.1` o `version-1` no disparan el workflow.
+- **Un tag publicado no se mueve ni se reutiliza.** Si `v1.1.0` salió con un bug, se arregla en `dev`, se mergea a `main` y se publica `v1.1.1`.
+- `1.1` (el tag *MAYOR.MENOR*) sí se mueve: siempre apunta al último parche de esa versión. Si en el servidor ponés `IMAGE_TAG=1.1`, recibís parches automáticamente sin saltar a `1.2`.
+- Si te equivocaste al crear un tag y **todavía no lo pusheaste**: `git tag -d v1.1.0` y lo volvés a crear.
+
+> El `.env.production` actual usa `IMAGE_TAG=v1.0`, que se publicó a mano con la `v`. Las versiones que publique el workflow no llevan `v` (`1.1.0`), así que al actualizar el servidor usá `IMAGE_TAG=1.1.0`.
+
+### 7.4. Qué tag usar en el servidor y cómo hacer rollback
+
+En el `.env` del servidor (sección 4.1):
+
+- `IMAGE_TAG=1.1.0`: **recomendado para producción.** Versión fija; el servidor solo cambia cuando vos editás este valor.
+- `IMAGE_TAG=latest`: siempre el último merge a `main`. Cómodo, pero no sabés qué versión exacta corre y no podés volver atrás cambiando un número.
+
+**Rollback** (volver a la versión anterior si la nueva falla):
+
+```bash
+# En el servidor, editar .env: IMAGE_TAG=1.0.0 (la versión anterior que andaba)
+docker compose -f docker-compose.prod.yml pull app
+docker compose -f docker-compose.prod.yml up -d app
+```
+
+Si el commit malo no tenía versión, usá su tag `sha-<commit>`: en Docker Hub cada imagen publicada tiene uno, y en GitHub se ve el commit que corresponde a cada `sha-`.
+
+> ⚠️ El rollback de la imagen **no revierte cambios en la base de datos**. Si la versión nueva modificó el esquema (`schema.sql`/`data.sql`), revisá que la versión anterior siga siendo compatible.
+
+### 7.5. Troubleshooting
+
+- **El workflow falla en "Login to Docker Hub" con `unauthorized`**: el token es incorrecto, expiró o es de solo lectura, o `DOCKERHUB_USERNAME` no coincide con el dueño del token. Regenerá el token (Read & Write) y actualizá el secret.
+- **Falla en "Docker meta" o el push con `invalid reference format`**: la variable `DOCKERHUB_USERNAME` no existe o se cargó como *secret* en lugar de *variable*. Revisá la pestaña **Variables**.
+- **El push de un tag no dispara nada**: el tag no cumple el formato `vX.Y.Z`.
+- **No puedo mergear el PR y dice que falta el check `Tests`**: el ruleset exige un check que todavía no corrió en ese PR. Pusheá un commit a `dev` o usá **Re-run jobs** en la pestaña Checks del PR.
+
+---
+
+## 8. (Pendiente) Despliegue automático en el servidor
+
+Hoy el workflow solo **publica** la imagen; el servidor sigue actualizándose a mano (sección 4.4: `pull` + `up -d`). Hay dos formas de automatizar ese último paso.
+
+### Opción A (recomendada): GitHub Actions entra al servidor por SSH
+
+Se agrega un tercer job `deploy` al mismo workflow, que corre después de `publish`:
+
+1. **En el servidor**: crear un usuario de deploy (ej. `deploy`) que pertenezca al grupo `docker`, y generar un par de claves SSH exclusivo para GitHub:
+
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions-vapati" -f ~/.ssh/github_actions -N ""
+   cat ~/.ssh/github_actions.pub >> /home/deploy/.ssh/authorized_keys
+   ```
+
+2. **En GitHub**: crear un *Environment* `production` (**Settings → Environments → New environment**) con sus secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY` (contenido de `~/.ssh/github_actions`) y opcionalmente `SSH_PORT`. En el environment se puede activar **Required reviewers**: el deploy queda en pausa hasta que alguien lo aprueba desde la pestaña Actions. Así la imagen se publica sola, pero el servidor solo se toca con un clic de confirmación.
+
+3. **El job** hace, en esencia:
+
+   ```yaml
+   deploy:
+     needs: publish
+     if: startsWith(github.ref, 'refs/tags/v')   # solo deploya versiones, no cada merge
+     runs-on: ubuntu-latest
+     environment: production
+     steps:
+       - name: Deploy por SSH
+         uses: appleboy/ssh-action@v1
+         with:
+           host: ${{ secrets.SSH_HOST }}
+           username: ${{ secrets.SSH_USER }}
+           key: ${{ secrets.SSH_PRIVATE_KEY }}
+           script: |
+             cd /ruta/de/despliegue
+             TAG='${{ github.ref_name }}'
+             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${TAG#v}/" .env
+             docker compose -f docker-compose.prod.yml pull app
+             docker compose -f docker-compose.prod.yml up -d app
+             docker image prune -f
+   ```
+
+   GitHub reemplaza `${{ github.ref_name }}` por el tag (ej. `v1.1.0`) antes de mandar el script al servidor, y `${TAG#v}` le quita la `v`. El `sed` actualiza `IMAGE_TAG` en el `.env` del servidor con esa versión, así el `.env` siempre refleja lo que corre y el rollback de la sección 7.4 sigue funcionando igual.
+
+   > Este bloque es orientativo: antes de activarlo, revisá la versión vigente de `appleboy/ssh-action`.
+
+**Requisitos**: el servidor tiene que ser accesible por SSH desde internet (los runners de GitHub usan IPs dinámicas), y el puerto SSH no debería quedar con autenticación por password.
+
+### Opción B: Watchtower en el servidor
+
+Watchtower (o una herramienta equivalente) es un contenedor que corre en el servidor, consulta Docker Hub cada N minutos y, si la imagen del tag configurado cambió, la baja y reinicia el contenedor.
+
+- **Ventaja**: no hace falta abrir SSH ni cargar credenciales del servidor en GitHub.
+- **Desventajas**: solo tiene sentido con un tag que se mueve (`latest` o `1.1`), no con una versión fija. Actualiza sin aprobación ni aviso. El delay depende del intervalo de consulta. Y el `.env` no refleja qué versión corre.
+
+Antes de elegirla, revisá que el proyecto que uses siga mantenido.
+
+Para un único servidor con releases por versión, la **opción A** da más control (aprobación, versión fija, rollback claro). La B sirve para un entorno de staging que siempre siga a `latest`.
