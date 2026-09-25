@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.verification;
 
 import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.verification.VerificationStatusResponseDTO;

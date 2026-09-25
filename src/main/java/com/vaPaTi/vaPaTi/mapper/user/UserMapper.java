@@ -1,10 +1,11 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.user;
 
 import com.vaPaTi.vaPaTi.dtos.user.PublicUserProfileDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserCategory;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 

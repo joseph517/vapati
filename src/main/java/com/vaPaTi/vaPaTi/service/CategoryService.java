@@ -7,7 +7,7 @@ import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
+import com.vaPaTi.vaPaTi.mapper.category.CategoryMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
 import jakarta.transaction.Transactional;

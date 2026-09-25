@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;

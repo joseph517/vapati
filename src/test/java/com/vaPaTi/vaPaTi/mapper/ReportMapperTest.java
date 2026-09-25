@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
 import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.mapper.report.ReportMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

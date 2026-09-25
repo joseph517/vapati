@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignStatusHistoryResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatusHistory;

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.user;
 
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserInfoDTO;

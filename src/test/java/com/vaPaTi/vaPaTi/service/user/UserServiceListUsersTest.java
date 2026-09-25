@@ -6,7 +6,7 @@ import com.vaPaTi.vaPaTi.dtos.user.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
-import com.vaPaTi.vaPaTi.mapper.UserMapper;
+import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.service.UserService;
 import org.junit.jupiter.api.BeforeEach;

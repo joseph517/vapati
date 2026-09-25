@@ -8,7 +8,7 @@ import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.mapper.VerificationRequestMapper;
+import com.vaPaTi.vaPaTi.mapper.verification.VerificationRequestMapper;
 import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
 import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
 import lombok.RequiredArgsConstructor;

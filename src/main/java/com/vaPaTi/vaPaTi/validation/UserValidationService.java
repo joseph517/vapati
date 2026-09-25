@@ -10,7 +10,7 @@ import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;
+import com.vaPaTi.vaPaTi.mapper.user.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserInfoRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;

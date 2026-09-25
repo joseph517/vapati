@@ -10,7 +10,7 @@ import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.User;
-import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
+import com.vaPaTi.vaPaTi.mapper.campaign.CampaignMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;

@@ -5,7 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.category.UpdateCategoryDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
-import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
+import com.vaPaTi.vaPaTi.mapper.category.CategoryMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
 import org.junit.jupiter.api.BeforeEach;

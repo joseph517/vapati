@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.mapper;
+package com.vaPaTi.vaPaTi.mapper.report;
 
 import com.vaPaTi.vaPaTi.dtos.report.ReportDTO;
 import com.vaPaTi.vaPaTi.entity.report.Report;
