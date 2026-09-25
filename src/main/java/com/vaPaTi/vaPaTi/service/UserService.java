@@ -17,6 +17,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -42,10 +43,26 @@ public class UserService {
                 .toList();
     }
 
-    // pagination method
+    // Two steps: the ids of the page are paginated in SQL, then those users are loaded with their collections.
+    // Fetching the collections in the paginated query made Hibernate paginate in memory (HHH90003004)
     public Page<UserDTO> listUsersWithPagination(Pageable pageable) {
-        Page<User> users = userRepository.findAllWithDetails(pageable);
-        return users.map(userMapper::toUserDTO);
+        Page<Long> ids = userRepository.findPageOfIds(pageable);
+        if (!ids.hasContent()) {
+            return new PageImpl<>(List.of(), pageable, ids.getTotalElements());
+        }
+
+        Map<Long, User> usersById = new HashMap<>();
+        for (User user : userRepository.findAllWithDetailsByIdIn(ids.getContent())) {
+            usersById.put(user.getId(), user);
+        }
+
+        // Keeps the order of the page. A user deleted between both queries is skipped
+        List<UserDTO> users = ids.getContent().stream()
+                .map(usersById::get)
+                .filter(Objects::nonNull)
+                .map(userMapper::toUserDTO)
+                .toList();
+        return new PageImpl<>(users, pageable, ids.getTotalElements());
     }
 
     @Transactional

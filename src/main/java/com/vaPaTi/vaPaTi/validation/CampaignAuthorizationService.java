@@ -44,9 +44,7 @@ public class CampaignAuthorizationService {
         if (userId == null) {
             return false;
         }
-        return userRepository.findById(userId)
-                .map(this::hasAdminRole)
-                .orElse(false);
+        return userRepository.existsByIdAndRole_Name(userId, ADMIN_ROLE);
     }
 
     private boolean hasAdminRole(User user) {

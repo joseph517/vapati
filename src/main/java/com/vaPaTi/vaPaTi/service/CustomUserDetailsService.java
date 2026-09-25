@@ -32,14 +32,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     }
 
     // Used by the JWT filter on every request, with the user id from the token subject. No side effects:
-    // findById doesn't see deleted accounts, so they are rejected, never restored.
+    // findByIdForRequest doesn't see deleted accounts, so they are rejected, never restored.
     // Ban/suspension is checked by the filter itself, since it answers 403 instead of 401.
     @Transactional
     public RequestUser loadUserForRequest(Long userId) throws UsernameNotFoundException {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForRequest(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
 
-        // Built inside the transaction: userInfo and role are lazy
+        // userInfo and role come from the entity graph of findByIdForRequest
         return new RequestUser(user, toUserDetails(user));
     }
 

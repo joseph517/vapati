@@ -30,11 +30,15 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class CampaignService {
+
+    private static final int CATEGORY_QUERY_CHUNK_SIZE = 1000;
 
     private final CampaignRepository campaignRepository;
     private final AuthenticatedUserService authenticatedUserService;
@@ -48,15 +52,14 @@ public class CampaignService {
     private final EntityManager entityManager;
 
     // Public listings: admins see every campaign, everyone else (anonymous included) only their own CLOSED ones
+    @Transactional
     public List<CampaignResponseDTO> getAllCampaigns() {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findAllWithActiveOwner()
                 : campaignRepository.findAllVisibleTo(callerId);
 
-        return campaigns.stream()
-                .map(this::toResponseDTOWithCategories)
-                .toList();
+        return toResponseDTOsWithCategories(campaigns);
     }
 
     public CampaignResponseDTO getCampaignById(Long campaignId) {
@@ -66,14 +69,13 @@ public class CampaignService {
         return toResponseDTOWithCategories(campaign);
     }
 
+    @Transactional
     public List<CampaignResponseDTO> getCampaignsByAuthenticatedUser() {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
-        List<Campaign> campaigns = campaignRepository.findByUserId(userId);
+        List<Campaign> campaigns = campaignRepository.findByUserIdWithDetails(userId);
 
-        return campaigns.stream()
-                .map(this::toResponseDTOWithCategories)
-                .toList();
+        return toResponseDTOsWithCategories(campaigns);
     }
 
     private CampaignResponseDTO toResponseDTOWithCategories(Campaign campaign) {
@@ -81,6 +83,32 @@ public class CampaignService {
         return CampaignMapper.toResponseDTO(campaign, campaignCategories);
     }
 
+    // Listings: the categories of every campaign in one query per chunk instead of one per campaign. Keeps the input order
+    private List<CampaignResponseDTO> toResponseDTOsWithCategories(List<Campaign> campaigns) {
+        // SQL Server rejects IN ()
+        if (campaigns.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> campaignIds = campaigns.stream().map(Campaign::getId).toList();
+        Map<Long, List<CampaignCategory>> categoriesByCampaignId = new HashMap<>();
+        // SQL Server accepts up to 2100 parameters per query
+        for (int from = 0; from < campaignIds.size(); from += CATEGORY_QUERY_CHUNK_SIZE) {
+            List<Long> chunk = campaignIds.subList(from, Math.min(from + CATEGORY_QUERY_CHUNK_SIZE, campaignIds.size()));
+            for (CampaignCategory campaignCategory : campaignCategoryRepository.findByCampaignIdIn(chunk)) {
+                categoriesByCampaignId
+                        .computeIfAbsent(campaignCategory.getCampaign().getId(), id -> new ArrayList<>())
+                        .add(campaignCategory);
+            }
+        }
+
+        return campaigns.stream()
+                .map(campaign -> CampaignMapper.toResponseDTO(campaign,
+                        categoriesByCampaignId.getOrDefault(campaign.getId(), List.of())))
+                .toList();
+    }
+
+    @Transactional
     public List<CampaignResponseDTO> getCampaignsByStatus(String status) {
         CampaignStatus campaignStatus = campaignServiceValidation.parseStatus(status);
 
@@ -89,20 +117,17 @@ public class CampaignService {
                 ? campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus)
                 : campaignRepository.findByGoalStatusVisibleTo(campaignStatus, callerId);
 
-        return campaigns.stream()
-                .map(this::toResponseDTOWithCategories)
-                .toList();
+        return toResponseDTOsWithCategories(campaigns);
     }
 
+    @Transactional
     public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findByCategoryIdWithActiveOwner(categoryId)
                 : campaignRepository.findByCategoryIdVisibleTo(categoryId, callerId);
 
-        return campaigns.stream()
-                .map(this::toResponseDTOWithCategories)
-                .toList();
+        return toResponseDTOsWithCategories(campaigns);
     }
 
     @Transactional
