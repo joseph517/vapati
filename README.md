@@ -107,7 +107,7 @@ El flujo de producción es: build de la imagen → publicarla en Docker Hub → 
 
 ### 6. Publicar la imagen en Docker Hub
 
-Automático con GitHub Actions ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)): `main` solo se actualiza con un PR `dev → main` (protegida, con los tests como check obligatorio). Cada merge publica `<usuario-dockerhub>/vapati:latest` y `:sha-<commit>`, y cada tag de git `vX.Y.Z` publica `:X.Y.Z` y `:X.Y`:
+Automático con GitHub Actions ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)): `main` solo se actualiza con un PR `dev → main` (protegida, con los tests como check obligatorio). Cada merge publica `<usuario-dockerhub>/vapati:latest`, y cada tag de git `vX.Y.Z` (creado después del merge, sobre el commit de `main`) publica `:X.Y.Z` y `:X.Y`:
 
 ```bash
 git fetch origin
