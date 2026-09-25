@@ -48,10 +48,11 @@ public interface CampaignRepository extends JpaRepository<Campaign, Long> {
             "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
     List<Campaign> findByCategoryIdVisibleTo(@Param("categoryId") Long categoryId, @Param("callerId") Long callerId);
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.id = :id")
+    // Single-campaign loads use the same fetches as the listings
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL AND c.id = :id")
     Optional<Campaign> findByIdWithActiveOwner(@Param("id") Long id);
 
-    @Query("SELECT c FROM Campaign c JOIN c.user u WHERE u.deletedAt IS NULL AND c.id = :id " +
+    @Query("SELECT c FROM Campaign c " + LISTING_FETCH + "WHERE u.deletedAt IS NULL AND c.id = :id " +
             "AND (c.goal.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED OR u.id = :callerId)")
     Optional<Campaign> findByIdVisibleTo(@Param("id") Long id, @Param("callerId") Long callerId);
 

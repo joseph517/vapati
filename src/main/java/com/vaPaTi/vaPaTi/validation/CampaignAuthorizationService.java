@@ -26,7 +26,8 @@ public class CampaignAuthorizationService {
         Campaign campaign = campaignRepository.findByIdWithActiveOwner(campaignId)
                 .orElseThrow(() -> new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId));
 
-        User user = userRepository.findById(userId)
+        // findByIdForRequest brings the role in the same SELECT, so hasAdminRole doesn't query roles
+        User user = userRepository.findByIdForRequest(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         boolean isOwner = campaign.getUser().getId().equals(userId);

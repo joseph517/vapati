@@ -12,7 +12,8 @@ import java.util.List;
 
 @Repository
 public interface CampaignCategoryRepository extends JpaRepository<CampaignCategory, Long> {
-    List<CampaignCategory> findByCampaignId(Long campaignId);
+    @Query("SELECT cc FROM CampaignCategory cc JOIN FETCH cc.category WHERE cc.campaign.id = :campaignId")
+    List<CampaignCategory> findByCampaignId(@Param("campaignId") Long campaignId);
 
     // Categories of a whole listing in one SELECT. cc.campaign comes from the persistence context: the campaigns were
     // loaded earlier in the same transaction
