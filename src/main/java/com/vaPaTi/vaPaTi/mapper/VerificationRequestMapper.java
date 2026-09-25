@@ -2,9 +2,9 @@ package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.CreateVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.VerificationStatusResponseDTO;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.VerificationRequest;
-import com.vaPaTi.vaPaTi.validation.VerificationStatus;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 

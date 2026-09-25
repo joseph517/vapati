@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.service.Authentication;
 
 import com.vaPaTi.vaPaTi.dtos.AuthResponse;
-import com.vaPaTi.vaPaTi.entity.Role;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.Role;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;

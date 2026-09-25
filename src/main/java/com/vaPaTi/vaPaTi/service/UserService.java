@@ -1,10 +1,10 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.*;
-import com.vaPaTi.vaPaTi.entity.Category;
-import com.vaPaTi.vaPaTi.entity.Role;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.category.Category;
+import com.vaPaTi.vaPaTi.entity.user.Role;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;

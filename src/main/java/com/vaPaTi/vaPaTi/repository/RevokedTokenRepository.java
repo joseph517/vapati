@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.repository;
 
-import com.vaPaTi.vaPaTi.entity.RevokedToken;
+import com.vaPaTi.vaPaTi.entity.auth.RevokedToken;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

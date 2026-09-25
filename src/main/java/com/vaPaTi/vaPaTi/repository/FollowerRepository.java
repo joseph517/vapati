@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.repository;
 
-import com.vaPaTi.vaPaTi.entity.Follower;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.follower.Follower;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

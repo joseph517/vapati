@@ -2,8 +2,8 @@ package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
-import com.vaPaTi.vaPaTi.entity.Publication;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;

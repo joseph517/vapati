@@ -1,6 +1,7 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.donation;
 
-import com.vaPaTi.vaPaTi.validation.DonationStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.entity.Follower;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.follower.Follower;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;

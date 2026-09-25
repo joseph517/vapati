@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

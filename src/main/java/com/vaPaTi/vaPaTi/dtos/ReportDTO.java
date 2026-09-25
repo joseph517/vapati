@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.entity.ActionTaken;
-import com.vaPaTi.vaPaTi.entity.ReportReason;
-import com.vaPaTi.vaPaTi.entity.ReportStatus;
-import com.vaPaTi.vaPaTi.entity.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.report.ActionTaken;
+import com.vaPaTi.vaPaTi.entity.report.ReportReason;
+import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

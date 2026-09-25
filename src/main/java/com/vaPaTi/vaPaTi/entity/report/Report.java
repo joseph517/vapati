@@ -1,5 +1,6 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.report;
 
+import com.vaPaTi.vaPaTi.entity.user.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

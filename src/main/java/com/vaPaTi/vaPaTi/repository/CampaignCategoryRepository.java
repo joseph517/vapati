@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.repository;
 
-import com.vaPaTi.vaPaTi.entity.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

@@ -1,6 +1,7 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.verification;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.repository;
 
-import com.vaPaTi.vaPaTi.entity.Goal;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -18,13 +18,13 @@ public interface GoalRepository extends JpaRepository<Goal, Long> {
     // @UpdateTimestamp/@PreUpdate, so updatedAt is set here.
     @Modifying(flushAutomatically = true)
     @Query("UPDATE Goal g SET g.amountRaised = g.amountRaised + :amount, g.updatedAt = :now "
-            + "WHERE g.id = :goalId AND g.status <> com.vaPaTi.vaPaTi.entity.CampaignStatus.CLOSED")
+            + "WHERE g.id = :goalId AND g.status <> com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus.CLOSED")
     int addToAmountRaised(@Param("goalId") Long goalId, @Param("amount") BigDecimal amount, @Param("now") LocalDateTime now);
 
     // Returns 1 only for the donation that moved the goal from ACTIVE to COMPLETED
     @Modifying(flushAutomatically = true)
-    @Query("UPDATE Goal g SET g.status = com.vaPaTi.vaPaTi.entity.CampaignStatus.COMPLETED, g.updatedAt = :now "
-            + "WHERE g.id = :goalId AND g.status = com.vaPaTi.vaPaTi.entity.CampaignStatus.ACTIVE "
+    @Query("UPDATE Goal g SET g.status = com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus.COMPLETED, g.updatedAt = :now "
+            + "WHERE g.id = :goalId AND g.status = com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus.ACTIVE "
             + "AND g.amountRaised >= g.amountGoal")
     int completeIfGoalReached(@Param("goalId") Long goalId, @Param("now") LocalDateTime now);
 }

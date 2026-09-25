@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.auth;
 
 import jakarta.persistence.*;
 import lombok.Data;

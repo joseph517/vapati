@@ -1,6 +1,8 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.entity.report.Report;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;

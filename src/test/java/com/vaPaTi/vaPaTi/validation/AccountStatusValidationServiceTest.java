@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.service;
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCategoryDTO;
-import com.vaPaTi.vaPaTi.entity.Category;
+import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.CategoryMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;

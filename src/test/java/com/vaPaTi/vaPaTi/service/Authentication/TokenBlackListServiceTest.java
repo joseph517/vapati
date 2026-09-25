@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.service.Authentication;
 
-import com.vaPaTi.vaPaTi.entity.RevokedToken;
+import com.vaPaTi.vaPaTi.entity.auth.RevokedToken;
 import com.vaPaTi.vaPaTi.repository.RevokedTokenRepository;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
 import org.junit.jupiter.api.BeforeEach;

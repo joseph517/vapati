@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

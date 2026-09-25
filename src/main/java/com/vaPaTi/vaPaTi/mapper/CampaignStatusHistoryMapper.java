@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.CampaignStatusHistoryResponseDTO;
-import com.vaPaTi.vaPaTi.entity.CampaignStatusHistory;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatusHistory;
 
 public class CampaignStatusHistoryMapper {
 

@@ -1,11 +1,11 @@
 package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.DonationResponseDTO;
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.Donation;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
-import com.vaPaTi.vaPaTi.validation.DonationStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.donation.Donation;
+import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.repository;
 
-import com.vaPaTi.vaPaTi.entity.Category;
+import com.vaPaTi.vaPaTi.entity.category.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

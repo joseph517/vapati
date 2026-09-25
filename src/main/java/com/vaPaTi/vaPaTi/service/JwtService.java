@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.dtos.UserTokenData;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;

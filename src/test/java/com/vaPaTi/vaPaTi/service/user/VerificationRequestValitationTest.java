@@ -1,12 +1,12 @@
 package com.vaPaTi.vaPaTi.service.user;
 
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.VerificationRequest;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.repository.VerificationRequestRepository;
 import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
-import com.vaPaTi.vaPaTi.validation.VerificationStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

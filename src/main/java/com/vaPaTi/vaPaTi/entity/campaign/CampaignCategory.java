@@ -1,5 +1,6 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.campaign;
 
+import com.vaPaTi.vaPaTi.entity.category.Category;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.NotFound;

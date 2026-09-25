@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.entity.donation;
 
 public enum DonationStatus {
     PENDING,

@@ -1,7 +1,8 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.VerificationRequest;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;

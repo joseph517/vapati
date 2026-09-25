@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.ReportDTO;
-import com.vaPaTi.vaPaTi.entity.Report;
+import com.vaPaTi.vaPaTi.entity.report.Report;
 import org.springframework.stereotype.Component;
 
 @Component

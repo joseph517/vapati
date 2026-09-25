@@ -2,8 +2,8 @@ package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.CreateBankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateBankAccountDTO;
-import com.vaPaTi.vaPaTi.entity.BankAccount;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;

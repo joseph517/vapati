@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.service.user;
 
 import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;

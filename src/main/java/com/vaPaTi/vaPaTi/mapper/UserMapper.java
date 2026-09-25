@@ -2,9 +2,9 @@ package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.PublicUserProfileDTO;
 import com.vaPaTi.vaPaTi.dtos.UserDTO;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserCategory;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserCategory;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 

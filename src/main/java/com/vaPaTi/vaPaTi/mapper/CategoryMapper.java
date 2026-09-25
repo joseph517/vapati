@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.mapper;
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCategoryDTO;
-import com.vaPaTi.vaPaTi.entity.Category;
+import com.vaPaTi.vaPaTi.entity.category.Category;
 import org.springframework.stereotype.Component;
 
 @Component

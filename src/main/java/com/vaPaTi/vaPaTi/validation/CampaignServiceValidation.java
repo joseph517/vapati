@@ -1,10 +1,10 @@
 package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
-import com.vaPaTi.vaPaTi.entity.Category;
-import com.vaPaTi.vaPaTi.entity.Goal;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
+import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;

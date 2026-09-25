@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.repository;
 
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.Donation;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.validation.DonationStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.donation.Donation;
+import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -1,5 +1,6 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.follower;
 
+import com.vaPaTi.vaPaTi.entity.user.User;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;

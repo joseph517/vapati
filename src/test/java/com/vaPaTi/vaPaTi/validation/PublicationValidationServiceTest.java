@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.entity.Publication;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;

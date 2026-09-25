@@ -4,12 +4,12 @@ import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.CampaignCategory;
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
-import com.vaPaTi.vaPaTi.entity.Category;
-import com.vaPaTi.vaPaTi.entity.Goal;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
+import com.vaPaTi.vaPaTi.entity.category.Category;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.mapper.CampaignMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
@@ -610,7 +610,7 @@ class CampaignServiceTest {
         @DisplayName("Should validate category ids and create a CampaignCategory per id")
         void createCampaign_WithValidCategoryIds_ShouldCreateCampaignCategories() {
             // Given
-            com.vaPaTi.vaPaTi.entity.Category category1 = new com.vaPaTi.vaPaTi.entity.Category();
+            com.vaPaTi.vaPaTi.entity.category.Category category1 = new com.vaPaTi.vaPaTi.entity.category.Category();
             category1.setId(1L);
             Campaign savedCampaign = createTestCampaign(TEST_CAMPAIGN_ID, "New Campaign");
 
@@ -792,7 +792,7 @@ class CampaignServiceTest {
             when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
-            com.vaPaTi.vaPaTi.entity.Category newCategory = new com.vaPaTi.vaPaTi.entity.Category();
+            com.vaPaTi.vaPaTi.entity.category.Category newCategory = new com.vaPaTi.vaPaTi.entity.category.Category();
             newCategory.setId(2L);
             updateCampaignDTO.setCategoryIds(List.of(2L));
             when(campaignServiceValidation.validateAndGetCategories(updateCampaignDTO.getCategoryIds()))

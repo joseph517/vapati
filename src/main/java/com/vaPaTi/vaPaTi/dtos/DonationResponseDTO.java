@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.validation.DonationStatus;
+import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

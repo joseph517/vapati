@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.DonationResponseDTO;
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.Donation;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.donation.Donation;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

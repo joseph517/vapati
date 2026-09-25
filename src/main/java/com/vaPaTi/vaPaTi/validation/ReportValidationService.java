@@ -1,7 +1,12 @@
 package com.vaPaTi.vaPaTi.validation;
 
 import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
-import com.vaPaTi.vaPaTi.entity.*;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.report.ActionTaken;
+import com.vaPaTi.vaPaTi.entity.report.Report;
+import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;

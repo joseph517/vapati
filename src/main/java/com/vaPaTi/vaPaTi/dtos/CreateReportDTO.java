@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.entity.ReportReason;
-import com.vaPaTi.vaPaTi.entity.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.report.ReportReason;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;

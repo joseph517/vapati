@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 
 import java.time.LocalDateTime;
 

@@ -1,12 +1,12 @@
 package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.ReportDTO;
-import com.vaPaTi.vaPaTi.entity.Report;
-import com.vaPaTi.vaPaTi.entity.ReportReason;
-import com.vaPaTi.vaPaTi.entity.ReportStatus;
-import com.vaPaTi.vaPaTi.entity.ReportedEntityType;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.report.Report;
+import com.vaPaTi.vaPaTi.entity.report.ReportReason;
+import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

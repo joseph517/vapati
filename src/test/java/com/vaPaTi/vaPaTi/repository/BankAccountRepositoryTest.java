@@ -1,10 +1,10 @@
 package com.vaPaTi.vaPaTi.repository;
 
 import com.vaPaTi.vaPaTi.AbstractIntegrationTest;
-import com.vaPaTi.vaPaTi.entity.BankAccount;
-import com.vaPaTi.vaPaTi.entity.Role;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
+import com.vaPaTi.vaPaTi.entity.user.Role;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;

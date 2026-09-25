@@ -2,8 +2,8 @@ package com.vaPaTi.vaPaTi.service.user;
 
 import com.vaPaTi.vaPaTi.dtos.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateUserInfoDTO;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.UserInfoMapper;

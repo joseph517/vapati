@@ -2,9 +2,9 @@ package com.vaPaTi.vaPaTi.security;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vaPaTi.vaPaTi.entity.Role;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.Role;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
 import com.vaPaTi.vaPaTi.service.CustomUserDetailsService.RequestUser;
 import com.vaPaTi.vaPaTi.service.JwtService;

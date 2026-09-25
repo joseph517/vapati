@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.entity.ReportReason;
-import com.vaPaTi.vaPaTi.entity.ReportStatus;
-import com.vaPaTi.vaPaTi.entity.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.report.ReportReason;
+import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

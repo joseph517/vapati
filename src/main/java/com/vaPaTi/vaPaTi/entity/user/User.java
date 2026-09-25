@@ -1,6 +1,9 @@
-package com.vaPaTi.vaPaTi.entity;
+package com.vaPaTi.vaPaTi.entity.user;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;

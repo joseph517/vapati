@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.dtos;
 
-import com.vaPaTi.vaPaTi.validation.VerificationStatus;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import lombok.Data;
 
 import java.time.LocalDateTime;

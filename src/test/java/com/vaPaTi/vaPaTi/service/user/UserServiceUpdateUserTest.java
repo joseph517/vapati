@@ -2,8 +2,8 @@ package com.vaPaTi.vaPaTi.service.user;
 
 import com.vaPaTi.vaPaTi.dtos.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.UserDTO;
-import com.vaPaTi.vaPaTi.entity.Category;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.category.Category;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
 import com.vaPaTi.vaPaTi.repository.UserRepository;

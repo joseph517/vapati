@@ -3,11 +3,11 @@ package com.vaPaTi.vaPaTi.mapper;
 import com.vaPaTi.vaPaTi.dtos.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.CreateCampaignRequestDTO;
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.CampaignCategory;
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
-import com.vaPaTi.vaPaTi.entity.Goal;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import org.jetbrains.annotations.NotNull;
 
 import java.math.BigDecimal;

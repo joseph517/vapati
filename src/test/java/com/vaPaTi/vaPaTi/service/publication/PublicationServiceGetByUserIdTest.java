@@ -25,9 +25,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
-import com.vaPaTi.vaPaTi.entity.Publication;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;

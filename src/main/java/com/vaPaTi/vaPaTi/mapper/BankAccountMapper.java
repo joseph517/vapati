@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper;
 
 import com.vaPaTi.vaPaTi.dtos.BankAccountDTO;
-import com.vaPaTi.vaPaTi.entity.BankAccount;
+import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import org.springframework.stereotype.Component;
 
 @Component

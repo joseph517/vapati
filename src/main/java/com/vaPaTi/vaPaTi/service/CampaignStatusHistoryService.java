@@ -1,9 +1,9 @@
 package com.vaPaTi.vaPaTi.service;
 
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
-import com.vaPaTi.vaPaTi.entity.CampaignStatusHistory;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatusHistory;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import lombok.RequiredArgsConstructor;

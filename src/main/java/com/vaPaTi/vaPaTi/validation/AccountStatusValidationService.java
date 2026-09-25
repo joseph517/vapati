@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.validation;
 
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import org.springframework.stereotype.Service;
 
