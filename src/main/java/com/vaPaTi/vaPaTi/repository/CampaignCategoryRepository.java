@@ -12,14 +12,18 @@ import java.util.List;
 
 @Repository
 public interface CampaignCategoryRepository extends JpaRepository<CampaignCategory, Long> {
-    List<CampaignCategory> findByCampaignId(Long campaignId);
+    @Query("SELECT cc FROM CampaignCategory cc JOIN FETCH cc.category WHERE cc.campaign.id = :campaignId")
+    List<CampaignCategory> findByCampaignId(@Param("campaignId") Long campaignId);
 
     // Categories of a whole listing in one SELECT. cc.campaign comes from the persistence context: the campaigns were
     // loaded earlier in the same transaction
     @Query("SELECT cc FROM CampaignCategory cc JOIN FETCH cc.category WHERE cc.campaign.id IN :campaignIds")
     List<CampaignCategory> findByCampaignIdIn(@Param("campaignIds") Collection<Long> campaignIds);
 
-    void deleteByCampaignId(Long campaignId);
+    // Bulk delete: a derived delete would load every row (and its EAGER category) and delete them one by one
+    @Modifying
+    @Query("DELETE FROM CampaignCategory cc WHERE cc.campaign.id = :campaignId")
+    void deleteByCampaignId(@Param("campaignId") Long campaignId);
 
     @Modifying
     @Query("DELETE FROM CampaignCategory cc WHERE cc.category.id = :categoryId")

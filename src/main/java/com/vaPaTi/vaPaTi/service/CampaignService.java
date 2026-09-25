@@ -17,7 +17,6 @@ import com.vaPaTi.vaPaTi.mapper.CampaignStatusHistoryMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
-import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
@@ -46,7 +45,6 @@ public class CampaignService {
     private final CampaignServiceValidation campaignServiceValidation;
     private final CampaignAuthorizationService campaignAuthorizationService;
     private final CampaignCategoryRepository campaignCategoryRepository;
-    private final CategoryRepository categoryRepository;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
     private final EntityManager entityManager;
@@ -137,21 +135,21 @@ public class CampaignService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-        campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
+        List<Category> categories = campaignServiceValidation.validateAndGetCategories(dto.getCategoryIds());
 
         Campaign campaign = CampaignMapper.toEntity(dto, user);
 
         Campaign savedCampaign = campaignRepository.save(campaign);
 
-        saveCampaignCategories(savedCampaign, dto.getCategoryIds());
+        saveCampaignCategories(savedCampaign, categories);
 
         campaignStatusHistoryService.recordTransition(savedCampaign, null, CampaignStatus.ACTIVE, userId);
 
         return toResponseDTOWithCategories(savedCampaign);
     }
 
-    private void saveCampaignCategories(Campaign campaign, List<Long> categoryIds) {
-        List<Category> categories = categoryRepository.findAllById(categoryIds);
+    // The categories come from validateAndGetCategories, so they aren't queried again
+    private void saveCampaignCategories(Campaign campaign, List<Category> categories) {
         List<CampaignCategory> campaignCategories = categories.stream()
                 .map(category -> CampaignCategory.builder()
                         .campaign(campaign)
@@ -168,7 +166,7 @@ public class CampaignService {
 
         Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
 
-        campaignServiceValidation.validateCategoryIds(dto.getCategoryIds());
+        List<Category> categories = campaignServiceValidation.validateAndGetCategories(dto.getCategoryIds());
 
         campaignServiceValidation.updateCampaignFields(campaign, dto);
         updateGoalAndRecalculateStatus(campaign, dto, userId);
@@ -176,7 +174,7 @@ public class CampaignService {
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
         campaignCategoryRepository.deleteByCampaignId(updatedCampaign.getId());
-        saveCampaignCategories(updatedCampaign, dto.getCategoryIds());
+        saveCampaignCategories(updatedCampaign, categories);
 
         return toResponseDTOWithCategories(updatedCampaign);
     }

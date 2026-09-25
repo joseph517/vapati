@@ -20,14 +20,23 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
 
     List<Donation> findByCampaign(Campaign campaign);
 
-    List<Donation> findByCampaignOrderByCreatedAtDesc(Campaign campaign);
+    // Loads each donor with its inverse @OneToOne in the same SELECT. All joins are LEFT: a soft-deleted donor stays
+    // null (@NotFound) instead of removing the row. d.campaign comes from the persistence context
+    @Query("SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
+            "LEFT JOIN FETCH du.verificationRequest WHERE d.campaign = :campaign ORDER BY d.createdAt DESC")
+    List<Donation> findByCampaignOrderByCreatedAtDesc(@Param("campaign") Campaign campaign);
 
     List<Donation> findByStatus(DonationStatus status);
 
     @Query("SELECT d FROM Donation d WHERE d.campaignId = :campaignId ORDER BY d.createdAt DESC")
     List<Donation> findByCampaignIdOrderByCreatedAtDesc(@Param("campaignId") Long campaignId);
 
-    @Query("SELECT d FROM Donation d WHERE d.donorUserId = :donorId ORDER BY d.createdAt DESC")
+    // Loads the donor and the campaign (with its goal and owner) in the same SELECT. All joins are LEFT: a
+    // soft-deleted donor or campaign stays null (@NotFound) instead of removing the row
+    @Query("SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
+            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
+            "LEFT JOIN FETCH c.user cu LEFT JOIN FETCH cu.userInfo LEFT JOIN FETCH cu.verificationRequest " +
+            "WHERE d.donorUserId = :donorId ORDER BY d.createdAt DESC")
     List<Donation> findByDonorIdOrderByCreatedAtDesc(@Param("donorId") Long donorId);
 
     @Query("SELECT COUNT(d) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")

@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.service.campaign;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.entity.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
@@ -374,72 +374,105 @@ class CampaignServiceValidationTest {
                 .hasMessage("Invalid campaign status: FOO");
     }
 
-    @DisplayName("validateCategoryIds - Should pass when between 1 and 5 existing category ids are provided")
+    private static Category category(Long id) {
+        Category category = new Category();
+        category.setId(id);
+        return category;
+    }
+
+    @DisplayName("validateAndGetCategories - Should return the categories of a single findAllById when all ids exist")
     @Test
-    void validateCategoryIds_WithValidIds_ShouldNotThrow() {
+    void validateAndGetCategories_WithValidIds_ShouldReturnCategories() {
         // Given
         List<Long> categoryIds = List.of(1L, 2L, 3L);
-        when(categoryRepository.existsById(1L)).thenReturn(true);
-        when(categoryRepository.existsById(2L)).thenReturn(true);
-        when(categoryRepository.existsById(3L)).thenReturn(true);
+        List<Category> categories = List.of(category(1L), category(2L), category(3L));
+        when(categoryRepository.findAllById(categoryIds)).thenReturn(categories);
 
-        // When & Then
-        assertThatCode(() -> campaignServiceValidation.validateCategoryIds(categoryIds))
-                .doesNotThrowAnyException();
+        // When
+        List<Category> result = campaignServiceValidation.validateAndGetCategories(categoryIds);
 
-        verify(categoryRepository).existsById(1L);
-        verify(categoryRepository).existsById(2L);
-        verify(categoryRepository).existsById(3L);
+        // Then
+        assertThat(result).isSameAs(categories);
+        verify(categoryRepository, times(1)).findAllById(categoryIds);
+        verify(categoryRepository, never()).existsById(any());
     }
 
-    @DisplayName("validateCategoryIds - Should throw when the list is null")
+    @DisplayName("validateAndGetCategories - Should return findAllById's result as is, with repeated ids in the request")
     @Test
-    void validateCategoryIds_WithNullList_ShouldThrow() {
+    void validateAndGetCategories_WithRepeatedIds_ShouldReturnFindAllByIdResult() {
+        // Given: findAllById returns each category once and in its own order
+        List<Long> categoryIds = List.of(2L, 2L, 1L);
+        List<Category> categories = List.of(category(1L), category(2L));
+        when(categoryRepository.findAllById(categoryIds)).thenReturn(categories);
+
+        // When
+        List<Category> result = campaignServiceValidation.validateAndGetCategories(categoryIds);
+
+        // Then
+        assertThat(result).isSameAs(categories);
+    }
+
+    @DisplayName("validateAndGetCategories - Should throw when the list is null")
+    @Test
+    void validateAndGetCategories_WithNullList_ShouldThrow() {
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(null))
+        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(null))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("At least one category must be provided");
 
         verifyNoInteractions(categoryRepository);
     }
 
-    @DisplayName("validateCategoryIds - Should throw when the list is empty")
+    @DisplayName("validateAndGetCategories - Should throw when the list is empty")
     @Test
-    void validateCategoryIds_WithEmptyList_ShouldThrow() {
+    void validateAndGetCategories_WithEmptyList_ShouldThrow() {
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(List.of()))
+        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(List.of()))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("At least one category must be provided");
 
         verifyNoInteractions(categoryRepository);
     }
 
-    @DisplayName("validateCategoryIds - Should throw when more than 5 ids are provided")
+    @DisplayName("validateAndGetCategories - Should throw when more than 5 ids are provided")
     @Test
-    void validateCategoryIds_WithMoreThanFiveIds_ShouldThrow() {
+    void validateAndGetCategories_WithMoreThanFiveIds_ShouldThrow() {
         // Given
         List<Long> categoryIds = List.of(1L, 2L, 3L, 4L, 5L, 6L);
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(categoryIds))
+        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(categoryIds))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("A campaign can have at most 5 categories");
 
         verifyNoInteractions(categoryRepository);
     }
 
-    @DisplayName("validateCategoryIds - Should throw when a category id does not exist")
+    @DisplayName("validateAndGetCategories - Should throw ResourceNotFoundException when a category id does not exist")
     @Test
-    void validateCategoryIds_WithNonExistentId_ShouldThrow() {
+    void validateAndGetCategories_WithNonExistentId_ShouldThrow() {
         // Given
         List<Long> categoryIds = List.of(1L, 999L);
-        when(categoryRepository.existsById(1L)).thenReturn(true);
-        when(categoryRepository.existsById(999L)).thenReturn(false);
+        when(categoryRepository.findAllById(categoryIds)).thenReturn(List.of(category(1L)));
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateCategoryIds(categoryIds))
-                .isInstanceOf(MessageException.class)
+        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(categoryIds))
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Category not found with id: 999");
+        verify(categoryRepository, never()).existsById(any());
+    }
+
+    @DisplayName("validateAndGetCategories - Should report the first missing id in request order")
+    @Test
+    void validateAndGetCategories_WithSeveralNonExistentIds_ShouldReportFirstInRequestOrder() {
+        // Given
+        List<Long> categoryIds = List.of(998L, 1L, 999L);
+        when(categoryRepository.findAllById(categoryIds)).thenReturn(List.of(category(1L)));
+
+        // When & Then
+        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(categoryIds))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Category not found with id: 998");
     }
 
     @Nested

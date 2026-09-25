@@ -42,6 +42,18 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     Page<Report> findAll(Pageable pageable);
 
     /**
+     * Get all reports with pagination, loading reporter and reviewedBy (each with its inverse @OneToOne) in the same
+     * SELECT. The joins are LEFT: a soft-deleted reporter or reviewer stays null (@NotFound) instead of removing the
+     * row. Only ToOne relations are fetched, so pagination stays in SQL. The order comes from the Pageable
+     * (Report columns only); the count can't be derived from a FETCH query, so it is explicit
+     */
+    @Query(value = "SELECT r FROM Report r " +
+            "LEFT JOIN FETCH r.reporter rp LEFT JOIN FETCH rp.userInfo LEFT JOIN FETCH rp.verificationRequest " +
+            "LEFT JOIN FETCH r.reviewedBy rv LEFT JOIN FETCH rv.userInfo LEFT JOIN FETCH rv.verificationRequest",
+            countQuery = "SELECT COUNT(r) FROM Report r")
+    Page<Report> findAllWithUsers(Pageable pageable);
+
+    /**
      * Get reports by status with pagination
      */
     Page<Report> findByStatusOrderByCreatedAtDesc(ReportStatus status, Pageable pageable);

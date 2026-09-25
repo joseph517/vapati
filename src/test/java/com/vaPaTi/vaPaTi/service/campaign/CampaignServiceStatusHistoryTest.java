@@ -12,7 +12,6 @@ import com.vaPaTi.vaPaTi.mapper.CampaignStatusHistoryMapper;
 import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
-import com.vaPaTi.vaPaTi.repository.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.CampaignService;
@@ -60,8 +59,6 @@ class CampaignServiceStatusHistoryTest {
     private CampaignAuthorizationService campaignAuthorizationService;
     @Mock
     private CampaignCategoryRepository campaignCategoryRepository;
-    @Mock
-    private CategoryRepository categoryRepository;
     @Mock
     private CampaignStatusHistoryService campaignStatusHistoryService;
     @Mock

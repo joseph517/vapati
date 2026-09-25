@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation;
 import com.vaPaTi.vaPaTi.dtos.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.Campaign;
 import com.vaPaTi.vaPaTi.entity.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.Category;
 import com.vaPaTi.vaPaTi.entity.Goal;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -66,17 +69,25 @@ public class CampaignServiceValidation {
         }
     }
 
-    public void validateCategoryIds(List<Long> categoryIds) {
+    // One SELECT for every id. The result is returned as findAllById gives it, so callers save the categories in the
+    // same order (and deduplicated) as before
+    public List<Category> validateAndGetCategories(List<Long> categoryIds) {
         if (categoryIds == null || categoryIds.isEmpty()) {
             throw new MessageException("At least one category must be provided");
         }
         if (categoryIds.size() > 5) {
             throw new MessageException("A campaign can have at most 5 categories");
         }
+        List<Category> categories = categoryRepository.findAllById(categoryIds);
+        Set<Long> foundIds = categories.stream()
+                .map(Category::getId)
+                .collect(Collectors.toSet());
+        // The first missing id in request order, same as checking them one by one
         for (Long categoryId : categoryIds) {
-            if (!categoryRepository.existsById(categoryId)) {
+            if (!foundIds.contains(categoryId)) {
                 throw new ResourceNotFoundException("Category not found with id: " + categoryId);
             }
         }
+        return categories;
     }
 }

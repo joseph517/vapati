@@ -374,19 +374,21 @@ class FollowerValidationTest {
         @Test
         @DisplayName("validateAndGetUser should return the user when it exists")
         void validateAndGetUser_WhenExists_ShouldReturnUser() {
-            when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
+            when(userRepository.findByIdForRequest(otherUserId)).thenReturn(Optional.of(otherUser));
 
             assertThat(followerValidation.validateAndGetUser(otherUserId)).isSameAs(otherUser);
+            verify(userRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("validateAndGetUser should throw ResourceNotFoundException when it does not exist")
         void validateAndGetUser_WhenNotFound_ShouldThrow() {
-            when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
+            when(userRepository.findByIdForRequest(nonExistentUserId)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> followerValidation.validateAndGetUser(nonExistentUserId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User not found with ID: " + nonExistentUserId);
+            verify(userRepository, never()).findById(any());
         }
     }
 
