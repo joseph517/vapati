@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;

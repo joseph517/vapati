@@ -134,7 +134,7 @@ class GlobalExceptionHandlerTest {
         void shouldDescribeMissingBody() {
             HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
                     "Required request body is missing: public org.springframework.http.ResponseEntity "
-                            + "com.vaPaTi.vaPaTi.controller.FollowerController.followUser(...)",
+                            + "com.vaPaTi.vaPaTi.controller.follower.FollowerController.followUser(...)",
                     mock(HttpInputMessage.class));
 
             ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.auth;
 
 import com.vaPaTi.vaPaTi.dtos.auth.AuthRequest;
 import com.vaPaTi.vaPaTi.dtos.auth.AuthResponse;

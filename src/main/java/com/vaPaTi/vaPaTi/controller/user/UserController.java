@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.user;
 
 import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.category;
 
 import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
 import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;

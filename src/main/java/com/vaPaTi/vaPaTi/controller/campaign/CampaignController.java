@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.campaign.CampaignStatusHistoryResponseDTO;

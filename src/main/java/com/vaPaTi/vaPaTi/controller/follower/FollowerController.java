@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.follower;
 
 import com.vaPaTi.vaPaTi.dtos.follower.FollowResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.follower.FollowersListResponseDTO;

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.verification;
 
 import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
 import com.vaPaTi.vaPaTi.dtos.verification.ProcessVerificationRequestDTO;

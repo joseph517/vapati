@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.controller;
+package com.vaPaTi.vaPaTi.controller.bankaccount;
 
 import com.vaPaTi.vaPaTi.dtos.bankaccount.BankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.bankaccount.CreateBankAccountDTO;
