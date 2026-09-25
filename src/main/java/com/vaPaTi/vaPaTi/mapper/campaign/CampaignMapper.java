@@ -1,0 +1,59 @@
+package com.vaPaTi.vaPaTi.mapper.campaign;
+
+import com.vaPaTi.vaPaTi.dtos.campaign.CampaignResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.campaign.CreateCampaignRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignCategory;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import org.jetbrains.annotations.NotNull;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class CampaignMapper {
+
+    public static Campaign toEntity(@NotNull CreateCampaignRequestDTO dto, User user) {
+        Goal goal = Goal.builder()
+                .amountGoal(dto.getAmountGoal())
+                .amountRaised(BigDecimal.ZERO)
+                .status(CampaignStatus.ACTIVE)
+                .build();
+
+        return Campaign.builder()
+                .name(dto.getName())
+                .description(dto.getDescription())
+                .user(user)
+                .goal(goal)
+                .build();
+    }
+
+    public static CampaignResponseDTO toResponseDTO(Campaign campaign, List<CampaignCategory> campaignCategories) {
+        Goal goal = campaign.getGoal();
+
+        List<CategoryDTO> categories = campaignCategories.stream()
+                .map(campaignCategory -> {
+                    CategoryDTO categoryDTO = new CategoryDTO();
+                    categoryDTO.setId(campaignCategory.getCategory().getId());
+                    categoryDTO.setName(campaignCategory.getCategory().getName());
+                    categoryDTO.setDescription(campaignCategory.getCategory().getDescription());
+                    return categoryDTO;
+                })
+                .toList();
+
+        return new CampaignResponseDTO(
+                campaign.getId(),
+                campaign.getName(),
+                campaign.getDescription(),
+                goal != null ? goal.getAmountGoal() : BigDecimal.ZERO,
+                goal != null ? goal.getAmountRaised() : BigDecimal.ZERO,
+                campaign.getUser() != null ? campaign.getUser().getId() : null,
+                categories,
+                goal != null ? goal.getStatus() : null,
+                campaign.getUser() != null && campaign.getUser().getUserInfo() != null
+                        ? campaign.getUser().getUserInfo().getUserName() : null
+        );
+    }
+}

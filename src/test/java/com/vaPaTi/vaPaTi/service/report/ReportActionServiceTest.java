@@ -1,0 +1,787 @@
+package com.vaPaTi.vaPaTi.service.report;
+
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.report.ActionTaken;
+import com.vaPaTi.vaPaTi.entity.report.Report;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
+import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
+import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ReportActionService Tests")
+class ReportActionServiceTest {
+
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private PublicationRepository publicationRepository;
+    @Mock
+    private CampaignRepository campaignRepository;
+    @Mock
+    private CampaignService campaignService;
+
+    @InjectMocks
+    private ReportActionService reportActionService;
+
+    private Report testReport;
+    private User testUser;
+    private Publication testPublication;
+    private Campaign testCampaign;
+
+    private static final Long ADMIN_ID = 99L;
+
+    @BeforeEach
+    void setUp() {
+        testUser = new User();
+        testUser.setId(1L);
+
+        testPublication = new Publication();
+        testPublication.setId(1L);
+
+        testCampaign = new Campaign();
+        testCampaign.setId(1L);
+
+        testReport = new Report();
+        testReport.setId(1L);
+        testReport.setReportedEntityId(1L);
+        testReport.setReportedEntityType(ReportedEntityType.USER);
+
+        User admin = new User();
+        admin.setId(ADMIN_ID);
+        testReport.setReviewedBy(admin);
+    }
+
+    @Nested
+    @DisplayName("executeAction() tests")
+    class ExecuteActionTests {
+
+        @Test
+        @DisplayName("Should do nothing when actionTaken is null")
+        void executeAction_WithNullAction_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(null);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
+        }
+
+        @Test
+        @DisplayName("Should execute ban when actionTaken is USER_BANNED")
+        void executeAction_WithUserBanned_ShouldExecuteBan() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(userRepository).findByIdIncludingDeleted(1L);
+            verify(userRepository).save(testUser);
+            assertThat(testUser.getBanned()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Should execute suspension when actionTaken is USER_SUSPENDED")
+        void executeAction_WithUserSuspended_ShouldExecuteSuspension() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(userRepository).findByIdIncludingDeleted(1L);
+            verify(userRepository).save(testUser);
+            assertThat(testUser.getSuspendedUntil()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Should execute content removal when actionTaken is CONTENT_REMOVED")
+        void executeAction_WithContentRemoved_ShouldRemoveContent() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(publicationRepository).findById(1L);
+            verify(publicationRepository).delete(testPublication);
+        }
+
+        @Test
+        @DisplayName("Should execute warning when actionTaken is WARNING_SENT")
+        void executeAction_WithWarningSent_ShouldExecuteWarning() {
+            // Given
+            testReport.setActionTaken(ActionTaken.WARNING_SENT);
+
+            // When & Then
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
+        }
+
+        @Test
+        @DisplayName("Should do nothing when actionTaken is NO_ACTION")
+        void executeAction_WithNoAction_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(ActionTaken.NO_ACTION);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
+        }
+
+        @Test
+        @DisplayName("Should do nothing when actionTaken is OTHER")
+        void executeAction_WithOther_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(ActionTaken.OTHER);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
+        }
+    }
+
+    @Nested
+    @DisplayName("executeBan() tests")
+    class ExecuteBanTests {
+
+        @Test
+        @DisplayName("Should ban user successfully for USER entity type")
+        void executeBan_WithUserEntityType_ShouldBanUser() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Spam violation");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBanned()).isTrue();
+            assertThat(testUser.getBannedAt()).isCloseTo(LocalDateTime.now(), within(1, java.time.temporal.ChronoUnit.SECONDS));
+            assertThat(testUser.getBannedReason()).isEqualTo("Spam violation");
+            verify(userRepository).save(testUser);
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when user not found")
+        void executeBan_WithNonExistentUser_ShouldThrowException() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertThatThrownBy(() -> reportActionService.executeAction(testReport))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("User not found");
+
+            verify(userRepository).findByIdIncludingDeleted(1L);
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should set ban reason from admin notes when provided")
+        void executeBan_WithAdminNotes_ShouldSetCustomReason() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Spam violation");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBannedReason()).isEqualTo("Spam violation");
+        }
+
+        @Test
+        @DisplayName("Should use default ban reason when admin notes null")
+        void executeBan_WithoutAdminNotes_ShouldUseDefaultReason() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes(null);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBannedReason()).isEqualTo("Banned by admin");
+        }
+
+        @Test
+        @DisplayName("Should set bannedAt timestamp")
+        void executeBan_ShouldSetBannedAtTimestamp() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+            LocalDateTime beforeBan = LocalDateTime.now();
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBannedAt()).isNotNull();
+            assertThat(testUser.getBannedAt()).isAfterOrEqualTo(beforeBan);
+        }
+
+        @Test
+        @DisplayName("Should not ban for non-USER entity types")
+        void executeBan_WithNonUserEntityType_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verifyNoInteractions(userRepository);
+        }
+
+        @Test
+        @DisplayName("Should ban a deleted account without restoring it")
+        void executeBan_WithDeletedUser_ShouldBanAndKeepDeletedAt() {
+            // Given
+            LocalDateTime deletedAt = LocalDateTime.now().minusDays(2);
+            testUser.setDeletedAt(deletedAt);
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBanned()).isTrue();
+            assertThat(testUser.getDeletedAt()).isEqualTo(deletedAt);
+            verify(userRepository).save(testUser);
+            verify(userRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("Should keep the original ban when the user is already banned")
+        void executeBan_WithAlreadyBannedUser_ShouldKeepOriginalBan() {
+            // Given
+            LocalDateTime bannedAt = LocalDateTime.now().minusDays(5);
+            testUser.setBanned(true);
+            testUser.setBannedAt(bannedAt);
+            testUser.setBannedReason("First ban");
+            testReport.setActionTaken(ActionTaken.USER_BANNED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Second ban");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBannedAt()).isEqualTo(bannedAt);
+            assertThat(testUser.getBannedReason()).isEqualTo("First ban");
+            verify(userRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("executeSuspension() tests")
+    class ExecuteSuspensionTests {
+
+        @Test
+        @DisplayName("Should suspend user for 30 days successfully")
+        void executeSuspension_WithUserEntityType_ShouldSuspendUser() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Harassment");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getSuspendedUntil()).isNotNull();
+            assertThat(testUser.getBannedReason()).isEqualTo("Harassment");
+            verify(userRepository).save(testUser);
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when user not found")
+        void executeSuspension_WithNonExistentUser_ShouldThrowException() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertThatThrownBy(() -> reportActionService.executeAction(testReport))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("User not found");
+
+            verify(userRepository).findByIdIncludingDeleted(1L);
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should set suspension reason from admin notes when provided")
+        void executeSuspension_WithAdminNotes_ShouldSetCustomReason() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Harassment");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBannedReason()).isEqualTo("Harassment");
+        }
+
+        @Test
+        @DisplayName("Should use default suspension reason when admin notes null")
+        void executeSuspension_WithoutAdminNotes_ShouldUseDefaultReason() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes(null);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getBannedReason()).isEqualTo("Suspended by admin");
+        }
+
+        @Test
+        @DisplayName("Should set suspendedUntil to exactly 30 days from now")
+        void executeSuspension_ShouldSetSuspensionFor30Days() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+            LocalDateTime expectedSuspensionEnd = LocalDateTime.now().plusDays(30);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getSuspendedUntil())
+                    .isCloseTo(expectedSuspensionEnd, within(5, java.time.temporal.ChronoUnit.SECONDS));
+        }
+
+        @Test
+        @DisplayName("Should not suspend for non-USER entity types")
+        void executeSuspension_WithNonUserEntityType_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verifyNoInteractions(userRepository);
+        }
+
+        @Test
+        @DisplayName("Should suspend a deleted account without restoring it")
+        void executeSuspension_WithDeletedUser_ShouldSuspendAndKeepDeletedAt() {
+            // Given
+            LocalDateTime deletedAt = LocalDateTime.now().minusDays(2);
+            testUser.setDeletedAt(deletedAt);
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getSuspendedUntil()).isAfter(LocalDateTime.now().plusDays(29));
+            assertThat(testUser.getDeletedAt()).isEqualTo(deletedAt);
+            verify(userRepository).save(testUser);
+        }
+
+        @Test
+        @DisplayName("Should not change a banned user")
+        void executeSuspension_WithBannedUser_ShouldNotChangeAnything() {
+            // Given
+            testUser.setBanned(true);
+            testUser.setBannedReason("Banned");
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Suspension");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getSuspendedUntil()).isNull();
+            assertThat(testUser.getBannedReason()).isEqualTo("Banned");
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should not extend a running suspension")
+        void executeSuspension_WithRunningSuspension_ShouldNotChangeAnything() {
+            // Given
+            LocalDateTime suspendedUntil = LocalDateTime.now().plusDays(10);
+            testUser.setSuspendedUntil(suspendedUntil);
+            testUser.setBannedReason("First suspension");
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Second suspension");
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getSuspendedUntil()).isEqualTo(suspendedUntil);
+            assertThat(testUser.getBannedReason()).isEqualTo("First suspension");
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should suspend again when the previous suspension already expired")
+        void executeSuspension_WithExpiredSuspension_ShouldSuspendAgain() {
+            // Given
+            testUser.setSuspendedUntil(LocalDateTime.now().minusDays(1));
+            testReport.setActionTaken(ActionTaken.USER_SUSPENDED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            when(userRepository.findByIdIncludingDeleted(1L)).thenReturn(Optional.of(testUser));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            assertThat(testUser.getSuspendedUntil()).isAfter(LocalDateTime.now().plusDays(29));
+            verify(userRepository).save(testUser);
+        }
+    }
+
+    @Nested
+    @DisplayName("executeContentRemoval() tests")
+    class ExecuteContentRemovalTests {
+
+        @Test
+        @DisplayName("Should route to removePublication for PUBLICATION entity type")
+        void executeContentRemoval_WithPublication_ShouldRemovePublication() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(publicationRepository).findById(1L);
+            verify(publicationRepository).delete(testPublication);
+        }
+
+        @Test
+        @DisplayName("Should route to removeCampaign for CAMPAIGN entity type")
+        void executeContentRemoval_WithCampaign_ShouldRemoveCampaign() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(campaignRepository).findById(1L);
+            verify(campaignService).closeAndSoftDelete(testCampaign, ADMIN_ID);
+        }
+
+        @Test
+        @DisplayName("Should do nothing for USER entity type")
+        void executeContentRemoval_WithUser_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verifyNoInteractions(userRepository, publicationRepository, campaignRepository, campaignService);
+        }
+
+        @Test
+        @DisplayName("Should handle unknown entity types gracefully")
+        void executeContentRemoval_WithUnknownType_ShouldHandleGracefully() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+
+            // When & Then
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+        }
+    }
+
+    @Nested
+    @DisplayName("executeWarning() tests")
+    class ExecuteWarningTests {
+
+        @Test
+        @DisplayName("Should execute without errors")
+        void executeWarning_ShouldExecuteWithoutError() {
+            // Given
+            testReport.setActionTaken(ActionTaken.WARNING_SENT);
+
+            // When & Then
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+        }
+
+        @Test
+        @DisplayName("Should not throw exception for any report")
+        void executeWarning_WithAnyReport_ShouldNotThrowException() {
+            // Given
+            testReport.setActionTaken(ActionTaken.WARNING_SENT);
+            testReport.setReportedEntityType(ReportedEntityType.USER);
+            testReport.setAdminNotes("Warning message");
+
+            // When & Then
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+        }
+    }
+
+    @Nested
+    @DisplayName("removePublication() tests")
+    class RemovePublicationTests {
+
+        @Test
+        @DisplayName("Should soft delete publication successfully")
+        void removePublication_WithValidId_ShouldDeletePublication() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(publicationRepository).findById(1L);
+            verify(publicationRepository).delete(testPublication);
+        }
+
+        @Test
+        @DisplayName("Should do nothing when the publication was already removed")
+        void removePublication_WhenAlreadyRemoved_ShouldDoNothing() {
+            // Given: a report always points to an entity that existed, so an empty lookup means it was already removed
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+
+            verify(publicationRepository).findById(1L);
+            verify(publicationRepository, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("Should soft delete a publication whose author is deleted (user relation null)")
+        void removePublication_WithDeletedAuthor_ShouldDeletePublication() {
+            // Given: with @NotFound(IGNORE) the publication loads with a null author instead of not being found
+            testPublication.setUser(null);
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+
+            // Then
+            verify(publicationRepository).delete(testPublication);
+        }
+
+        @Test
+        @DisplayName("Should rely on @SQLDelete annotation for soft delete")
+        void removePublication_ShouldUseSoftDelete() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.PUBLICATION);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(publicationRepository).delete(testPublication);
+        }
+    }
+
+    @Nested
+    @DisplayName("removeCampaign() tests")
+    class RemoveCampaignTests {
+
+        @Test
+        @DisplayName("Should soft delete campaign successfully")
+        void removeCampaign_WithValidId_ShouldDeleteCampaign() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(campaignRepository).findById(1L);
+            verify(campaignService).closeAndSoftDelete(testCampaign, ADMIN_ID);
+        }
+
+        @Test
+        @DisplayName("Should do nothing when the campaign was already removed")
+        void removeCampaign_WhenAlreadyRemoved_ShouldDoNothing() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.empty());
+
+            // When & Then
+            assertDoesNotThrow(() -> reportActionService.executeAction(testReport));
+
+            verify(campaignRepository).findById(1L);
+            verify(campaignService, never()).closeAndSoftDelete(any(), any());
+        }
+
+        @Test
+        @DisplayName("Should delegate to CampaignService.closeAndSoftDelete with the reviewing admin")
+        void removeCampaign_ShouldDelegateToCloseAndSoftDeleteWithAdmin() {
+            // Given
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            reportActionService.executeAction(testReport);
+
+            // Then
+            verify(campaignService).closeAndSoftDelete(testCampaign, ADMIN_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("removeCampaign() with a real CampaignService (O11)")
+    class RemoveCampaignWithRealCampaignServiceTests {
+
+        private CampaignStatusHistoryService campaignStatusHistoryService;
+        private ReportActionService service;
+
+        @BeforeEach
+        void setUpRealCampaignService() {
+            campaignStatusHistoryService = mock(CampaignStatusHistoryService.class);
+            CampaignService realCampaignService = new CampaignService(
+                    campaignRepository,
+                    mock(AuthenticatedUserService.class),
+                    userRepository,
+                    mock(CampaignValidationService.class),
+                    mock(CampaignAuthorizationService.class),
+                    mock(CampaignCategoryRepository.class),
+                    campaignStatusHistoryService,
+                    mock(CampaignStatusHistoryRepository.class),
+                    mock(EntityManager.class)
+            );
+            service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService);
+
+            testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
+            testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);
+        }
+
+        @Test
+        @DisplayName("Should close an ACTIVE campaign, record ACTIVE -> CLOSED with the admin and soft delete it")
+        void removeCampaign_WithActiveCampaign_ShouldCloseRecordWithAdminAndDelete() {
+            // Given
+            Goal goal = new Goal();
+            goal.setStatus(CampaignStatus.ACTIVE);
+            testCampaign.setGoal(goal);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            service.executeAction(testReport);
+
+            // Then
+            assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
+            verify(campaignStatusHistoryService)
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, ADMIN_ID);
+            verify(campaignRepository).saveAndFlush(testCampaign);
+            verify(campaignRepository).delete(testCampaign);
+        }
+
+        @Test
+        @DisplayName("Should not record a transition for an already CLOSED campaign, but still soft delete it")
+        void removeCampaign_WithClosedCampaign_ShouldOnlyDelete() {
+            // Given
+            Goal goal = new Goal();
+            goal.setStatus(CampaignStatus.CLOSED);
+            testCampaign.setGoal(goal);
+            when(campaignRepository.findById(1L)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            service.executeAction(testReport);
+
+            // Then
+            verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
+            verify(campaignRepository).delete(testCampaign);
+        }
+    }
+}

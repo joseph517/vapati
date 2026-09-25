@@ -1,0 +1,29 @@
+package com.vaPaTi.vaPaTi.dtos.donation;
+
+import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DonationResponseDTO {
+
+    private Long id;
+    private Long donorUserId;
+    private String donorUserName;
+    private Long campaignId;
+    private String campaignName;
+    private Boolean campaignDeleted;
+    private BigDecimal amount;
+    private DonationStatus status;
+    private String transactionId;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

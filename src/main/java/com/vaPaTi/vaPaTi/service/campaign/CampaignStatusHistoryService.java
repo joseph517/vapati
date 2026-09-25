@@ -1,0 +1,31 @@
+package com.vaPaTi.vaPaTi.service.campaign;
+
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatusHistory;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class CampaignStatusHistoryService {
+
+    private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
+    private final UserRepository userRepository;
+
+    public void recordTransition(Campaign campaign, CampaignStatus previousStatus, CampaignStatus newStatus, Long changedByUserId) {
+        User changedBy = changedByUserId != null ? userRepository.findById(changedByUserId).orElse(null) : null;
+
+        CampaignStatusHistory history = CampaignStatusHistory.builder()
+                .campaign(campaign)
+                .previousStatus(previousStatus)
+                .newStatus(newStatus)
+                .changedBy(changedBy)
+                .build();
+
+        campaignStatusHistoryRepository.save(history);
+    }
+}

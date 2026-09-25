@@ -1,0 +1,46 @@
+package com.vaPaTi.vaPaTi.mapper.category;
+
+import com.vaPaTi.vaPaTi.dtos.category.CategoryDTO;
+import com.vaPaTi.vaPaTi.dtos.category.CreateCategoryDTO;
+import com.vaPaTi.vaPaTi.dtos.category.UpdateCategoryDTO;
+import com.vaPaTi.vaPaTi.entity.category.Category;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CategoryMapper {
+
+    public CategoryDTO toCategoryDTO(Category category) {
+        if (category == null) {
+            return null;
+        }
+
+        CategoryDTO dto = new CategoryDTO();
+        dto.setId(category.getId());
+        dto.setName(category.getName());
+        dto.setDescription(category.getDescription());
+        return dto;
+    }
+
+    public Category toEntity(CreateCategoryDTO dto) {
+        if (dto == null) return null;
+
+        Category entity = new Category();
+        entity.setName(dto.getName());
+        entity.setDescription(dto.getDescription());
+        return entity;
+    }
+
+    public void updateFromDto(UpdateCategoryDTO dto, Category entity) {
+        if (dto == null || entity == null) return;
+
+        if (dto.getName() != null) {
+            entity.setName(dto.getName());
+        }
+
+        if (dto.getDescription() != null) {
+            entity.setDescription(dto.getDescription());
+        }
+    }
+
+
+}

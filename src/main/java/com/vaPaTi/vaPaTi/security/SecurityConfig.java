@@ -1,6 +1,6 @@
 package com.vaPaTi.vaPaTi.security;
 
-import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
+import com.vaPaTi.vaPaTi.service.auth.CustomUserDetailsService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Bean;

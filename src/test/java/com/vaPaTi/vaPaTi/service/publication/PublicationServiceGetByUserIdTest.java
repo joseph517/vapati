@@ -15,7 +15,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import com.vaPaTi.vaPaTi.service.PublicationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,14 +23,14 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.vaPaTi.vaPaTi.dtos.PublicationResponseDTO;
-import com.vaPaTi.vaPaTi.entity.Publication;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
-import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
-import com.vaPaTi.vaPaTi.repository.PublicationRepository;
+import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
+import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
+import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Publication Service - Get Publications By User ID")

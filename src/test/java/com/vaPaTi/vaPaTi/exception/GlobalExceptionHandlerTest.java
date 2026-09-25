@@ -1,8 +1,8 @@
 package com.vaPaTi.vaPaTi.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.vaPaTi.vaPaTi.dtos.CreateDonationDTO;
-import com.vaPaTi.vaPaTi.dtos.CreateReportDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -134,7 +134,7 @@ class GlobalExceptionHandlerTest {
         void shouldDescribeMissingBody() {
             HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
                     "Required request body is missing: public org.springframework.http.ResponseEntity "
-                            + "com.vaPaTi.vaPaTi.controller.FollowerController.followUser(...)",
+                            + "com.vaPaTi.vaPaTi.controller.follower.FollowerController.followUser(...)",
                     mock(HttpInputMessage.class));
 
             ResponseEntity<Map<String, String>> response = handler.handleHttpMessageNotReadableException(ex);

@@ -1,0 +1,44 @@
+package com.vaPaTi.vaPaTi.mapper.verification;
+
+import com.vaPaTi.vaPaTi.dtos.verification.CreateVerificationRequestDTO;
+import com.vaPaTi.vaPaTi.dtos.verification.VerificationStatusResponseDTO;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
+import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+@Component
+public class VerificationRequestMapper {
+
+    public VerificationRequest toEntity(@NotNull CreateVerificationRequestDTO dto, User user) {
+        VerificationRequest request = new VerificationRequest();
+        request.setUser(user);
+        request.setDniFront(dto.getDniFront());
+        request.setDniBack(dto.getDniBack());
+        request.setSelfieUser(dto.getSelfieUser());
+        request.setStatus(VerificationStatus.PENDING.name());
+        LocalDateTime now = LocalDateTime.now();
+        request.setCreatedAt(now);
+        request.setUpdatedAt(now);
+        return request;
+    }
+
+    public void updateFromDto(@NotNull VerificationRequest request, @NotNull CreateVerificationRequestDTO dto) {
+        request.setDniFront(dto.getDniFront());
+        request.setDniBack(dto.getDniBack());
+        request.setSelfieUser(dto.getSelfieUser());
+        request.setStatus(VerificationStatus.PENDING.name());
+        request.setUpdatedAt(LocalDateTime.now());
+    }
+
+    public VerificationStatusResponseDTO toStatusDTO(VerificationRequest request) {
+        VerificationStatusResponseDTO dto = new VerificationStatusResponseDTO();
+        dto.setVerified(request.getUser().isVerified());
+        dto.setRequestStatus(VerificationStatus.valueOf(request.getStatus()));
+        dto.setCreatedAt(request.getCreatedAt());
+        return dto;
+    }
+}

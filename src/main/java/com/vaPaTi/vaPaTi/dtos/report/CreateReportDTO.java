@@ -1,0 +1,27 @@
+package com.vaPaTi.vaPaTi.dtos.report;
+
+import com.vaPaTi.vaPaTi.entity.report.ReportReason;
+import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class CreateReportDTO {
+    @NotNull
+    private ReportedEntityType reportedEntityType;
+    @NotNull
+    @Positive
+    private Long reportedEntityId;
+    @NotNull
+    private ReportReason reason;
+    @Size(max = 1000)
+    private String description;
+}
