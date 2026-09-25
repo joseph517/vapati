@@ -6,7 +6,7 @@ import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.UserMapper;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.UserService;
 import com.vaPaTi.vaPaTi.validation.UserValidationService;

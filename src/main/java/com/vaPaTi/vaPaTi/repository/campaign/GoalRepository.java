@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.campaign;
 
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import org.springframework.data.jpa.repository.JpaRepository;

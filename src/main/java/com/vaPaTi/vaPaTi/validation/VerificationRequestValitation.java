@@ -6,8 +6,8 @@ import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
-import com.vaPaTi.vaPaTi.repository.VerificationRequestRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 

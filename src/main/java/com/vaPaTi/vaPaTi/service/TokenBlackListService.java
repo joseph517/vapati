@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.entity.auth.RevokedToken;
-import com.vaPaTi.vaPaTi.repository.RevokedTokenRepository;
+import com.vaPaTi.vaPaTi.repository.auth.RevokedTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;

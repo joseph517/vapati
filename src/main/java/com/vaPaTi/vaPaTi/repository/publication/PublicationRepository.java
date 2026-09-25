@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.publication;
 
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
 import org.springframework.data.jpa.repository.JpaRepository;

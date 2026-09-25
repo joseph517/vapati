@@ -1,7 +1,7 @@
 package com.vaPaTi.vaPaTi.service;
 
 import com.vaPaTi.vaPaTi.entity.user.User;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;

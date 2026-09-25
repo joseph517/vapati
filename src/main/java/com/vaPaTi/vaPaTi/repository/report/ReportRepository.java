@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.report;
 
 import com.vaPaTi.vaPaTi.entity.report.Report;
 import com.vaPaTi.vaPaTi.entity.report.ReportReason;

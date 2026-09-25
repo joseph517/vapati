@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.category;
 
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import org.springframework.data.jpa.repository.JpaRepository;

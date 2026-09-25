@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.service;
 import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

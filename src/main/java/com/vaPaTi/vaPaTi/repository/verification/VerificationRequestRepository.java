@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.verification;
 
 import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
 import org.springframework.data.jpa.repository.JpaRepository;

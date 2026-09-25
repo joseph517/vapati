@@ -12,7 +12,7 @@ import com.vaPaTi.vaPaTi.entity.report.ReportStatus;
 import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.mapper.ReportMapper;
-import com.vaPaTi.vaPaTi.repository.ReportRepository;
+import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.ReportValidationService;
 import jakarta.transaction.Transactional;

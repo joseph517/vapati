@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.auth;
 
 import com.vaPaTi.vaPaTi.entity.auth.RevokedToken;
 import jakarta.transaction.Transactional;

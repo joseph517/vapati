@@ -10,9 +10,9 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.PublicationRepository;
-import com.vaPaTi.vaPaTi.repository.ReportRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
+import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

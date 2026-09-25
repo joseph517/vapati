@@ -3,7 +3,7 @@ package com.vaPaTi.vaPaTi.service.bankAccount;
 import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
-import com.vaPaTi.vaPaTi.repository.BankAccountRepository;
+import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
 import com.vaPaTi.vaPaTi.validation.AccountValidationResult;
 import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
 import org.junit.jupiter.api.BeforeEach;

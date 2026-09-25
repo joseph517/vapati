@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.repository;
+package com.vaPaTi.vaPaTi.repository.user;
 
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.springframework.data.jpa.repository.JpaRepository;
