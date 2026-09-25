@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.follower;
 
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
@@ -7,13 +7,14 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class FollowerValidation {
+public class FollowerValidationService {
 
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;

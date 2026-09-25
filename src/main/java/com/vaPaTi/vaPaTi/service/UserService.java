@@ -16,7 +16,7 @@ import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;

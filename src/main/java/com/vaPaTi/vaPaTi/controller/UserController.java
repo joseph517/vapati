@@ -4,7 +4,7 @@ import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
 import com.vaPaTi.vaPaTi.service.UserService;
-import com.vaPaTi.vaPaTi.validation.SortValidationService;
+import com.vaPaTi.vaPaTi.validation.common.SortValidationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;

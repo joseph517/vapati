@@ -20,7 +20,7 @@ import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.service.UserService;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

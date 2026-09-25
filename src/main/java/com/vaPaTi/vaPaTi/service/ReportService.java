@@ -14,7 +14,7 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.mapper.report.ReportMapper;
 import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.ReportValidationService;
+import com.vaPaTi.vaPaTi.validation.report.ReportValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

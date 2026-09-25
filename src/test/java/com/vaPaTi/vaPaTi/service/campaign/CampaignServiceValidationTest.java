@@ -10,8 +10,8 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("CampaignServiceValidation - Unit Tests")
+@DisplayName("CampaignValidationService - Unit Tests")
 class CampaignServiceValidationTest {
 
     @Mock
@@ -42,7 +42,7 @@ class CampaignServiceValidationTest {
     private CampaignAuthorizationService campaignAuthorizationService;
 
     @InjectMocks
-    private CampaignServiceValidation campaignServiceValidation;
+    private CampaignValidationService campaignValidationService;
 
     private Campaign testCampaign;
     private Goal testGoal;
@@ -87,7 +87,7 @@ class CampaignServiceValidationTest {
         when(campaignRepository.findByIdWithActiveOwner(campaignId)).thenReturn(Optional.of(testCampaign));
 
         // When
-        Campaign result = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+        Campaign result = campaignValidationService.findCampaignByIdOrThrow(campaignId);
 
         // Then
         assertThat(result).isNotNull();
@@ -107,7 +107,7 @@ class CampaignServiceValidationTest {
         when(campaignRepository.findByIdWithActiveOwner(campaignId)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(campaignId))
+        assertThatThrownBy(() -> campaignValidationService.findCampaignByIdOrThrow(campaignId))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Campaign not found with id: " + campaignId);
 
@@ -123,7 +123,7 @@ class CampaignServiceValidationTest {
         when(campaignRepository.findByIdWithActiveOwner(campaignId)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(campaignId))
+        assertThatThrownBy(() -> campaignValidationService.findCampaignByIdOrThrow(campaignId))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Campaign not found with id: " + campaignId);
 
@@ -137,7 +137,7 @@ class CampaignServiceValidationTest {
         when(campaignRepository.findByIdWithActiveOwner(null)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.findCampaignByIdOrThrow(null))
+        assertThatThrownBy(() -> campaignValidationService.findCampaignByIdOrThrow(null))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Campaign not found with id: null");
 
@@ -155,7 +155,7 @@ class CampaignServiceValidationTest {
                 .build();
 
         // When
-        campaignServiceValidation.updateCampaignFields(campaign, testDTO);
+        campaignValidationService.updateCampaignFields(campaign, testDTO);
 
         // Then
         assertThat(campaign.getName()).isEqualTo("Updated Campaign Name");
@@ -177,7 +177,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateCampaignFields(campaign, dtoWithOnlyName);
+        campaignValidationService.updateCampaignFields(campaign, dtoWithOnlyName);
 
         // Then
         assertThat(campaign.getName()).isEqualTo("New Name");
@@ -199,7 +199,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateCampaignFields(campaign, dtoWithOnlyDescription);
+        campaignValidationService.updateCampaignFields(campaign, dtoWithOnlyDescription);
 
         // Then
         assertThat(campaign.getName()).isEqualTo("Original Name");
@@ -221,7 +221,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateCampaignFields(campaign, dtoWithNullFields);
+        campaignValidationService.updateCampaignFields(campaign, dtoWithNullFields);
 
         // Then
         assertThat(campaign.getName()).isEqualTo("Original Name");
@@ -243,7 +243,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateCampaignFields(campaign, dtoWithEmptyStrings);
+        campaignValidationService.updateCampaignFields(campaign, dtoWithEmptyStrings);
 
         // Then
         assertThat(campaign.getName()).isEqualTo("");
@@ -265,7 +265,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateGoalFields(goal, dtoWithOnlyAmountGoal);
+        campaignValidationService.updateGoalFields(goal, dtoWithOnlyAmountGoal);
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("3000.0"));
@@ -287,7 +287,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateGoalFields(goal, dtoWithNullAmounts);
+        campaignValidationService.updateGoalFields(goal, dtoWithNullAmounts);
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("1000.0"));
@@ -303,7 +303,7 @@ class CampaignServiceValidationTest {
         Goal nullGoal = null;
 
         // When & Then (should not throw exception)
-        campaignServiceValidation.updateGoalFields(nullGoal, testDTO);
+        campaignValidationService.updateGoalFields(nullGoal, testDTO);
 
         // Then
         verifyNoInteractions(campaignRepository);
@@ -324,7 +324,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateGoalFields(goal, dtoWithZeroAmounts);
+        campaignValidationService.updateGoalFields(goal, dtoWithZeroAmounts);
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("0.0"));
@@ -347,7 +347,7 @@ class CampaignServiceValidationTest {
         );
 
         // When
-        campaignServiceValidation.updateGoalFields(goal, dtoWithNegativeAmounts);
+        campaignValidationService.updateGoalFields(goal, dtoWithNegativeAmounts);
 
         // Then
         assertThat(goal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("-100.0"));
@@ -360,16 +360,16 @@ class CampaignServiceValidationTest {
     @Test
     void parseStatus_WithValidValue_ShouldReturnEnum() {
         // When & Then
-        assertThat(campaignServiceValidation.parseStatus("ACTIVE")).isEqualTo(CampaignStatus.ACTIVE);
-        assertThat(campaignServiceValidation.parseStatus("completed")).isEqualTo(CampaignStatus.COMPLETED);
-        assertThat(campaignServiceValidation.parseStatus("Closed")).isEqualTo(CampaignStatus.CLOSED);
+        assertThat(campaignValidationService.parseStatus("ACTIVE")).isEqualTo(CampaignStatus.ACTIVE);
+        assertThat(campaignValidationService.parseStatus("completed")).isEqualTo(CampaignStatus.COMPLETED);
+        assertThat(campaignValidationService.parseStatus("Closed")).isEqualTo(CampaignStatus.CLOSED);
     }
 
     @DisplayName("parseStatus - Should throw MessageException when value does not match any enum constant")
     @Test
     void parseStatus_WithInvalidValue_ShouldThrow() {
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.parseStatus("FOO"))
+        assertThatThrownBy(() -> campaignValidationService.parseStatus("FOO"))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("Invalid campaign status: FOO");
     }
@@ -389,7 +389,7 @@ class CampaignServiceValidationTest {
         when(categoryRepository.findAllById(categoryIds)).thenReturn(categories);
 
         // When
-        List<Category> result = campaignServiceValidation.validateAndGetCategories(categoryIds);
+        List<Category> result = campaignValidationService.validateAndGetCategories(categoryIds);
 
         // Then
         assertThat(result).isSameAs(categories);
@@ -406,7 +406,7 @@ class CampaignServiceValidationTest {
         when(categoryRepository.findAllById(categoryIds)).thenReturn(categories);
 
         // When
-        List<Category> result = campaignServiceValidation.validateAndGetCategories(categoryIds);
+        List<Category> result = campaignValidationService.validateAndGetCategories(categoryIds);
 
         // Then
         assertThat(result).isSameAs(categories);
@@ -416,7 +416,7 @@ class CampaignServiceValidationTest {
     @Test
     void validateAndGetCategories_WithNullList_ShouldThrow() {
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(null))
+        assertThatThrownBy(() -> campaignValidationService.validateAndGetCategories(null))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("At least one category must be provided");
 
@@ -427,7 +427,7 @@ class CampaignServiceValidationTest {
     @Test
     void validateAndGetCategories_WithEmptyList_ShouldThrow() {
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(List.of()))
+        assertThatThrownBy(() -> campaignValidationService.validateAndGetCategories(List.of()))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("At least one category must be provided");
 
@@ -441,7 +441,7 @@ class CampaignServiceValidationTest {
         List<Long> categoryIds = List.of(1L, 2L, 3L, 4L, 5L, 6L);
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(categoryIds))
+        assertThatThrownBy(() -> campaignValidationService.validateAndGetCategories(categoryIds))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("A campaign can have at most 5 categories");
 
@@ -456,7 +456,7 @@ class CampaignServiceValidationTest {
         when(categoryRepository.findAllById(categoryIds)).thenReturn(List.of(category(1L)));
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(categoryIds))
+        assertThatThrownBy(() -> campaignValidationService.validateAndGetCategories(categoryIds))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Category not found with id: 999");
         verify(categoryRepository, never()).existsById(any());
@@ -470,7 +470,7 @@ class CampaignServiceValidationTest {
         when(categoryRepository.findAllById(categoryIds)).thenReturn(List.of(category(1L)));
 
         // When & Then
-        assertThatThrownBy(() -> campaignServiceValidation.validateAndGetCategories(categoryIds))
+        assertThatThrownBy(() -> campaignValidationService.validateAndGetCategories(categoryIds))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Category not found with id: 998");
     }
@@ -490,7 +490,7 @@ class CampaignServiceValidationTest {
             when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
 
             // When
-            Campaign result = campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
+            Campaign result = campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
 
             // Then
             assertThat(result).isSameAs(testCampaign);
@@ -505,7 +505,7 @@ class CampaignServiceValidationTest {
             when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.of(testCampaign));
 
             // When
-            Campaign result = campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
+            Campaign result = campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
 
             // Then
             assertThat(result).isSameAs(testCampaign);
@@ -520,7 +520,7 @@ class CampaignServiceValidationTest {
             when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, null)).thenReturn(Optional.of(testCampaign));
 
             // When
-            Campaign result = campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, null);
+            Campaign result = campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, null);
 
             // Then
             assertThat(result).isSameAs(testCampaign);
@@ -535,7 +535,7 @@ class CampaignServiceValidationTest {
             when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.empty());
 
             // When & Then: same message as findCampaignByIdOrThrow for a missing id
-            assertThatThrownBy(() -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
+            assertThatThrownBy(() -> campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Campaign not found with id: " + CAMPAIGN_ID);
         }
@@ -548,7 +548,7 @@ class CampaignServiceValidationTest {
             when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> campaignServiceValidation.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
+            assertThatThrownBy(() -> campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Campaign not found with id: " + CAMPAIGN_ID);
         }
@@ -568,21 +568,21 @@ class CampaignServiceValidationTest {
         @Test
         @DisplayName("Should be ACTIVE when the amount raised is below the goal")
         void statusForAmounts_WhenRaisedBelowGoal_ShouldBeActive() {
-            assertThat(campaignServiceValidation.statusForAmounts(goalWith("100.00", "99.99")))
+            assertThat(campaignValidationService.statusForAmounts(goalWith("100.00", "99.99")))
                     .isEqualTo(CampaignStatus.ACTIVE);
         }
 
         @Test
         @DisplayName("Should be COMPLETED when the amount raised equals the goal, regardless of the scale")
         void statusForAmounts_WhenRaisedEqualsGoal_ShouldBeCompleted() {
-            assertThat(campaignServiceValidation.statusForAmounts(goalWith("100.0", "100.00")))
+            assertThat(campaignValidationService.statusForAmounts(goalWith("100.0", "100.00")))
                     .isEqualTo(CampaignStatus.COMPLETED);
         }
 
         @Test
         @DisplayName("Should be COMPLETED when the amount raised is above the goal")
         void statusForAmounts_WhenRaisedAboveGoal_ShouldBeCompleted() {
-            assertThat(campaignServiceValidation.statusForAmounts(goalWith("100.00", "150.00")))
+            assertThat(campaignValidationService.statusForAmounts(goalWith("100.00", "150.00")))
                     .isEqualTo(CampaignStatus.COMPLETED);
         }
     }

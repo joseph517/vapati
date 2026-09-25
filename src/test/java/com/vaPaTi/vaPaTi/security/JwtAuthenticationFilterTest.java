@@ -9,7 +9,7 @@ import com.vaPaTi.vaPaTi.service.CustomUserDetailsService;
 import com.vaPaTi.vaPaTi.service.CustomUserDetailsService.RequestUser;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
-import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;

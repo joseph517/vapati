@@ -10,7 +10,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.verification.VerificationRequestMapper;
 import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
-import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
+import com.vaPaTi.vaPaTi.validation.verification.VerificationRequestValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -26,22 +26,22 @@ public class VerificationRequestService {
 
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationRequestMapper verificationRequestMapper;
-    private final VerificationRequestValitation verificationRequestValitation;
+    private final VerificationRequestValidationService verificationRequestValidationService;
 
     public Long createVerificationRequest(@NotNull CreateVerificationRequestDTO dto) {
-        User user = verificationRequestValitation.validateAndGetUser(dto.getUserId());
-        verificationRequestValitation.validateUserNotVerified(user);
+        User user = verificationRequestValidationService.validateAndGetUser(dto.getUserId());
+        verificationRequestValidationService.validateUserNotVerified(user);
 
         Optional<VerificationRequest> existingRequest = verificationRequestRepository.findByUserId(dto.getUserId());
 
         if (existingRequest.isPresent()) {
             VerificationRequest request = existingRequest.get();
 
-            if (verificationRequestValitation.isPendingRequest(request)) {
+            if (verificationRequestValidationService.isPendingRequest(request)) {
                 throw new ConflictException("There is already a pending request for this user.");
             }
 
-            if (verificationRequestValitation.isRejectedRequest(request)) {
+            if (verificationRequestValidationService.isRejectedRequest(request)) {
                 verificationRequestMapper.updateFromDto(request, dto);
                 VerificationRequest updatedRequest = verificationRequestRepository.save(request);
                 return updatedRequest.getId();
@@ -54,12 +54,12 @@ public class VerificationRequestService {
     }
 
     public VerificationRequest processVerificationRequest(@NotNull ProcessVerificationRequestDTO dto) {
-        VerificationRequest request = verificationRequestValitation.findVerificationRequestById(dto.getRequestId());
+        VerificationRequest request = verificationRequestValidationService.findVerificationRequestById(dto.getRequestId());
         request.setStatus(dto.getStatus().name());
         request.setUpdatedAt(LocalDateTime.now());
 
-        if (verificationRequestValitation.isApproved(dto.getStatus())) {
-            verificationRequestValitation.approveUserVerification(request.getUser());
+        if (verificationRequestValidationService.isApproved(dto.getStatus())) {
+            verificationRequestValidationService.approveUserVerification(request.getUser());
         }
 
         return verificationRequestRepository.save(request);

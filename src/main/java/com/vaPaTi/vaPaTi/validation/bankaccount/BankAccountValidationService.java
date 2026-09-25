@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.bankaccount;
 
 import com.vaPaTi.vaPaTi.dtos.bankaccount.CreateBankAccountDTO;
 import com.vaPaTi.vaPaTi.dtos.bankaccount.UpdateBankAccountDTO;

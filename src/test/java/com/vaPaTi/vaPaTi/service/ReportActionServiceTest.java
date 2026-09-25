@@ -15,8 +15,8 @@ import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -732,7 +732,7 @@ class ReportActionServiceTest {
                     campaignRepository,
                     mock(AuthenticatedUserService.class),
                     userRepository,
-                    mock(CampaignServiceValidation.class),
+                    mock(CampaignValidationService.class),
                     mock(CampaignAuthorizationService.class),
                     mock(CampaignCategoryRepository.class),
                     campaignStatusHistoryService,

@@ -15,6 +15,8 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.report.ReportValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,7 +55,7 @@ class ReportValidationServiceTest {
     @Mock
     private PublicationRepository publicationRepository;
     @Mock
-    private CampaignServiceValidation campaignServiceValidation;
+    private CampaignValidationService campaignValidationService;
 
     @InjectMocks
     private ReportValidationService reportValidationService;
@@ -300,7 +302,7 @@ class ReportValidationServiceTest {
             User owner = new User();
             owner.setId(6L);
             testCampaign.setUser(owner);
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
 
             // When & Then
             assertThat(reportValidationService.validateEntityExists(ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID))
@@ -440,21 +442,21 @@ class ReportValidationServiceTest {
         @DisplayName("Should pass when the campaign is visible to the reporter")
         void validateEntityExists_WithVisibleCampaign_ShouldNotThrowException() {
             // Given
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
 
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
                     ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID
             ));
 
-            verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(1L, REPORTER_ID);
+            verify(campaignValidationService).findVisibleCampaignByIdOrThrow(1L, REPORTER_ID);
         }
 
         @Test
         @DisplayName("Should throw ResourceNotFoundException when the campaign does not exist or is not visible")
         void validateEntityExists_WithNonVisibleCampaign_ShouldThrowResourceNotFoundException() {
             // Given: a missing id, a deleted owner and a CLOSED campaign of someone else all end here
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID))
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID))
                     .thenThrow(new ResourceNotFoundException("Campaign not found with id: 1"));
 
             // When & Then
@@ -469,7 +471,7 @@ class ReportValidationServiceTest {
         @DisplayName("Should not query the other repositories for a campaign")
         void validateEntityExists_ForCampaign_ShouldOnlyUseVisibleLookup() {
             // Given
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(1L, REPORTER_ID)).thenReturn(testCampaign);
 
             // When
             reportValidationService.validateEntityExists(ReportedEntityType.CAMPAIGN, 1L, REPORTER_ID);

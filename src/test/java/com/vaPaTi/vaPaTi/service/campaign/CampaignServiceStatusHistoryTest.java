@@ -16,8 +16,8 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.CampaignService;
 import com.vaPaTi.vaPaTi.service.CampaignStatusHistoryService;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +54,7 @@ class CampaignServiceStatusHistoryTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private CampaignServiceValidation campaignServiceValidation;
+    private CampaignValidationService campaignValidationService;
     @Mock
     private CampaignAuthorizationService campaignAuthorizationService;
     @Mock
@@ -109,7 +109,7 @@ class CampaignServiceStatusHistoryTest {
 
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
         doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-        when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+        when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
         when(campaignStatusHistoryRepository.findByCampaignIdOrderByChangedAtAsc(TEST_CAMPAIGN_ID))
                 .thenReturn(List.of(entry1, entry2));
 
@@ -123,7 +123,7 @@ class CampaignServiceStatusHistoryTest {
             // Then
             assertThat(result).containsExactly(dto1, dto2);
             verify(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+            verify(campaignValidationService).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
             verify(campaignStatusHistoryRepository).findByCampaignIdOrderByChangedAtAsc(TEST_CAMPAIGN_ID);
         }
     }
@@ -134,7 +134,7 @@ class CampaignServiceStatusHistoryTest {
         // Given
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
         doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-        when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+        when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
         when(campaignStatusHistoryRepository.findByCampaignIdOrderByChangedAtAsc(TEST_CAMPAIGN_ID))
                 .thenReturn(List.of());
 
@@ -167,7 +167,7 @@ class CampaignServiceStatusHistoryTest {
         // Given
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
         doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-        when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
+        when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
                 .thenThrow(new MessageException("Campaign not found with id: " + TEST_CAMPAIGN_ID));
 
         // When & Then
@@ -282,16 +282,16 @@ class CampaignServiceStatusHistoryTest {
 
         private void givenEdit(Long editorId, CampaignStatus realStatus) {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(editorId);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
             doAnswer(invocation -> {
                 goal.setStatus(realStatus);
                 goal.setAmountRaised(AMOUNT_RAISED);
                 return null;
             }).when(entityManager).refresh(goal, LockModeType.PESSIMISTIC_WRITE);
-            doCallRealMethod().when(campaignServiceValidation).updateGoalFields(any(), any());
+            doCallRealMethod().when(campaignValidationService).updateGoalFields(any(), any());
             if (realStatus != CampaignStatus.CLOSED) {
-                when(campaignServiceValidation.statusForAmounts(goal)).thenCallRealMethod();
+                when(campaignValidationService.statusForAmounts(goal)).thenCallRealMethod();
             }
         }
 
@@ -338,7 +338,7 @@ class CampaignServiceStatusHistoryTest {
         void updateCampaign_WithoutAmountGoal_ShouldNotLockNorRecalculate() {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
             UpdateCampaignRequestDTO dto = new UpdateCampaignRequestDTO(null, "New description", null, List.of(1L));
 
@@ -348,7 +348,7 @@ class CampaignServiceStatusHistoryTest {
             // Then
             assertThat(goal.getStatus()).isEqualTo(CampaignStatus.ACTIVE);
             verify(entityManager, never()).refresh(any(), any(LockModeType.class));
-            verify(campaignServiceValidation, never()).statusForAmounts(any());
+            verify(campaignValidationService, never()).statusForAmounts(any());
             verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
         }
     }

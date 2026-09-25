@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.common;
 
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import org.springframework.data.domain.PageRequest;

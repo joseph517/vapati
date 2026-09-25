@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.user;
 
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;

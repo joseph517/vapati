@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.bankaccount;
 
 public enum AccountValidationResult {
     CAN_CREATE,

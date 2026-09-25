@@ -11,7 +11,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.follower.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.FollowerValidation;
+import com.vaPaTi.vaPaTi.validation.follower.FollowerValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ public class FollowerService {
 
     private final FollowerRepository followerRepository;
     private final FollowerMapper followerMapper;
-    private final FollowerValidation followerValidation;
+    private final FollowerValidationService followerValidationService;
     private final AuthenticatedUserService authenticatedUserService;
 
     /**
@@ -43,11 +43,11 @@ public class FollowerService {
     public FollowResponseDTO followUser(Long userToFollowId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
-        followerValidation.validateNotSelfFollow(userId, userToFollowId);
-        User currentUser = followerValidation.validateAndGetCurrentUser(userId);
-        User userToFollow = followerValidation.validateAndGetUserToFollow(userToFollowId);
-        followerValidation.validateNotSanctioned(userToFollow);
-        followerValidation.validateNotAlreadyFollowing(userToFollow, currentUser);
+        followerValidationService.validateNotSelfFollow(userId, userToFollowId);
+        User currentUser = followerValidationService.validateAndGetCurrentUser(userId);
+        User userToFollow = followerValidationService.validateAndGetUserToFollow(userToFollowId);
+        followerValidationService.validateNotSanctioned(userToFollow);
+        followerValidationService.validateNotAlreadyFollowing(userToFollow, currentUser);
 
         // Create new follower relationship
         Follower newFollowerRelation = new Follower();
@@ -75,10 +75,10 @@ public class FollowerService {
     public UnfollowResponseDTO unfollowUser(Long userToUnfollowId) {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
 
-        followerValidation.validateNotSelfUnfollow(userId, userToUnfollowId);
-        User currentUser = followerValidation.validateAndGetCurrentUser(userId);
-        User userToUnfollow = followerValidation.validateAndGetUserToUnfollow(userToUnfollowId);
-        Follower followerRelation = followerValidation.validateAndGetFollowRelation(userToUnfollow, currentUser);
+        followerValidationService.validateNotSelfUnfollow(userId, userToUnfollowId);
+        User currentUser = followerValidationService.validateAndGetCurrentUser(userId);
+        User userToUnfollow = followerValidationService.validateAndGetUserToUnfollow(userToUnfollowId);
+        Follower followerRelation = followerValidationService.validateAndGetFollowRelation(userToUnfollow, currentUser);
 
         // Delete the relationship
         followerRepository.delete(followerRelation);
@@ -95,7 +95,7 @@ public class FollowerService {
      * @return FollowersListResponseDTO with followers list
      */
     public FollowersListResponseDTO getFollowers(Long userId) {
-        User user = followerValidation.validateAndGetUser(userId);
+        User user = followerValidationService.validateAndGetUser(userId);
 
         // Get followers
         List<Follower> followers = followerRepository.findFollowersByUser(user);
@@ -109,7 +109,7 @@ public class FollowerService {
      * @return FollowersListResponseDTO with following list
      */
     public FollowersListResponseDTO getFollowing(Long userId) {
-        User user = followerValidation.validateAndGetUser(userId);
+        User user = followerValidationService.validateAndGetUser(userId);
 
         // Get following
         List<Follower> following = followerRepository.findFollowingsByFollower(user);
@@ -123,7 +123,7 @@ public class FollowerService {
      * @return number of followers
      */
     public long getFollowerCount(Long userId) {
-        User user = followerValidation.validateAndGetUser(userId);
+        User user = followerValidationService.validateAndGetUser(userId);
 
         return followerRepository.countByUser(user);
     }
@@ -134,13 +134,13 @@ public class FollowerService {
      * @return number of users being followed
      */
     public long getFollowingCount(Long userId) {
-        User user = followerValidation.validateAndGetUser(userId);
+        User user = followerValidationService.validateAndGetUser(userId);
 
         return followerRepository.countByFollower(user);
     }
 
     public boolean isFollowing(Long currentUserId, Long userToFollowId) {
-        return followerValidation.isFollowing(currentUserId, userToFollowId);
+        return followerValidationService.isFollowing(currentUserId, userToFollowId);
     }
 
 }

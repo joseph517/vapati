@@ -10,14 +10,14 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
-import com.vaPaTi.vaPaTi.validation.BankAccountValidationService;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import com.vaPaTi.vaPaTi.validation.bankaccount.BankAccountValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
-import com.vaPaTi.vaPaTi.validation.AccountValidationResult;
+import com.vaPaTi.vaPaTi.validation.bankaccount.AccountValidationResult;
 
 
 import java.time.LocalDateTime;

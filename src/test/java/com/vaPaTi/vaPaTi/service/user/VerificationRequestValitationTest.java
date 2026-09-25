@@ -6,7 +6,7 @@ import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
-import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
+import com.vaPaTi.vaPaTi.validation.verification.VerificationRequestValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("VerificationRequestValitation Tests")
+@DisplayName("VerificationRequestValidationService Tests")
 public class VerificationRequestValitationTest {
 
     @Mock
@@ -35,7 +35,7 @@ public class VerificationRequestValitationTest {
     private VerificationRequestRepository verificationRequestRepository;
 
     @InjectMocks
-    private VerificationRequestValitation verificationRequestValitation;
+    private VerificationRequestValidationService verificationRequestValidationService;
 
     private User mockUser;
     private VerificationRequest mockVerificationRequest;
@@ -71,7 +71,7 @@ public class VerificationRequestValitationTest {
             when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
 
             // When
-            User result = verificationRequestValitation.validateAndGetUser(userId);
+            User result = verificationRequestValidationService.validateAndGetUser(userId);
 
             // Then
             assertThat(result)
@@ -91,7 +91,7 @@ public class VerificationRequestValitationTest {
             when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.validateAndGetUser(userId))
+            assertThatThrownBy(() -> verificationRequestValidationService.validateAndGetUser(userId))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User not found.");
 
@@ -107,7 +107,7 @@ public class VerificationRequestValitationTest {
             when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.validateAndGetUser(userId))
+            assertThatThrownBy(() -> verificationRequestValidationService.validateAndGetUser(userId))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User not found.");
 
@@ -126,7 +126,7 @@ public class VerificationRequestValitationTest {
             mockUser.setVerified(false);
 
             // When & Then
-            assertThatCode(() -> verificationRequestValitation.validateUserNotVerified(mockUser))
+            assertThatCode(() -> verificationRequestValidationService.validateUserNotVerified(mockUser))
                     .doesNotThrowAnyException();
         }
 
@@ -137,7 +137,7 @@ public class VerificationRequestValitationTest {
             mockUser.setVerified(true);
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.validateUserNotVerified(mockUser))
+            assertThatThrownBy(() -> verificationRequestValidationService.validateUserNotVerified(mockUser))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User is already verified.");
         }
@@ -151,7 +151,7 @@ public class VerificationRequestValitationTest {
                     .build(); // verified defaults to false
 
             // When & Then
-            assertThatCode(() -> verificationRequestValitation.validateUserNotVerified(userWithDefaultState))
+            assertThatCode(() -> verificationRequestValidationService.validateUserNotVerified(userWithDefaultState))
                     .doesNotThrowAnyException();
         }
     }
@@ -169,7 +169,7 @@ public class VerificationRequestValitationTest {
                     .thenReturn(Optional.of(mockVerificationRequest));
 
             // When
-            VerificationRequest result = verificationRequestValitation.findVerificationRequestById(requestId);
+            VerificationRequest result = verificationRequestValidationService.findVerificationRequestById(requestId);
 
             // Then
             assertThat(result)
@@ -190,7 +190,7 @@ public class VerificationRequestValitationTest {
             when(verificationRequestRepository.findById(requestId)).thenReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.findVerificationRequestById(requestId))
+            assertThatThrownBy(() -> verificationRequestValidationService.findVerificationRequestById(requestId))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Verification request not found.");
 
@@ -206,7 +206,7 @@ public class VerificationRequestValitationTest {
             when(verificationRequestRepository.findById(requestId)).thenReturn(Optional.empty());
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.findVerificationRequestById(requestId))
+            assertThatThrownBy(() -> verificationRequestValidationService.findVerificationRequestById(requestId))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Verification request not found.");
 
@@ -225,7 +225,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus(VerificationStatus.PENDING.name());
 
             // When
-            boolean result = verificationRequestValitation.isPendingRequest(mockVerificationRequest);
+            boolean result = verificationRequestValidationService.isPendingRequest(mockVerificationRequest);
 
             // Then
             assertThat(result).isTrue();
@@ -238,7 +238,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus(VerificationStatus.APPROVED.name());
 
             // When
-            boolean result = verificationRequestValitation.isPendingRequest(mockVerificationRequest);
+            boolean result = verificationRequestValidationService.isPendingRequest(mockVerificationRequest);
 
             // Then
             assertThat(result).isFalse();
@@ -251,7 +251,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus(VerificationStatus.REJECTED.name());
 
             // When
-            boolean result = verificationRequestValitation.isPendingRequest(mockVerificationRequest);
+            boolean result = verificationRequestValidationService.isPendingRequest(mockVerificationRequest);
 
             // Then
             assertThat(result).isFalse();
@@ -264,7 +264,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus("pending");
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.isPendingRequest(mockVerificationRequest))
+            assertThatThrownBy(() -> verificationRequestValidationService.isPendingRequest(mockVerificationRequest))
                     .isInstanceOf(IllegalArgumentException.class);
         }
 
@@ -275,7 +275,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus("INVALID_STATUS");
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.isPendingRequest(mockVerificationRequest))
+            assertThatThrownBy(() -> verificationRequestValidationService.isPendingRequest(mockVerificationRequest))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }
@@ -291,7 +291,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus(VerificationStatus.REJECTED.name());
 
             // When
-            boolean result = verificationRequestValitation.isRejectedRequest(mockVerificationRequest);
+            boolean result = verificationRequestValidationService.isRejectedRequest(mockVerificationRequest);
 
             // Then
             assertThat(result).isTrue();
@@ -304,7 +304,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus(VerificationStatus.PENDING.name());
 
             // When
-            boolean result = verificationRequestValitation.isRejectedRequest(mockVerificationRequest);
+            boolean result = verificationRequestValidationService.isRejectedRequest(mockVerificationRequest);
 
             // Then
             assertThat(result).isFalse();
@@ -317,7 +317,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus(VerificationStatus.APPROVED.name());
 
             // When
-            boolean result = verificationRequestValitation.isRejectedRequest(mockVerificationRequest);
+            boolean result = verificationRequestValidationService.isRejectedRequest(mockVerificationRequest);
 
             // Then
             assertThat(result).isFalse();
@@ -330,7 +330,7 @@ public class VerificationRequestValitationTest {
             mockVerificationRequest.setStatus("UNKNOWN_STATUS");
 
             // When & Then
-            assertThatThrownBy(() -> verificationRequestValitation.isRejectedRequest(mockVerificationRequest))
+            assertThatThrownBy(() -> verificationRequestValidationService.isRejectedRequest(mockVerificationRequest))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }
@@ -346,7 +346,7 @@ public class VerificationRequestValitationTest {
             VerificationStatus status = VerificationStatus.APPROVED;
 
             // When
-            boolean result = verificationRequestValitation.isApproved(status);
+            boolean result = verificationRequestValidationService.isApproved(status);
 
             // Then
             assertThat(result).isTrue();
@@ -359,7 +359,7 @@ public class VerificationRequestValitationTest {
             VerificationStatus status = VerificationStatus.PENDING;
 
             // When
-            boolean result = verificationRequestValitation.isApproved(status);
+            boolean result = verificationRequestValidationService.isApproved(status);
 
             // Then
             assertThat(result).isFalse();
@@ -372,7 +372,7 @@ public class VerificationRequestValitationTest {
             VerificationStatus status = VerificationStatus.REJECTED;
 
             // When
-            boolean result = verificationRequestValitation.isApproved(status);
+            boolean result = verificationRequestValidationService.isApproved(status);
 
             // Then
             assertThat(result).isFalse();
@@ -385,7 +385,7 @@ public class VerificationRequestValitationTest {
             VerificationStatus status = null;
 
             // When
-            boolean result = verificationRequestValitation.isApproved(status);
+            boolean result = verificationRequestValidationService.isApproved(status);
 
             // Then
             assertThat(result).isFalse();
@@ -407,7 +407,7 @@ public class VerificationRequestValitationTest {
             when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
             // When
-            verificationRequestValitation.approveUserVerification(mockUser);
+            verificationRequestValidationService.approveUserVerification(mockUser);
 
             // Then
             assertThat(mockUser.isVerified()).isTrue();
@@ -428,7 +428,7 @@ public class VerificationRequestValitationTest {
             when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
             // When
-            verificationRequestValitation.approveUserVerification(mockUser);
+            verificationRequestValidationService.approveUserVerification(mockUser);
 
             // Then
             assertThat(mockUser.isVerified()).isTrue();
@@ -447,7 +447,7 @@ public class VerificationRequestValitationTest {
             when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
             // When
-            verificationRequestValitation.approveUserVerification(mockUser);
+            verificationRequestValidationService.approveUserVerification(mockUser);
 
             // Then
             assertThat(mockUser.getId()).isEqualTo(originalId);
@@ -475,9 +475,9 @@ public class VerificationRequestValitationTest {
             InOrder inOrder = inOrder(userRepository);
 
             // When
-            User foundUser = verificationRequestValitation.validateAndGetUser(userId);
-            verificationRequestValitation.validateUserNotVerified(foundUser);
-            verificationRequestValitation.approveUserVerification(foundUser);
+            User foundUser = verificationRequestValidationService.validateAndGetUser(userId);
+            verificationRequestValidationService.validateUserNotVerified(foundUser);
+            verificationRequestValidationService.approveUserVerification(foundUser);
 
             // Then
             assertThat(foundUser.isVerified()).isTrue();
@@ -501,17 +501,17 @@ public class VerificationRequestValitationTest {
             rejectedRequest.setStatus(VerificationStatus.REJECTED.name());
 
             // When & Then
-            assertThat(verificationRequestValitation.isPendingRequest(pendingRequest)).isTrue();
-            assertThat(verificationRequestValitation.isPendingRequest(approvedRequest)).isFalse();
-            assertThat(verificationRequestValitation.isPendingRequest(rejectedRequest)).isFalse();
+            assertThat(verificationRequestValidationService.isPendingRequest(pendingRequest)).isTrue();
+            assertThat(verificationRequestValidationService.isPendingRequest(approvedRequest)).isFalse();
+            assertThat(verificationRequestValidationService.isPendingRequest(rejectedRequest)).isFalse();
 
-            assertThat(verificationRequestValitation.isRejectedRequest(rejectedRequest)).isTrue();
-            assertThat(verificationRequestValitation.isRejectedRequest(pendingRequest)).isFalse();
-            assertThat(verificationRequestValitation.isRejectedRequest(approvedRequest)).isFalse();
+            assertThat(verificationRequestValidationService.isRejectedRequest(rejectedRequest)).isTrue();
+            assertThat(verificationRequestValidationService.isRejectedRequest(pendingRequest)).isFalse();
+            assertThat(verificationRequestValidationService.isRejectedRequest(approvedRequest)).isFalse();
 
-            assertThat(verificationRequestValitation.isApproved(VerificationStatus.APPROVED)).isTrue();
-            assertThat(verificationRequestValitation.isApproved(VerificationStatus.PENDING)).isFalse();
-            assertThat(verificationRequestValitation.isApproved(VerificationStatus.REJECTED)).isFalse();
+            assertThat(verificationRequestValidationService.isApproved(VerificationStatus.APPROVED)).isTrue();
+            assertThat(verificationRequestValidationService.isApproved(VerificationStatus.PENDING)).isFalse();
+            assertThat(verificationRequestValidationService.isApproved(VerificationStatus.REJECTED)).isFalse();
         }
     }
 

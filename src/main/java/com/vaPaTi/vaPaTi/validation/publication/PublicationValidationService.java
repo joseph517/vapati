@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.publication;
 
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
 import com.vaPaTi.vaPaTi.entity.user.User;

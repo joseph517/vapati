@@ -31,7 +31,7 @@ import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
+import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Publication Service - Get Publications By User ID")

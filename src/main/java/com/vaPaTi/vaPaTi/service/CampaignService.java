@@ -19,8 +19,8 @@ import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
@@ -42,7 +42,7 @@ public class CampaignService {
     private final CampaignRepository campaignRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final UserRepository userRepository;
-    private final CampaignServiceValidation campaignServiceValidation;
+    private final CampaignValidationService campaignValidationService;
     private final CampaignAuthorizationService campaignAuthorizationService;
     private final CampaignCategoryRepository campaignCategoryRepository;
     private final CampaignStatusHistoryService campaignStatusHistoryService;
@@ -62,7 +62,7 @@ public class CampaignService {
 
     public CampaignResponseDTO getCampaignById(Long campaignId) {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        Campaign campaign = campaignServiceValidation.findVisibleCampaignByIdOrThrow(campaignId, callerId);
+        Campaign campaign = campaignValidationService.findVisibleCampaignByIdOrThrow(campaignId, callerId);
 
         return toResponseDTOWithCategories(campaign);
     }
@@ -108,7 +108,7 @@ public class CampaignService {
 
     @Transactional
     public List<CampaignResponseDTO> getCampaignsByStatus(String status) {
-        CampaignStatus campaignStatus = campaignServiceValidation.parseStatus(status);
+        CampaignStatus campaignStatus = campaignValidationService.parseStatus(status);
 
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
@@ -135,7 +135,7 @@ public class CampaignService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
 
-        List<Category> categories = campaignServiceValidation.validateAndGetCategories(dto.getCategoryIds());
+        List<Category> categories = campaignValidationService.validateAndGetCategories(dto.getCategoryIds());
 
         Campaign campaign = CampaignMapper.toEntity(dto, user);
 
@@ -164,11 +164,11 @@ public class CampaignService {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         campaignAuthorizationService.validateOwnershipOrAdmin(campaignId, userId);
 
-        Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+        Campaign campaign = campaignValidationService.findCampaignByIdOrThrow(campaignId);
 
-        List<Category> categories = campaignServiceValidation.validateAndGetCategories(dto.getCategoryIds());
+        List<Category> categories = campaignValidationService.validateAndGetCategories(dto.getCategoryIds());
 
-        campaignServiceValidation.updateCampaignFields(campaign, dto);
+        campaignValidationService.updateCampaignFields(campaign, dto);
         updateGoalAndRecalculateStatus(campaign, dto, userId);
 
         Campaign updatedCampaign = campaignRepository.save(campaign);
@@ -186,19 +186,19 @@ public class CampaignService {
     private void updateGoalAndRecalculateStatus(Campaign campaign, UpdateCampaignRequestDTO dto, Long userId) {
         Goal goal = campaign.getGoal();
         if (goal == null || dto.getAmountGoal() == null) {
-            campaignServiceValidation.updateGoalFields(goal, dto);
+            campaignValidationService.updateGoalFields(goal, dto);
             return;
         }
 
         lockGoal(goal);
         CampaignStatus previousStatus = goal.getStatus();
-        campaignServiceValidation.updateGoalFields(goal, dto);
+        campaignValidationService.updateGoalFields(goal, dto);
 
         if (previousStatus == CampaignStatus.CLOSED) {
             return;
         }
 
-        CampaignStatus newStatus = campaignServiceValidation.statusForAmounts(goal);
+        CampaignStatus newStatus = campaignValidationService.statusForAmounts(goal);
         if (newStatus != previousStatus) {
             goal.setStatus(newStatus);
             campaignStatusHistoryService.recordTransition(campaign, previousStatus, newStatus, userId);
@@ -220,7 +220,7 @@ public class CampaignService {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         campaignAuthorizationService.validateOwnershipOrAdmin(campaignId, userId);
 
-        Campaign campaign = campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+        Campaign campaign = campaignValidationService.findCampaignByIdOrThrow(campaignId);
 
         closeAndSoftDelete(campaign, userId);
     }
@@ -312,7 +312,7 @@ public class CampaignService {
             throw new MessageException("Campaign is not closed");
         }
 
-        CampaignStatus newStatus = campaignServiceValidation.statusForAmounts(goal);
+        CampaignStatus newStatus = campaignValidationService.statusForAmounts(goal);
         goal.setStatus(newStatus);
         Campaign updatedCampaign = campaignRepository.save(campaign);
 
@@ -325,7 +325,7 @@ public class CampaignService {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         campaignAuthorizationService.validateOwnershipOrAdmin(campaignId, userId);
 
-        campaignServiceValidation.findCampaignByIdOrThrow(campaignId);
+        campaignValidationService.findCampaignByIdOrThrow(campaignId);
 
         return campaignStatusHistoryRepository.findByCampaignIdOrderByChangedAtAsc(campaignId).stream()
                 .map(CampaignStatusHistoryMapper::toResponseDTO)

@@ -7,7 +7,7 @@ import com.vaPaTi.vaPaTi.exception.InvalidCredentialsException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

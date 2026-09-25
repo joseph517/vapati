@@ -7,7 +7,7 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
+import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

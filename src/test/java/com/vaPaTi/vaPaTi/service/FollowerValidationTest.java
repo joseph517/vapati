@@ -7,8 +7,8 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
-import com.vaPaTi.vaPaTi.validation.FollowerValidation;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.follower.FollowerValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,7 +28,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("FollowerValidation tests")
+@DisplayName("FollowerValidationService tests")
 class FollowerValidationTest {
 
     @Mock
@@ -41,7 +41,7 @@ class FollowerValidationTest {
     private AccountStatusValidationService accountStatusValidationService;
 
     @InjectMocks
-    private FollowerValidation followerValidation;
+    private FollowerValidationService followerValidationService;
 
     private User currentUser;
     private User otherUser;
@@ -72,7 +72,7 @@ class FollowerValidationTest {
         Long sameUserId = 1L;
 
         // When
-        boolean result = followerValidation.isFollowing(sameUserId, sameUserId);
+        boolean result = followerValidationService.isFollowing(sameUserId, sameUserId);
 
         // Then
         assertThat(result).isFalse();
@@ -90,7 +90,7 @@ class FollowerValidationTest {
                 .thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> followerValidation.isFollowing(nonExistentUserId, otherUserId))
+        assertThatThrownBy(() -> followerValidationService.isFollowing(nonExistentUserId, otherUserId))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Current user not found with ID: " + nonExistentUserId);
 
@@ -110,7 +110,7 @@ class FollowerValidationTest {
                 .thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> followerValidation.isFollowing(currentUserId, nonExistentUserId))
+        assertThatThrownBy(() -> followerValidationService.isFollowing(currentUserId, nonExistentUserId))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Other user not found with ID: " + nonExistentUserId);
 
@@ -134,7 +134,7 @@ class FollowerValidationTest {
                 .thenReturn(true);
 
         // When
-        boolean result = followerValidation.isFollowing(currentUserId, otherUserId);
+        boolean result = followerValidationService.isFollowing(currentUserId, otherUserId);
 
         // Then
         assertThat(result).isTrue();
@@ -159,7 +159,7 @@ class FollowerValidationTest {
                 .thenReturn(false);
 
         // When
-        boolean result = followerValidation.isFollowing(currentUserId, otherUserId);
+        boolean result = followerValidationService.isFollowing(currentUserId, otherUserId);
 
         // Then
         assertThat(result).isFalse();
@@ -182,7 +182,7 @@ class FollowerValidationTest {
                 .thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> followerValidation.isFollowing(currentUserId, null))
+        assertThatThrownBy(() -> followerValidationService.isFollowing(currentUserId, null))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Other user not found with ID: null");
 
@@ -206,7 +206,7 @@ class FollowerValidationTest {
                 .thenReturn(true);
 
         // When
-        followerValidation.isFollowing(currentUserId, otherUserId);
+        followerValidationService.isFollowing(currentUserId, otherUserId);
 
         // Then - Verify the correct order of parameters: (otherUser, currentUser)
         // This tests that we're checking if currentUser follows otherUser, not the other way around
@@ -224,7 +224,7 @@ class FollowerValidationTest {
         Long otherUserIdObj = Long.valueOf(1);
 
         // When
-        boolean result = followerValidation.isFollowing(currentUserIdObj, otherUserIdObj);
+        boolean result = followerValidationService.isFollowing(currentUserIdObj, otherUserIdObj);
 
         // Then
         assertThat(result).isFalse();
@@ -243,7 +243,7 @@ class FollowerValidationTest {
                 .thenThrow(expectedException);
 
         // When & Then
-        assertThatThrownBy(() -> followerValidation.isFollowing(currentUserId, otherUserId))
+        assertThatThrownBy(() -> followerValidationService.isFollowing(currentUserId, otherUserId))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Database connection error");
 
@@ -266,7 +266,7 @@ class FollowerValidationTest {
                 .thenThrow(expectedException);
 
         // When & Then
-        assertThatThrownBy(() -> followerValidation.isFollowing(currentUserId, otherUserId))
+        assertThatThrownBy(() -> followerValidationService.isFollowing(currentUserId, otherUserId))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Database query error");
 
@@ -285,14 +285,14 @@ class FollowerValidationTest {
         @Test
         @DisplayName("validateNotSelfFollow should not throw when the IDs differ")
         void validateNotSelfFollow_WithDifferentIds_ShouldNotThrow() {
-            assertThatCode(() -> followerValidation.validateNotSelfFollow(currentUserId, otherUserId))
+            assertThatCode(() -> followerValidationService.validateNotSelfFollow(currentUserId, otherUserId))
                     .doesNotThrowAnyException();
         }
 
         @Test
         @DisplayName("validateNotSelfFollow should throw MessageException when the IDs are equal")
         void validateNotSelfFollow_WithSameIds_ShouldThrow() {
-            assertThatThrownBy(() -> followerValidation.validateNotSelfFollow(currentUserId, Long.valueOf(1)))
+            assertThatThrownBy(() -> followerValidationService.validateNotSelfFollow(currentUserId, Long.valueOf(1)))
                     .isExactlyInstanceOf(MessageException.class)
                     .hasMessage("Users cannot follow themselves");
         }
@@ -300,14 +300,14 @@ class FollowerValidationTest {
         @Test
         @DisplayName("validateNotSelfUnfollow should not throw when the IDs differ")
         void validateNotSelfUnfollow_WithDifferentIds_ShouldNotThrow() {
-            assertThatCode(() -> followerValidation.validateNotSelfUnfollow(currentUserId, otherUserId))
+            assertThatCode(() -> followerValidationService.validateNotSelfUnfollow(currentUserId, otherUserId))
                     .doesNotThrowAnyException();
         }
 
         @Test
         @DisplayName("validateNotSelfUnfollow should throw MessageException when the IDs are equal")
         void validateNotSelfUnfollow_WithSameIds_ShouldThrow() {
-            assertThatThrownBy(() -> followerValidation.validateNotSelfUnfollow(currentUserId, Long.valueOf(1)))
+            assertThatThrownBy(() -> followerValidationService.validateNotSelfUnfollow(currentUserId, Long.valueOf(1)))
                     .isExactlyInstanceOf(MessageException.class)
                     .hasMessage("Users cannot unfollow themselves");
         }
@@ -322,7 +322,7 @@ class FollowerValidationTest {
         void validateAndGetCurrentUser_WhenExists_ShouldReturnUser() {
             when(userRepository.findById(currentUserId)).thenReturn(Optional.of(currentUser));
 
-            assertThat(followerValidation.validateAndGetCurrentUser(currentUserId)).isSameAs(currentUser);
+            assertThat(followerValidationService.validateAndGetCurrentUser(currentUserId)).isSameAs(currentUser);
         }
 
         @Test
@@ -330,7 +330,7 @@ class FollowerValidationTest {
         void validateAndGetCurrentUser_WhenNotFound_ShouldThrow() {
             when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> followerValidation.validateAndGetCurrentUser(nonExistentUserId))
+            assertThatThrownBy(() -> followerValidationService.validateAndGetCurrentUser(nonExistentUserId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Current user not found with ID: " + nonExistentUserId);
         }
@@ -340,7 +340,7 @@ class FollowerValidationTest {
         void validateAndGetUserToFollow_WhenExists_ShouldReturnUser() {
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
 
-            assertThat(followerValidation.validateAndGetUserToFollow(otherUserId)).isSameAs(otherUser);
+            assertThat(followerValidationService.validateAndGetUserToFollow(otherUserId)).isSameAs(otherUser);
         }
 
         @Test
@@ -348,7 +348,7 @@ class FollowerValidationTest {
         void validateAndGetUserToFollow_WhenNotFound_ShouldThrow() {
             when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> followerValidation.validateAndGetUserToFollow(nonExistentUserId))
+            assertThatThrownBy(() -> followerValidationService.validateAndGetUserToFollow(nonExistentUserId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User to follow not found with ID: " + nonExistentUserId);
         }
@@ -358,7 +358,7 @@ class FollowerValidationTest {
         void validateAndGetUserToUnfollow_WhenExists_ShouldReturnUser() {
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
 
-            assertThat(followerValidation.validateAndGetUserToUnfollow(otherUserId)).isSameAs(otherUser);
+            assertThat(followerValidationService.validateAndGetUserToUnfollow(otherUserId)).isSameAs(otherUser);
         }
 
         @Test
@@ -366,7 +366,7 @@ class FollowerValidationTest {
         void validateAndGetUserToUnfollow_WhenNotFound_ShouldThrow() {
             when(userRepository.findById(nonExistentUserId)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> followerValidation.validateAndGetUserToUnfollow(nonExistentUserId))
+            assertThatThrownBy(() -> followerValidationService.validateAndGetUserToUnfollow(nonExistentUserId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User to unfollow not found with ID: " + nonExistentUserId);
         }
@@ -376,7 +376,7 @@ class FollowerValidationTest {
         void validateAndGetUser_WhenExists_ShouldReturnUser() {
             when(userRepository.findByIdForRequest(otherUserId)).thenReturn(Optional.of(otherUser));
 
-            assertThat(followerValidation.validateAndGetUser(otherUserId)).isSameAs(otherUser);
+            assertThat(followerValidationService.validateAndGetUser(otherUserId)).isSameAs(otherUser);
             verify(userRepository, never()).findById(any());
         }
 
@@ -385,7 +385,7 @@ class FollowerValidationTest {
         void validateAndGetUser_WhenNotFound_ShouldThrow() {
             when(userRepository.findByIdForRequest(nonExistentUserId)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> followerValidation.validateAndGetUser(nonExistentUserId))
+            assertThatThrownBy(() -> followerValidationService.validateAndGetUser(nonExistentUserId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User not found with ID: " + nonExistentUserId);
             verify(userRepository, never()).findById(any());
@@ -401,7 +401,7 @@ class FollowerValidationTest {
         void validateNotSanctioned_WhenNotBlocked_ShouldNotThrow() {
             when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(false);
 
-            assertThatCode(() -> followerValidation.validateNotSanctioned(otherUser))
+            assertThatCode(() -> followerValidationService.validateNotSanctioned(otherUser))
                     .doesNotThrowAnyException();
         }
 
@@ -410,7 +410,7 @@ class FollowerValidationTest {
         void validateNotSanctioned_WhenBlocked_ShouldThrow() {
             when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(true);
 
-            assertThatThrownBy(() -> followerValidation.validateNotSanctioned(otherUser))
+            assertThatThrownBy(() -> followerValidationService.validateNotSanctioned(otherUser))
                     .isExactlyInstanceOf(MessageException.class)
                     .hasMessage("You cannot follow a banned or suspended user");
         }
@@ -425,7 +425,7 @@ class FollowerValidationTest {
         void validateNotAlreadyFollowing_WhenNotFollowing_ShouldNotThrow() {
             when(followerRepository.existsByUserAndFollower(otherUser, currentUser)).thenReturn(false);
 
-            assertThatCode(() -> followerValidation.validateNotAlreadyFollowing(otherUser, currentUser))
+            assertThatCode(() -> followerValidationService.validateNotAlreadyFollowing(otherUser, currentUser))
                     .doesNotThrowAnyException();
         }
 
@@ -434,7 +434,7 @@ class FollowerValidationTest {
         void validateNotAlreadyFollowing_WhenAlreadyFollowing_ShouldThrow() {
             when(followerRepository.existsByUserAndFollower(otherUser, currentUser)).thenReturn(true);
 
-            assertThatThrownBy(() -> followerValidation.validateNotAlreadyFollowing(otherUser, currentUser))
+            assertThatThrownBy(() -> followerValidationService.validateNotAlreadyFollowing(otherUser, currentUser))
                     .isInstanceOf(ConflictException.class)
                     .hasMessage("User is already being followed");
         }
@@ -445,7 +445,7 @@ class FollowerValidationTest {
             Follower relation = new Follower();
             when(followerRepository.findByUserAndFollower(otherUser, currentUser)).thenReturn(Optional.of(relation));
 
-            assertThat(followerValidation.validateAndGetFollowRelation(otherUser, currentUser)).isSameAs(relation);
+            assertThat(followerValidationService.validateAndGetFollowRelation(otherUser, currentUser)).isSameAs(relation);
         }
 
         @Test
@@ -453,7 +453,7 @@ class FollowerValidationTest {
         void validateAndGetFollowRelation_WhenNotFound_ShouldThrow() {
             when(followerRepository.findByUserAndFollower(otherUser, currentUser)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> followerValidation.validateAndGetFollowRelation(otherUser, currentUser))
+            assertThatThrownBy(() -> followerValidationService.validateAndGetFollowRelation(otherUser, currentUser))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Follow relationship not found");
         }

@@ -16,8 +16,8 @@ import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +55,7 @@ class CampaignServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
-    private CampaignServiceValidation campaignServiceValidation;
+    private CampaignValidationService campaignValidationService;
     @Mock
     private CampaignAuthorizationService campaignAuthorizationService;
     @Mock
@@ -245,7 +245,7 @@ class CampaignServiceTest {
         void getCampaignById_WithExistingCampaign_ShouldReturnMappedDTO() {
             // Given
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
@@ -258,8 +258,8 @@ class CampaignServiceTest {
                         .isNotNull()
                         .isEqualTo(campaignResponseDTO);
 
-                verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID);
-                verify(campaignServiceValidation, never()).findCampaignByIdOrThrow(any());
+                verify(campaignValidationService).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID);
+                verify(campaignValidationService, never()).findCampaignByIdOrThrow(any());
                 mapperMock.verify(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any()));
             }
         }
@@ -269,7 +269,7 @@ class CampaignServiceTest {
         void getCampaignById_WhenAnonymous_ShouldLookUpWithNullCallerId() {
             // Given
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(testCampaign), any())).thenReturn(campaignResponseDTO);
@@ -279,7 +279,7 @@ class CampaignServiceTest {
 
                 // Then
                 assertThat(result).isEqualTo(campaignResponseDTO);
-                verify(campaignServiceValidation).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null);
+                verify(campaignValidationService).findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, null);
                 verify(authenticatedUserService, never()).getAuthenticatedUserId();
             }
         }
@@ -289,7 +289,7 @@ class CampaignServiceTest {
         void getCampaignById_WithNonVisibleCampaign_ShouldThrowException() {
             // Given
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID))
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID))
                     .thenThrow(new com.vaPaTi.vaPaTi.exception.ResourceNotFoundException(CAMPAIGN_NOT_FOUND_MESSAGE));
 
             // When & Then
@@ -403,7 +403,7 @@ class CampaignServiceTest {
         void getCampaignsByStatus_ShouldLoadCategoriesInOneQuery() {
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
-            when(campaignServiceValidation.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
+            when(campaignValidationService.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
             givenCaller(TEST_USER_ID, false);
             when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.ACTIVE, TEST_USER_ID))
                     .thenReturn(List.of(campaign1, campaign2));
@@ -502,7 +502,7 @@ class CampaignServiceTest {
         @DisplayName("getCampaignById keeps using findByCampaignId")
         void getCampaignById_ShouldKeepUsingFindByCampaignId() {
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(TEST_USER_ID));
-            when(campaignServiceValidation.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findVisibleCampaignByIdOrThrow(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
 
             campaignService.getCampaignById(TEST_CAMPAIGN_ID);
 
@@ -617,7 +617,7 @@ class CampaignServiceTest {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(testUser));
             when(campaignRepository.save(any(Campaign.class))).thenReturn(savedCampaign);
-            when(campaignServiceValidation.validateAndGetCategories(createCampaignDTO.getCategoryIds()))
+            when(campaignValidationService.validateAndGetCategories(createCampaignDTO.getCategoryIds()))
                     .thenReturn(List.of(category1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -629,7 +629,7 @@ class CampaignServiceTest {
 
                 // Then
                 // The categories returned by the validation are saved as they are, without querying them again
-                verify(campaignServiceValidation).validateAndGetCategories(createCampaignDTO.getCategoryIds());
+                verify(campaignValidationService).validateAndGetCategories(createCampaignDTO.getCategoryIds());
                 verify(campaignCategoryRepository).saveAll(argThat(list -> {
                     List<CampaignCategory> saved = (List<CampaignCategory>) list;
                     return saved.size() == 1 && saved.get(0).getCategory() == category1
@@ -675,7 +675,7 @@ class CampaignServiceTest {
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(updatedCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -692,9 +692,9 @@ class CampaignServiceTest {
 
                 verify(authenticatedUserService).getAuthenticatedUserId();
                 verify(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-                verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
-                verify(campaignServiceValidation).updateCampaignFields(testCampaign, updateCampaignDTO);
-                verify(campaignServiceValidation).updateGoalFields(testGoal, updateCampaignDTO);
+                verify(campaignValidationService).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+                verify(campaignValidationService).updateCampaignFields(testCampaign, updateCampaignDTO);
+                verify(campaignValidationService).updateGoalFields(testGoal, updateCampaignDTO);
                 verify(campaignRepository).save(testCampaign);
             }
         }
@@ -705,7 +705,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -716,7 +716,7 @@ class CampaignServiceTest {
                 campaignService.updateCampaign(TEST_CAMPAIGN_ID, updateCampaignDTO);
 
                 // Then
-                verify(campaignServiceValidation).updateCampaignFields(testCampaign, updateCampaignDTO);
+                verify(campaignValidationService).updateCampaignFields(testCampaign, updateCampaignDTO);
             }
         }
 
@@ -726,7 +726,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -737,7 +737,7 @@ class CampaignServiceTest {
                 campaignService.updateCampaign(TEST_CAMPAIGN_ID, updateCampaignDTO);
 
                 // Then
-                verify(campaignServiceValidation).updateGoalFields(testGoal, updateCampaignDTO);
+                verify(campaignValidationService).updateGoalFields(testGoal, updateCampaignDTO);
             }
         }
 
@@ -747,7 +747,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -758,7 +758,7 @@ class CampaignServiceTest {
                 campaignService.updateCampaign(TEST_CAMPAIGN_ID, updateCampaignDTO);
 
                 // Then
-                verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+                verify(campaignValidationService).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
             }
         }
 
@@ -768,7 +768,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -789,13 +789,13 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             com.vaPaTi.vaPaTi.entity.category.Category newCategory = new com.vaPaTi.vaPaTi.entity.category.Category();
             newCategory.setId(2L);
             updateCampaignDTO.setCategoryIds(List.of(2L));
-            when(campaignServiceValidation.validateAndGetCategories(updateCampaignDTO.getCategoryIds()))
+            when(campaignValidationService.validateAndGetCategories(updateCampaignDTO.getCategoryIds()))
                     .thenReturn(List.of(newCategory));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
@@ -807,8 +807,8 @@ class CampaignServiceTest {
 
                 // Then
                 // The old rows are deleted before saving the categories returned by the validation
-                InOrder inOrder = inOrder(campaignServiceValidation, campaignCategoryRepository);
-                inOrder.verify(campaignServiceValidation).validateAndGetCategories(updateCampaignDTO.getCategoryIds());
+                InOrder inOrder = inOrder(campaignValidationService, campaignCategoryRepository);
+                inOrder.verify(campaignValidationService).validateAndGetCategories(updateCampaignDTO.getCategoryIds());
                 inOrder.verify(campaignCategoryRepository).deleteByCampaignId(testCampaign.getId());
                 inOrder.verify(campaignCategoryRepository).saveAll(argThat(list -> {
                     List<CampaignCategory> saved = (List<CampaignCategory>) list;
@@ -914,7 +914,7 @@ class CampaignServiceTest {
         void getCampaignsByStatus_WithMatchingCampaigns_ShouldReturnFilteredList() {
             // Given
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
-            when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
+            when(campaignValidationService.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
             givenCaller(TEST_USER_ID, false);
             when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.CLOSED, TEST_USER_ID)).thenReturn(List.of(campaign1));
 
@@ -926,7 +926,7 @@ class CampaignServiceTest {
 
                 // Then
                 assertThat(result).hasSize(1);
-                verify(campaignServiceValidation).parseStatus("CLOSED");
+                verify(campaignValidationService).parseStatus("CLOSED");
                 verify(campaignRepository).findByGoalStatusVisibleTo(CampaignStatus.CLOSED, TEST_USER_ID);
                 verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
             }
@@ -936,7 +936,7 @@ class CampaignServiceTest {
         @DisplayName("Should use the visibility query with a null caller id for an anonymous caller")
         void getCampaignsByStatus_WhenAnonymous_ShouldUseVisibleToWithNull() {
             // Given
-            when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
+            when(campaignValidationService.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
             givenCaller(null, false);
             when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.CLOSED, null)).thenReturn(List.of());
 
@@ -953,7 +953,7 @@ class CampaignServiceTest {
         @DisplayName("Should use findByGoalStatusWithActiveOwner for an admin")
         void getCampaignsByStatus_WhenAdmin_ShouldUseWithActiveOwner() {
             // Given
-            when(campaignServiceValidation.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
+            when(campaignValidationService.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
             givenCaller(TEST_USER_ID, true);
             when(campaignRepository.findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED)).thenReturn(List.of());
 
@@ -969,7 +969,7 @@ class CampaignServiceTest {
         @DisplayName("Should propagate exception when status value is invalid")
         void getCampaignsByStatus_WithInvalidValue_ShouldThrowException() {
             // Given
-            when(campaignServiceValidation.parseStatus("FOO"))
+            when(campaignValidationService.parseStatus("FOO"))
                     .thenThrow(new com.vaPaTi.vaPaTi.exception.MessageException("Invalid campaign status: FOO"));
 
             // When & Then
@@ -985,7 +985,7 @@ class CampaignServiceTest {
         @DisplayName("Should return empty list when no campaign matches the status")
         void getCampaignsByStatus_WithNoMatches_ShouldReturnEmptyList() {
             // Given
-            when(campaignServiceValidation.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
+            when(campaignValidationService.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
             givenCaller(TEST_USER_ID, false);
             when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.ACTIVE, TEST_USER_ID)).thenReturn(List.of());
 
@@ -1007,7 +1007,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -1015,7 +1015,7 @@ class CampaignServiceTest {
             // Then
             verify(authenticatedUserService).getAuthenticatedUserId();
             verify(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+            verify(campaignValidationService).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
             verify(campaignRepository).delete(testCampaign);
         }
 
@@ -1025,7 +1025,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID))
                     .thenThrow(new com.vaPaTi.vaPaTi.exception.ResourceNotFoundException(CAMPAIGN_NOT_FOUND_MESSAGE));
 
             // When & Then
@@ -1042,13 +1042,13 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
 
             // Then
-            verify(campaignServiceValidation).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
+            verify(campaignValidationService).findCampaignByIdOrThrow(TEST_CAMPAIGN_ID);
         }
 
         @Test
@@ -1057,7 +1057,7 @@ class CampaignServiceTest {
             // Given
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -1073,7 +1073,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.ACTIVE);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -1090,7 +1090,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             campaignService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -1107,7 +1107,7 @@ class CampaignServiceTest {
             CampaignService spyService = spy(campaignService);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             doNothing().when(campaignAuthorizationService).validateOwnershipOrAdmin(TEST_CAMPAIGN_ID, TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
 
             // When
             spyService.deleteCampaign(TEST_CAMPAIGN_ID);
@@ -1321,7 +1321,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("500.0"));
-            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(campaignValidationService.statusForAmounts(testGoal)).thenCallRealMethod();
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
@@ -1349,7 +1349,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("1000.0"));
-            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(campaignValidationService.statusForAmounts(testGoal)).thenCallRealMethod();
             CampaignResponseDTO expectedDTO = createResponseDTO(TEST_CAMPAIGN_ID, "Test Campaign");
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
@@ -1444,7 +1444,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("500.0"));
-            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(campaignValidationService.statusForAmounts(testGoal)).thenCallRealMethod();
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
@@ -1471,7 +1471,7 @@ class CampaignServiceTest {
             testGoal.setStatus(CampaignStatus.CLOSED);
             testGoal.setAmountGoal(new BigDecimal("1000.0"));
             testGoal.setAmountRaised(new BigDecimal("1000.0"));
-            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(campaignValidationService.statusForAmounts(testGoal)).thenCallRealMethod();
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID))
@@ -1534,7 +1534,7 @@ class CampaignServiceTest {
             testGoal.setAmountGoal(new BigDecimal("1000.00"));
             testGoal.setAmountRaised(new BigDecimal("500.00"));
             givenRefreshLoads(testGoal, CampaignStatus.CLOSED, new BigDecimal("1000.00"));
-            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            when(campaignValidationService.statusForAmounts(testGoal)).thenCallRealMethod();
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
             when(campaignAuthorizationService.getCampaignIfAuthorized(TEST_CAMPAIGN_ID, TEST_USER_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
@@ -1559,10 +1559,10 @@ class CampaignServiceTest {
             testGoal.setAmountRaised(BigDecimal.ZERO);
             givenRefreshLoads(testGoal, CampaignStatus.ACTIVE, new BigDecimal("20.00"));
             updateCampaignDTO.setAmountGoal(new BigDecimal("15.00"));
-            doCallRealMethod().when(campaignServiceValidation).updateGoalFields(any(), any());
-            when(campaignServiceValidation.statusForAmounts(testGoal)).thenCallRealMethod();
+            doCallRealMethod().when(campaignValidationService).updateGoalFields(any(), any());
+            when(campaignValidationService.statusForAmounts(testGoal)).thenCallRealMethod();
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_USER_ID);
-            when(campaignServiceValidation.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
+            when(campaignValidationService.findCampaignByIdOrThrow(TEST_CAMPAIGN_ID)).thenReturn(testCampaign);
             when(campaignRepository.save(testCampaign)).thenReturn(testCampaign);
 
             // When
@@ -1571,9 +1571,9 @@ class CampaignServiceTest {
             // Then: the refresh did not discard the new goal
             assertThat(testGoal.getAmountGoal()).isEqualByComparingTo(new BigDecimal("15.00"));
             assertThat(testGoal.getStatus()).isEqualTo(CampaignStatus.COMPLETED);
-            InOrder inOrder = inOrder(entityManager, campaignServiceValidation, campaignStatusHistoryService);
+            InOrder inOrder = inOrder(entityManager, campaignValidationService, campaignStatusHistoryService);
             inOrder.verify(entityManager).refresh(testGoal, LockModeType.PESSIMISTIC_WRITE);
-            inOrder.verify(campaignServiceValidation).updateGoalFields(testGoal, updateCampaignDTO);
+            inOrder.verify(campaignValidationService).updateGoalFields(testGoal, updateCampaignDTO);
             inOrder.verify(campaignStatusHistoryService)
                     .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, TEST_USER_ID);
         }

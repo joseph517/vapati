@@ -12,7 +12,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.service.AuthenticationService;
 import com.vaPaTi.vaPaTi.service.JwtService;
 import com.vaPaTi.vaPaTi.service.TokenBlackListService;
-import com.vaPaTi.vaPaTi.validation.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;

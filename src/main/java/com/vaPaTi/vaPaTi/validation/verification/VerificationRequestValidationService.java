@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.verification;
 
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.verification.VerificationRequest;
@@ -14,13 +14,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 @Service
-public class VerificationRequestValitation {
+public class VerificationRequestValidationService {
 
     private final UserRepository userRepository;
     private final VerificationRequestRepository verificationRequestRepository;
 
     // Constructor
-    public VerificationRequestValitation(
+    public VerificationRequestValidationService(
             UserRepository userRepository,
             VerificationRequestRepository verificationRequestRepository
     ) {

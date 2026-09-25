@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.campaign;
 
 import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class CampaignServiceValidation {
+public class CampaignValidationService {
 
     private final CampaignRepository campaignRepository;
     private final CategoryRepository categoryRepository;

@@ -13,7 +13,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
 import com.vaPaTi.vaPaTi.repository.bankaccount.BankAccountRepository;
 import com.vaPaTi.vaPaTi.service.BankAccountService;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

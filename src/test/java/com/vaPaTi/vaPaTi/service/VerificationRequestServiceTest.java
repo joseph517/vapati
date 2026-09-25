@@ -9,7 +9,7 @@ import com.vaPaTi.vaPaTi.entity.verification.VerificationStatus;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.verification.VerificationRequestMapper;
 import com.vaPaTi.vaPaTi.repository.verification.VerificationRequestRepository;
-import com.vaPaTi.vaPaTi.validation.VerificationRequestValitation;
+import com.vaPaTi.vaPaTi.validation.verification.VerificationRequestValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,7 +37,7 @@ class VerificationRequestServiceTest {
     @Mock
     private VerificationRequestMapper verificationRequestMapper;
     @Mock
-    private VerificationRequestValitation verificationRequestValitation;
+    private VerificationRequestValidationService verificationRequestValidationService;
 
     @InjectMocks
     private VerificationRequestService verificationRequestService;
@@ -106,7 +106,7 @@ class VerificationRequestServiceTest {
             VerificationRequest newRequest = new VerificationRequest();
             newRequest.setId(TEST_REQUEST_ID);
 
-            when(verificationRequestValitation.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
+            when(verificationRequestValidationService.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
             when(verificationRequestRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(verificationRequestMapper.toEntity(createDTO, testUser)).thenReturn(newRequest);
             when(verificationRequestRepository.save(newRequest)).thenReturn(newRequest);
@@ -117,8 +117,8 @@ class VerificationRequestServiceTest {
             // Then
             assertThat(result).isEqualTo(TEST_REQUEST_ID);
 
-            verify(verificationRequestValitation).validateAndGetUser(TEST_USER_ID);
-            verify(verificationRequestValitation).validateUserNotVerified(testUser);
+            verify(verificationRequestValidationService).validateAndGetUser(TEST_USER_ID);
+            verify(verificationRequestValidationService).validateUserNotVerified(testUser);
             verify(verificationRequestRepository).findByUserId(TEST_USER_ID);
             verify(verificationRequestMapper).toEntity(createDTO, testUser);
             verify(verificationRequestRepository).save(newRequest);
@@ -128,10 +128,10 @@ class VerificationRequestServiceTest {
         @DisplayName("Should update existing rejected request instead of creating new one")
         void createVerificationRequest_WithRejectedRequest_ShouldUpdateExistingRequest() {
             // Given
-            when(verificationRequestValitation.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
+            when(verificationRequestValidationService.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
             when(verificationRequestRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(rejectedRequest));
-            when(verificationRequestValitation.isPendingRequest(rejectedRequest)).thenReturn(false);
-            when(verificationRequestValitation.isRejectedRequest(rejectedRequest)).thenReturn(true);
+            when(verificationRequestValidationService.isPendingRequest(rejectedRequest)).thenReturn(false);
+            when(verificationRequestValidationService.isRejectedRequest(rejectedRequest)).thenReturn(true);
             when(verificationRequestRepository.save(rejectedRequest)).thenReturn(rejectedRequest);
 
             // When
@@ -149,9 +149,9 @@ class VerificationRequestServiceTest {
         @DisplayName("Should throw exception when user already has pending request")
         void createVerificationRequest_WithPendingRequest_ShouldThrowException() {
             // Given
-            when(verificationRequestValitation.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
+            when(verificationRequestValidationService.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
             when(verificationRequestRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(pendingRequest));
-            when(verificationRequestValitation.isPendingRequest(pendingRequest)).thenReturn(true);
+            when(verificationRequestValidationService.isPendingRequest(pendingRequest)).thenReturn(true);
 
             // When & Then
             assertThatThrownBy(() -> verificationRequestService.createVerificationRequest(createDTO))
@@ -165,19 +165,19 @@ class VerificationRequestServiceTest {
         @DisplayName("Should validate user first before checking existing requests")
         void createVerificationRequest_ShouldValidateUserFirst() {
             // Given
-            when(verificationRequestValitation.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
+            when(verificationRequestValidationService.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
             when(verificationRequestRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(verificationRequestMapper.toEntity(any(), any())).thenReturn(pendingRequest);
             when(verificationRequestRepository.save(any())).thenReturn(pendingRequest);
 
-            InOrder inOrder = inOrder(verificationRequestValitation, verificationRequestRepository);
+            InOrder inOrder = inOrder(verificationRequestValidationService, verificationRequestRepository);
 
             // When
             verificationRequestService.createVerificationRequest(createDTO);
 
             // Then
-            inOrder.verify(verificationRequestValitation).validateAndGetUser(TEST_USER_ID);
-            inOrder.verify(verificationRequestValitation).validateUserNotVerified(testUser);
+            inOrder.verify(verificationRequestValidationService).validateAndGetUser(TEST_USER_ID);
+            inOrder.verify(verificationRequestValidationService).validateUserNotVerified(testUser);
             inOrder.verify(verificationRequestRepository).findByUserId(TEST_USER_ID);
         }
 
@@ -185,7 +185,7 @@ class VerificationRequestServiceTest {
         @DisplayName("Should check user is not verified before creating request")
         void createVerificationRequest_ShouldCheckUserNotVerified() {
             // Given
-            when(verificationRequestValitation.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
+            when(verificationRequestValidationService.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
             when(verificationRequestRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.empty());
             when(verificationRequestMapper.toEntity(any(), any())).thenReturn(pendingRequest);
             when(verificationRequestRepository.save(any())).thenReturn(pendingRequest);
@@ -194,7 +194,7 @@ class VerificationRequestServiceTest {
             verificationRequestService.createVerificationRequest(createDTO);
 
             // Then
-            verify(verificationRequestValitation).validateUserNotVerified(testUser);
+            verify(verificationRequestValidationService).validateUserNotVerified(testUser);
         }
 
         @Test
@@ -204,10 +204,10 @@ class VerificationRequestServiceTest {
             VerificationRequest newRequest = new VerificationRequest();
             newRequest.setId(2L);
 
-            when(verificationRequestValitation.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
+            when(verificationRequestValidationService.validateAndGetUser(TEST_USER_ID)).thenReturn(testUser);
             when(verificationRequestRepository.findByUserId(TEST_USER_ID)).thenReturn(Optional.of(approvedRequest));
-            when(verificationRequestValitation.isPendingRequest(approvedRequest)).thenReturn(false);
-            when(verificationRequestValitation.isRejectedRequest(approvedRequest)).thenReturn(false);
+            when(verificationRequestValidationService.isPendingRequest(approvedRequest)).thenReturn(false);
+            when(verificationRequestValidationService.isRejectedRequest(approvedRequest)).thenReturn(false);
             when(verificationRequestMapper.toEntity(createDTO, testUser)).thenReturn(newRequest);
             when(verificationRequestRepository.save(newRequest)).thenReturn(newRequest);
 
@@ -232,8 +232,8 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_WithApproval_ShouldApproveAndUpdateUser() {
             // Given
             processDTO.setStatus(VerificationStatus.APPROVED);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
             when(verificationRequestRepository.save(pendingRequest)).thenReturn(pendingRequest);
 
             // When
@@ -247,7 +247,7 @@ class VerificationRequestServiceTest {
                         assertThat(request.getUpdatedAt()).isNotNull();
                     });
 
-            verify(verificationRequestValitation).approveUserVerification(testUser);
+            verify(verificationRequestValidationService).approveUserVerification(testUser);
             verify(verificationRequestRepository).save(pendingRequest);
         }
 
@@ -256,8 +256,8 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_WithRejection_ShouldRejectWithoutApprovingUser() {
             // Given
             processDTO.setStatus(VerificationStatus.REJECTED);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.REJECTED)).thenReturn(false);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.REJECTED)).thenReturn(false);
             when(verificationRequestRepository.save(pendingRequest)).thenReturn(pendingRequest);
 
             // When
@@ -271,7 +271,7 @@ class VerificationRequestServiceTest {
                         assertThat(request.getUpdatedAt()).isNotNull();
                     });
 
-            verify(verificationRequestValitation, never()).approveUserVerification(any());
+            verify(verificationRequestValidationService, never()).approveUserVerification(any());
             verify(verificationRequestRepository).save(pendingRequest);
         }
 
@@ -282,8 +282,8 @@ class VerificationRequestServiceTest {
             processDTO.setStatus(VerificationStatus.APPROVED);
             LocalDateTime before = LocalDateTime.now();
 
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
             when(verificationRequestRepository.save(pendingRequest)).thenReturn(pendingRequest);
 
             // When
@@ -301,15 +301,15 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_ShouldFindRequestFirst() {
             // Given
             processDTO.setStatus(VerificationStatus.APPROVED);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(any())).thenReturn(true);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(any())).thenReturn(true);
             when(verificationRequestRepository.save(any())).thenReturn(pendingRequest);
 
             // When
             verificationRequestService.processVerificationRequest(processDTO);
 
             // Then
-            verify(verificationRequestValitation).findVerificationRequestById(TEST_REQUEST_ID);
+            verify(verificationRequestValidationService).findVerificationRequestById(TEST_REQUEST_ID);
         }
 
         @Test
@@ -317,8 +317,8 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_ShouldUpdateStatusFromDTO() {
             // Given
             processDTO.setStatus(VerificationStatus.APPROVED);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
             when(verificationRequestRepository.save(pendingRequest)).thenReturn(pendingRequest);
 
             // When
@@ -333,15 +333,15 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_ShouldCheckIfApproved() {
             // Given
             processDTO.setStatus(VerificationStatus.APPROVED);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
             when(verificationRequestRepository.save(any())).thenReturn(pendingRequest);
 
             // When
             verificationRequestService.processVerificationRequest(processDTO);
 
             // Then
-            verify(verificationRequestValitation).isApproved(VerificationStatus.APPROVED);
+            verify(verificationRequestValidationService).isApproved(VerificationStatus.APPROVED);
         }
 
         @Test
@@ -349,15 +349,15 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_WithApproval_ShouldCallApproveUser() {
             // Given
             processDTO.setStatus(VerificationStatus.APPROVED);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.APPROVED)).thenReturn(true);
             when(verificationRequestRepository.save(any())).thenReturn(pendingRequest);
 
             // When
             verificationRequestService.processVerificationRequest(processDTO);
 
             // Then
-            verify(verificationRequestValitation).approveUserVerification(testUser);
+            verify(verificationRequestValidationService).approveUserVerification(testUser);
         }
 
         @Test
@@ -365,15 +365,15 @@ class VerificationRequestServiceTest {
         void processVerificationRequest_WithNonApproval_ShouldNotCallApproveUser() {
             // Given
             processDTO.setStatus(VerificationStatus.PENDING);
-            when(verificationRequestValitation.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
-            when(verificationRequestValitation.isApproved(VerificationStatus.PENDING)).thenReturn(false);
+            when(verificationRequestValidationService.findVerificationRequestById(TEST_REQUEST_ID)).thenReturn(pendingRequest);
+            when(verificationRequestValidationService.isApproved(VerificationStatus.PENDING)).thenReturn(false);
             when(verificationRequestRepository.save(any())).thenReturn(pendingRequest);
 
             // When
             verificationRequestService.processVerificationRequest(processDTO);
 
             // Then
-            verify(verificationRequestValitation, never()).approveUserVerification(any());
+            verify(verificationRequestValidationService, never()).approveUserVerification(any());
         }
     }
 

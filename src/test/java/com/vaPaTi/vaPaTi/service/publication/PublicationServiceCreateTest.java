@@ -22,7 +22,7 @@ import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.PublicationService;
-import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
+import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -1,4 +1,4 @@
-package com.vaPaTi.vaPaTi.validation;
+package com.vaPaTi.vaPaTi.validation.report;
 
 import com.vaPaTi.vaPaTi.dtos.report.CreateReportDTO;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
@@ -13,6 +13,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -43,7 +44,7 @@ public class ReportValidationService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final PublicationRepository publicationRepository;
-    private final CampaignServiceValidation campaignServiceValidation;
+    private final CampaignValidationService campaignValidationService;
 
     /**
      * Validate the input DTO
@@ -97,7 +98,7 @@ public class ReportValidationService {
                 yield ownerIdOf(publication.get().getUser());
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
-            case CAMPAIGN -> ownerIdOf(campaignServiceValidation.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
+            case CAMPAIGN -> ownerIdOf(campaignValidationService.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
             default -> throw new MessageException("Invalid entity type");
         };
     }

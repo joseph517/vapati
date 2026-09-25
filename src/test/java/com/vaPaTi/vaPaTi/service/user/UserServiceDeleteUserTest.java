@@ -15,9 +15,9 @@ import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.CampaignService;
 import com.vaPaTi.vaPaTi.service.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.service.UserService;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -308,7 +308,7 @@ class UserServiceDeleteUserTest {
                     campaignRepository,
                     authenticatedUserService,
                     userRepository,
-                    mock(CampaignServiceValidation.class),
+                    mock(CampaignValidationService.class),
                     mock(CampaignAuthorizationService.class),
                     mock(CampaignCategoryRepository.class),
                     campaignStatusHistoryService,
