@@ -13,16 +13,15 @@ import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 
-import com.vaPaTi.vaPaTi.entity.Publication;
-import com.vaPaTi.vaPaTi.entity.User;
-import com.vaPaTi.vaPaTi.entity.UserInfo;
+import com.vaPaTi.vaPaTi.entity.publication.Publication;
+import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.mapper.PublicationMapper;
-import com.vaPaTi.vaPaTi.repository.PublicationRepository;
+import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
+import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.service.PublicationService;
-import com.vaPaTi.vaPaTi.validation.PublicationValidationService;
+import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

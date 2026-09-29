@@ -1,23 +1,22 @@
 package com.vaPaTi.vaPaTi.service.user;
 
-import com.vaPaTi.vaPaTi.entity.Campaign;
-import com.vaPaTi.vaPaTi.entity.CampaignStatus;
-import com.vaPaTi.vaPaTi.entity.Goal;
-import com.vaPaTi.vaPaTi.entity.User;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.Goal;
+import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
-import com.vaPaTi.vaPaTi.mapper.UserMapper;
-import com.vaPaTi.vaPaTi.repository.CampaignCategoryRepository;
-import com.vaPaTi.vaPaTi.repository.CampaignRepository;
-import com.vaPaTi.vaPaTi.repository.CampaignStatusHistoryRepository;
-import com.vaPaTi.vaPaTi.repository.RoleRepository;
-import com.vaPaTi.vaPaTi.repository.UserRepository;
+import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
+import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.service.CampaignService;
-import com.vaPaTi.vaPaTi.service.CampaignStatusHistoryService;
-import com.vaPaTi.vaPaTi.service.UserService;
-import com.vaPaTi.vaPaTi.validation.CampaignAuthorizationService;
-import com.vaPaTi.vaPaTi.validation.CampaignServiceValidation;
-import com.vaPaTi.vaPaTi.validation.UserValidationService;
+import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
+import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -308,7 +307,7 @@ class UserServiceDeleteUserTest {
                     campaignRepository,
                     authenticatedUserService,
                     userRepository,
-                    mock(CampaignServiceValidation.class),
+                    mock(CampaignValidationService.class),
                     mock(CampaignAuthorizationService.class),
                     mock(CampaignCategoryRepository.class),
                     campaignStatusHistoryService,
