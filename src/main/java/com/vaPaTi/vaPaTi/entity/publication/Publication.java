@@ -47,9 +47,16 @@ public class Publication {
     @JoinColumn(name = "user_id", referencedColumnName = "id", updatable = false)
     private User user;
 
+    // Optional in the mapping (the column is NOT NULL) so a soft-deleted campaign is left null, not inner-joined away.
+    // Not updatable, so an UPDATE never overwrites the FK with that null.
     @ManyToOne
-    @JoinColumn(name = "campaign_id", nullable = true)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "campaign_id", updatable = false)
     private Campaign campaign;
+
+    // Read-only copy of the FK: keeps its value when the campaign is soft deleted and lets queries filter without a join
+    @Column(name = "campaign_id", insertable = false, updatable = false)
+    private Long campaignId;
 
     @PrePersist
     protected void onCreate() {

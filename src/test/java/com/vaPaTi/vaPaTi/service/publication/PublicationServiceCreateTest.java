@@ -156,7 +156,7 @@ class PublicationServiceCreateTest {
 
         // Verify interactions
         verify(publicationValidationService, times(1)).validateAndGetAuthor(nonExistentUserId);
-        verify(publicationMapper, never()).toEntity(any(), any());
+        verify(publicationMapper, never()).toEntity(any(), any(User.class));
         verify(publicationRepository, never()).save(any());
         verify(publicationMapper, never()).toDTO(any());
     }

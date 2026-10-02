@@ -16,6 +16,7 @@ public class PublicationResponseDTO {
     private String description;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long campaignId;
 
     private Long userId;
     private String firstName;
