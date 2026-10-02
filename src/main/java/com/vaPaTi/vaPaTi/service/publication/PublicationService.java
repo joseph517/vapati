@@ -2,8 +2,8 @@ package com.vaPaTi.vaPaTi.service.publication;
 
 import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
-import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -22,18 +22,22 @@ public class PublicationService {
     private final AuthenticatedUserService authenticatedUserService;
     private final PublicationValidationService publicationValidationService;
 
-    public PublicationResponseDTO createPublication(CreatePublicationDTO dto) {
-        Long authorId = authenticatedUserService.getAuthenticatedUserId();
-        User user = publicationValidationService.validateAndGetAuthor(authorId);
+    public PublicationResponseDTO createPublication(Long campaignId, CreatePublicationDTO dto) {
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+        Campaign campaign = publicationValidationService.validateAndGetPublishableCampaign(campaignId, callerId);
 
-        Publication publication = publicationMapper.toEntity(dto, user);
+        Publication publication = publicationMapper.toEntity(dto, campaign);
         publication = publicationRepository.save(publication);
 
         return publicationMapper.toDTO(publication);
     }
 
-    public List<PublicationResponseDTO> getPublicationsByUserId(Long userId) {
-        List<Publication> publications = publicationRepository.findAllByUser_Id(userId);
+    // Public: callerId is null for an anonymous caller, who doesn't see a CLOSED campaign
+    public List<PublicationResponseDTO> getPublicationsByCampaignId(Long campaignId) {
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        publicationValidationService.validateAndGetReadableCampaign(campaignId, callerId);
+
+        List<Publication> publications = publicationRepository.findAllByCampaignId(campaignId);
         return publications.stream()
                 .map(publicationMapper::toDTO)
                 .toList();

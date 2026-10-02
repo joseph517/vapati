@@ -4,7 +4,6 @@ import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
-import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.springframework.stereotype.Component;
 
@@ -12,15 +11,6 @@ import java.time.LocalDateTime;
 
 @Component
 public class PublicationMapper {
-
-    public Publication toEntity(CreatePublicationDTO dto, User user) {
-        Publication publication = new Publication();
-        publication.setDescription(dto.getDescription());
-        publication.setUser(user);
-        publication.setCreatedAt(LocalDateTime.now());
-        publication.setUpdatedAt(LocalDateTime.now());
-        return publication;
-    }
 
     // The author is always the campaign owner
     public Publication toEntity(CreatePublicationDTO dto, Campaign campaign) {
