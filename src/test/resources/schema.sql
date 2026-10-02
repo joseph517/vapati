@@ -163,7 +163,7 @@ CREATE TABLE campaign_category (
 CREATE TABLE publication (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    campaign_id BIGINT NULL,
+    campaign_id BIGINT NOT NULL,
     description VARCHAR(MAX),
     deleted_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
