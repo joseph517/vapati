@@ -95,6 +95,12 @@ public class ReportValidationService {
                 if (publication.get().getDeletedAt() != null) {
                     throw new MessageException("Cannot report a deleted publication");
                 }
+                // A publication of a campaign the reporter can't see (a CLOSED one of someone else, a deleted one or
+                // one of a deleted owner) is reported as not found, without revealing the campaign
+                Long campaignId = publication.get().getCampaignId();
+                if (campaignId == null || campaignValidationService.findVisibleCampaignById(campaignId, reporterId).isEmpty()) {
+                    throw new ResourceNotFoundException(PUBLICATION_NOT_FOUND);
+                }
                 yield ownerIdOf(publication.get().getUser());
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
