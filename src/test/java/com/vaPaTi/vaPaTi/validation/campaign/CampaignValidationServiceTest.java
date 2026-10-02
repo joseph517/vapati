@@ -474,6 +474,57 @@ class CampaignValidationServiceTest {
     }
 
     @Nested
+    @DisplayName("findVisibleCampaignById Tests")
+    class FindVisibleCampaignByIdTests {
+
+        private static final Long CAMPAIGN_ID = 1L;
+        private static final Long CALLER_ID = 3L;
+
+        @Test
+        @DisplayName("Should return the campaign when it is visible to the caller")
+        void findVisibleCampaignById_WhenVisible_ShouldReturnCampaign() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            Optional<Campaign> result = campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
+
+            // Then
+            assertThat(result).containsSame(testCampaign);
+        }
+
+        @Test
+        @DisplayName("Should return empty instead of throwing when the campaign is not visible")
+        void findVisibleCampaignById_WhenNotVisible_ShouldReturnEmpty() {
+            // Given: a CLOSED campaign of someone else is filtered out by the query
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.empty());
+
+            // When
+            Optional<Campaign> result = campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
+
+            // Then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should return empty when an admin looks up a missing campaign")
+        void findVisibleCampaignById_WhenAdminAndMissing_ShouldReturnEmpty() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.empty());
+
+            // When
+            Optional<Campaign> result = campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
+
+            // Then
+            assertThat(result).isEmpty();
+            verify(campaignRepository, never()).findByIdVisibleTo(any(), any());
+        }
+    }
+
+    @Nested
     @DisplayName("findVisibleCampaignByIdOrThrow Tests")
     class FindVisibleCampaignByIdOrThrowTests {
 

@@ -31,12 +31,18 @@ public class CampaignValidationService {
                 .orElseThrow(() -> campaignNotFound(campaignId));
     }
 
-    // callerId may be null (anonymous). A CLOSED campaign of someone else gets the same 404 as a missing one
-    public Campaign findVisibleCampaignByIdOrThrow(Long campaignId, Long callerId) {
-        Optional<Campaign> campaign = campaignAuthorizationService.isAdmin(callerId)
+    // callerId may be null (anonymous). An admin sees every campaign of an active owner; the rest don't see
+    // a CLOSED campaign of someone else
+    public Optional<Campaign> findVisibleCampaignById(Long campaignId, Long callerId) {
+        return campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findByIdWithActiveOwner(campaignId)
                 : campaignRepository.findByIdVisibleTo(campaignId, callerId);
-        return campaign.orElseThrow(() -> campaignNotFound(campaignId));
+    }
+
+    // callerId may be null (anonymous). A CLOSED campaign of someone else gets the same 404 as a missing one
+    public Campaign findVisibleCampaignByIdOrThrow(Long campaignId, Long callerId) {
+        return findVisibleCampaignById(campaignId, callerId)
+                .orElseThrow(() -> campaignNotFound(campaignId));
     }
 
     private ResourceNotFoundException campaignNotFound(Long campaignId) {
