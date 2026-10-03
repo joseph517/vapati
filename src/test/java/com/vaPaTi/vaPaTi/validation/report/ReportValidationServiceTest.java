@@ -46,6 +46,7 @@ import static org.mockito.Mockito.*;
 class ReportValidationServiceTest {
 
     private static final Long REPORTER_ID = 1L;
+    private static final Long PUBLICATION_CAMPAIGN_ID = 3L;
 
     @Mock
     private ReportRepository reportRepository;
@@ -79,6 +80,7 @@ class ReportValidationServiceTest {
 
         testPublication = new Publication();
         testPublication.setId(1L);
+        testPublication.setCampaignId(PUBLICATION_CAMPAIGN_ID);
         testPublication.setDeletedAt(null);
 
         testCampaign = new Campaign();
@@ -276,6 +278,8 @@ class ReportValidationServiceTest {
             author.setId(5L);
             testPublication.setUser(author);
             when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+            when(campaignValidationService.findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID))
+                    .thenReturn(Optional.of(testCampaign));
 
             // When & Then
             assertThat(reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L, REPORTER_ID))
@@ -288,6 +292,8 @@ class ReportValidationServiceTest {
             // Given: a soft-deleted author is loaded as null
             testPublication.setUser(null);
             when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+            when(campaignValidationService.findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID))
+                    .thenReturn(Optional.of(testCampaign));
 
             // When & Then
             assertThat(reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L, REPORTER_ID))
@@ -380,6 +386,8 @@ class ReportValidationServiceTest {
         void validateEntityExists_WithValidPublication_ShouldNotThrowException() {
             // Given
             when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+            when(campaignValidationService.findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID))
+                    .thenReturn(Optional.of(testCampaign));
 
             // When & Then
             assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
@@ -423,6 +431,8 @@ class ReportValidationServiceTest {
         void validateEntityExists_ForPublication_ShouldCheckDeletedAt() {
             // Given
             when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+            when(campaignValidationService.findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID))
+                    .thenReturn(Optional.of(testCampaign));
 
             // When
             reportValidationService.validateEntityExists(ReportedEntityType.PUBLICATION, 1L, REPORTER_ID);
@@ -430,6 +440,53 @@ class ReportValidationServiceTest {
             // Then
             verify(publicationRepository).findById(1L);
             assertThat(testPublication.getDeletedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("Should check the visibility of the publication's campaign with the reporter id")
+        void validateEntityExists_WithPublicationOfVisibleCampaign_ShouldPass() {
+            // Given
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+            when(campaignValidationService.findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID))
+                    .thenReturn(Optional.of(testCampaign));
+
+            // When & Then
+            assertDoesNotThrow(() -> reportValidationService.validateEntityExists(
+                    ReportedEntityType.PUBLICATION, 1L, REPORTER_ID
+            ));
+            verify(campaignValidationService).findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException (404) when the publication's campaign is not visible to the reporter")
+        void validateEntityExists_WithPublicationOfNotVisibleCampaign_ShouldThrowNotFound() {
+            // Given: a CLOSED campaign of someone else, a deleted one or one of a deleted owner
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+            when(campaignValidationService.findVisibleCampaignById(PUBLICATION_CAMPAIGN_ID, REPORTER_ID))
+                    .thenReturn(Optional.empty());
+
+            // When & Then: same message as a missing publication, so the campaign isn't revealed
+            assertThatThrownBy(() -> reportValidationService.validateEntityExists(
+                    ReportedEntityType.PUBLICATION, 1L, REPORTER_ID
+            ))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Publication not found");
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException (404) when the publication has no campaign")
+        void validateEntityExists_WithPublicationWithoutCampaign_ShouldThrowNotFound() {
+            // Given: a profile publication left over if the spec 42 script didn't run
+            testPublication.setCampaignId(null);
+            when(publicationRepository.findById(1L)).thenReturn(Optional.of(testPublication));
+
+            // When & Then
+            assertThatThrownBy(() -> reportValidationService.validateEntityExists(
+                    ReportedEntityType.PUBLICATION, 1L, REPORTER_ID
+            ))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Publication not found");
+            verify(campaignValidationService, never()).findVisibleCampaignById(any(), any());
         }
     }
 

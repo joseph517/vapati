@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/publications")
+@RequestMapping("/api")
 @Tag(name = "Publication", description = "Publication API")
 public class PublicationController {
 
@@ -23,21 +23,22 @@ public class PublicationController {
         this.publicationService = publicationService;
     }
 
-    @PostMapping("/create")
-    @Operation(summary = "Create a new publication", description = "Create a new publication authored by the authenticated user")
-    public ResponseEntity<PublicationResponseDTO> createPublication(@Valid @RequestBody CreatePublicationDTO dto) {
-        PublicationResponseDTO created = publicationService.createPublication(dto);
+    @PostMapping("/campaigns/{campaignId}/publications")
+    @Operation(summary = "Publish in a campaign", description = "Create a publication in the campaign {campaignId}. Only its owner can publish, while the campaign is ACTIVE or COMPLETED")
+    public ResponseEntity<PublicationResponseDTO> createPublication(@PathVariable Long campaignId,
+                                                                    @Valid @RequestBody CreatePublicationDTO dto) {
+        PublicationResponseDTO created = publicationService.createPublication(campaignId, dto);
         return ResponseEntity.ok(created);
     }
 
-    @GetMapping("/user/{userId}")
-    @Operation(summary = "List publications by user", description = "Get all publications by a specific user ID")
-    public ResponseEntity<List<PublicationResponseDTO>> getPublicationsByUser(@PathVariable Long userId) {
-        List<PublicationResponseDTO> publications = publicationService.getPublicationsByUserId(userId);
+    @GetMapping("/campaigns/{campaignId}/publications")
+    @Operation(summary = "List publications by campaign", description = "Get the publications of the campaign {campaignId}, newest first. Public; a CLOSED campaign is only visible to its owner or an admin")
+    public ResponseEntity<List<PublicationResponseDTO>> getPublicationsByCampaign(@PathVariable Long campaignId) {
+        List<PublicationResponseDTO> publications = publicationService.getPublicationsByCampaignId(campaignId);
         return ResponseEntity.ok(publications);
     }
 
-    @DeleteMapping("/{publicationId}")
+    @DeleteMapping("/publications/{publicationId}")
     @Operation(summary = "Delete a publication", description = "Delete a publication by ID if it belongs to the authenticated user")
     public ResponseEntity<Map<String, Object>> deletePublication(@PathVariable Long publicationId) {
         publicationService.deletePublication(publicationId);

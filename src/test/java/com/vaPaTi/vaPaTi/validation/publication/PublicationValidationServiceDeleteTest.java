@@ -5,7 +5,6 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
-import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,14 +21,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("PublicationValidationService - Unit Tests")
-class PublicationValidationServiceTest {
+@DisplayName("PublicationValidationService - Delete Tests")
+class PublicationValidationServiceDeleteTest {
 
     @Mock
     private PublicationRepository publicationRepository;
-
-    @Mock
-    private UserRepository userRepository;
 
     @InjectMocks
     private PublicationValidationService publicationValidationService;
@@ -48,31 +44,6 @@ class PublicationValidationServiceTest {
                 .description("Test publication")
                 .user(owner)
                 .build();
-    }
-
-    @Nested
-    @DisplayName("validateAndGetAuthor")
-    class ValidateAndGetAuthor {
-
-        @Test
-        @DisplayName("Should return the user when it exists")
-        void shouldReturnUser_whenExists() {
-            when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
-
-            User result = publicationValidationService.validateAndGetAuthor(1L);
-
-            assertThat(result).isEqualTo(owner);
-        }
-
-        @Test
-        @DisplayName("Should throw ResourceNotFoundException when the user does not exist")
-        void shouldThrow_whenUserNotFound() {
-            when(userRepository.findById(99L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> publicationValidationService.validateAndGetAuthor(99L))
-                    .isInstanceOf(ResourceNotFoundException.class)
-                    .hasMessage("User not found with ID: 99");
-        }
     }
 
     @Nested
