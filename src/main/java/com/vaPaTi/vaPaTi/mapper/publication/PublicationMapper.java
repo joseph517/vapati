@@ -2,8 +2,8 @@ package com.vaPaTi.vaPaTi.mapper.publication;
 
 import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
-import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import org.springframework.stereotype.Component;
 
@@ -12,10 +12,12 @@ import java.time.LocalDateTime;
 @Component
 public class PublicationMapper {
 
-    public Publication toEntity(CreatePublicationDTO dto, User user) {
+    // The author is always the campaign owner
+    public Publication toEntity(CreatePublicationDTO dto, Campaign campaign) {
         Publication publication = new Publication();
         publication.setDescription(dto.getDescription());
-        publication.setUser(user);
+        publication.setCampaign(campaign);
+        publication.setUser(campaign.getUser());
         publication.setCreatedAt(LocalDateTime.now());
         publication.setUpdatedAt(LocalDateTime.now());
         return publication;
@@ -27,6 +29,9 @@ public class PublicationMapper {
         dto.setDescription(publication.getDescription());
         dto.setCreatedAt(publication.getCreatedAt());
         dto.setUpdatedAt(publication.getUpdatedAt());
+        // The read-only campaignId is only loaded from the database: right after a save it is still null
+        Campaign campaign = publication.getCampaign();
+        dto.setCampaignId(campaign != null ? campaign.getId() : publication.getCampaignId());
 
         UserInfo userInfo = publication.getUser().getUserInfo();
         dto.setUserId(publication.getUser().getId());
