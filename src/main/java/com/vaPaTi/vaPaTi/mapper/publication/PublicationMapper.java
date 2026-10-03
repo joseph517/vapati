@@ -29,7 +29,9 @@ public class PublicationMapper {
         dto.setDescription(publication.getDescription());
         dto.setCreatedAt(publication.getCreatedAt());
         dto.setUpdatedAt(publication.getUpdatedAt());
-        dto.setCampaignId(publication.getCampaignId());
+        // The read-only campaignId is only loaded from the database: right after a save it is still null
+        Campaign campaign = publication.getCampaign();
+        dto.setCampaignId(campaign != null ? campaign.getId() : publication.getCampaignId());
 
         UserInfo userInfo = publication.getUser().getUserInfo();
         dto.setUserId(publication.getUser().getId());

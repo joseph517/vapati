@@ -71,6 +71,21 @@ class PublicationMapperTest {
     }
 
     @Test
+    @DisplayName("Should take campaignId from the campaign when the read-only column isn't loaded yet (right after a save)")
+    void toDTO_RightAfterSave_ShouldTakeCampaignIdFromCampaign() {
+        // Given: insertable = false, so the saved entity keeps campaignId null until it is reloaded
+        Publication publication = Publication.builder()
+                .id(10L).description("Progress update").user(owner).campaign(campaign).campaignId(null)
+                .build();
+
+        // When
+        PublicationResponseDTO dto = publicationMapper.toDTO(publication);
+
+        // Then
+        assertThat(dto.getCampaignId()).isEqualTo(2L);
+    }
+
+    @Test
     @DisplayName("Should set the campaign and take the author from the campaign owner")
     void toEntity_WithCampaign_ShouldSetCampaignAndOwnerAsAuthor() {
         // Given
