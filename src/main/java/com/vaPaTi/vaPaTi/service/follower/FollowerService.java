@@ -31,13 +31,13 @@ public class FollowerService {
     /**
      * Follows a user by creating a new follower relationship.
      *
-     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), and that the user to follow is not banned or suspended. It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDTO with the result.
+     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), (banned or suspended users are not found either). It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDTO with the result.
      *
      * @param userToFollowId the ID of the user to follow
      * @return a FollowResponseDTO with the result of the follow operation
-     * @throws MessageException if the current user is trying to follow themselves, or the user to follow is banned or suspended
+     * @throws MessageException if the current user is trying to follow themselves
      * @throws ConflictException if the current user is already following the user to follow
-     * @throws ResourceNotFoundException if the current user or the user to follow is not found
+     * @throws ResourceNotFoundException if the current user or the user to follow is not found, or the user to follow is blocked
      */
     @Transactional
     public FollowResponseDTO followUser(Long userToFollowId) {
@@ -46,7 +46,6 @@ public class FollowerService {
         followerValidationService.validateNotSelfFollow(userId, userToFollowId);
         User currentUser = followerValidationService.validateAndGetCurrentUser(userId);
         User userToFollow = followerValidationService.validateAndGetUserToFollow(userToFollowId);
-        followerValidationService.validateNotSanctioned(userToFollow);
         followerValidationService.validateNotAlreadyFollowing(userToFollow, currentUser);
 
         // Create new follower relationship
@@ -90,57 +89,73 @@ public class FollowerService {
     }
 
     /**
-     * Get list of followers for a specific user
+     * Get list of followers for a specific user. Banned and suspended followers are left out, except for an ADMIN.
      * @param userId ID of the user whose followers we want to retrieve
      * @return FollowersListResponseDTO with followers list
      */
     public FollowersListResponseDTO getFollowers(Long userId) {
-        User user = followerValidationService.validateAndGetUser(userId);
+        boolean callerIsAdmin = callerIsAdmin();
+        User user = followerValidationService.validateAndGetVisibleUser(userId, callerIsAdmin);
 
         // Get followers
-        List<Follower> followers = followerRepository.findFollowersByUser(user);
+        List<Follower> followers = callerIsAdmin
+                ? followerRepository.findFollowersByUser(user)
+                : followerRepository.findVisibleFollowersByUser(user, LocalDateTime.now());
 
         return followerMapper.toFollowersListResponseDto(userId, followers);
     }
 
     /**
-     * Get list of users that a specific user follows
+     * Get list of users that a specific user follows. Banned and suspended users are left out, except for an ADMIN.
      * @param userId ID of the user whose following list we want to retrieve
      * @return FollowersListResponseDTO with following list
      */
     public FollowersListResponseDTO getFollowing(Long userId) {
-        User user = followerValidationService.validateAndGetUser(userId);
+        boolean callerIsAdmin = callerIsAdmin();
+        User user = followerValidationService.validateAndGetVisibleUser(userId, callerIsAdmin);
 
         // Get following
-        List<Follower> following = followerRepository.findFollowingsByFollower(user);
+        List<Follower> following = callerIsAdmin
+                ? followerRepository.findFollowingsByFollower(user)
+                : followerRepository.findVisibleFollowingsByFollower(user, LocalDateTime.now());
 
         return followerMapper.toFollowingListResponseDto(userId, following);
     }
 
     /**
-     * Get follower count for a user
+     * Get follower count for a user. Banned and suspended followers don't count, except for an ADMIN.
      * @param userId ID of the user
      * @return number of followers
      */
     public long getFollowerCount(Long userId) {
-        User user = followerValidationService.validateAndGetUser(userId);
+        boolean callerIsAdmin = callerIsAdmin();
+        User user = followerValidationService.validateAndGetVisibleUser(userId, callerIsAdmin);
 
-        return followerRepository.countByUser(user);
+        return callerIsAdmin
+                ? followerRepository.countByUser(user)
+                : followerRepository.countVisibleByUser(user, LocalDateTime.now());
     }
 
     /**
-     * Get following count for a user
+     * Get following count for a user. Banned and suspended users don't count, except for an ADMIN.
      * @param userId ID of the user
      * @return number of users being followed
      */
     public long getFollowingCount(Long userId) {
-        User user = followerValidationService.validateAndGetUser(userId);
+        boolean callerIsAdmin = callerIsAdmin();
+        User user = followerValidationService.validateAndGetVisibleUser(userId, callerIsAdmin);
 
-        return followerRepository.countByFollower(user);
+        return callerIsAdmin
+                ? followerRepository.countByFollower(user)
+                : followerRepository.countVisibleByFollower(user, LocalDateTime.now());
     }
 
     public boolean isFollowing(Long currentUserId, Long userToFollowId) {
-        return followerValidationService.isFollowing(currentUserId, userToFollowId);
+        return followerValidationService.isFollowing(currentUserId, userToFollowId, callerIsAdmin());
+    }
+
+    private boolean callerIsAdmin() {
+        return followerValidationService.isAdmin(authenticatedUserService.getAuthenticatedUserId());
     }
 
 }

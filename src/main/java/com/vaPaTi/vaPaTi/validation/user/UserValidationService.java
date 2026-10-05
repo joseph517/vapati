@@ -14,6 +14,7 @@ import com.vaPaTi.vaPaTi.mapper.user.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserInfoRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +43,7 @@ public class UserValidationService {
     private final UserInfoRepository userInfoRepository;
     private final UserRepository userRepository;
     private final UserInfoMapper userInfoMapper;
+    private final AccountStatusValidationService accountStatusValidationService;
 
     public void validateCategoryLimit( List<Long> categoryIds) {
         if (categoryIds.isEmpty()) {
@@ -238,6 +240,13 @@ public class UserValidationService {
         return userRepository.findById(userId)
                 .map(user -> user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName()))
                 .orElse(false);
+    }
+
+    // A banned or currently suspended user is hidden like a missing one: 404 without revealing the sanction
+    public void validateProfileNotBlocked(User user) {
+        if (accountStatusValidationService.isBlocked(user)) {
+            throw new ResourceNotFoundException(USER_NOT_FOUND);
+        }
     }
 
     public boolean existsById(Long id) {

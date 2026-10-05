@@ -17,6 +17,9 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // A user not blocked: same rule as AccountStatusValidationService.isBlocked. :now comes from the JVM, not the database
+    String NOT_BLOCKED = "(u.banned IS NULL OR u.banned = false) AND (u.suspendedUntil IS NULL OR u.suspendedUntil <= :now) ";
+
     @NotNull Optional<User> findById(@NotNull Long id);
 
     // Used by the JWT filter on every request: one SELECT. userInfo and verificationRequest are inverse @OneToOne,

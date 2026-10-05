@@ -156,7 +156,8 @@ public class UserService {
         userRepository.save(user);
     }
 
-    // The user themselves and any ADMIN get the full UserDTO; anyone else gets the PublicUserProfileDTO
+    // The user themselves and any ADMIN get the full UserDTO; anyone else gets the PublicUserProfileDTO,
+    // or a 404 if the user is banned or suspended
     public Object getUserById(Long id) {
         if (id == null || id <= 0) {
             throw new MessageException("ID must be a positive number");
@@ -169,6 +170,7 @@ public class UserService {
         if (id.equals(callerId) || userValidationService.isAdmin(callerId)) {
             return userMapper.toUserDTO(user);
         }
+        userValidationService.validateProfileNotBlocked(user);
         return userMapper.toPublicUserProfileDTO(user);
     }
 

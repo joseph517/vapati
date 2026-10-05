@@ -33,6 +33,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -137,7 +138,7 @@ class CampaignServiceTest {
             CampaignResponseDTO dto3 = createResponseDTO(3L, "Campaign 3");
 
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(campaigns);
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(campaigns);
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(eq(campaign1), any())).thenReturn(dto1);
@@ -164,7 +165,7 @@ class CampaignServiceTest {
         void getAllCampaigns_WithNoCampaigns_ShouldReturnEmptyList() {
             // Given
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
@@ -180,13 +181,13 @@ class CampaignServiceTest {
         void getAllCampaigns_WhenRegularUser_ShouldUseFindAllVisibleTo() {
             // Given
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             campaignService.getAllCampaigns();
 
             // Then
-            verify(campaignRepository, times(1)).findAllVisibleTo(TEST_USER_ID);
+            verify(campaignRepository, times(1)).findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class));
             verify(campaignRepository, never()).findAllWithActiveOwner();
         }
 
@@ -195,13 +196,13 @@ class CampaignServiceTest {
         void getAllCampaigns_WhenAnonymous_ShouldUseFindAllVisibleToWithNull() {
             // Given
             givenCaller(null, false);
-            when(campaignRepository.findAllVisibleTo(null)).thenReturn(List.of());
+            when(campaignRepository.findAllVisibleTo(isNull(), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             campaignService.getAllCampaigns();
 
             // Then
-            verify(campaignRepository, times(1)).findAllVisibleTo(null);
+            verify(campaignRepository, times(1)).findAllVisibleTo(isNull(), any(LocalDateTime.class));
             verify(campaignRepository, never()).findAllWithActiveOwner();
             verify(authenticatedUserService, never()).getAuthenticatedUserId();
         }
@@ -218,7 +219,7 @@ class CampaignServiceTest {
 
             // Then
             verify(campaignRepository, times(1)).findAllWithActiveOwner();
-            verify(campaignRepository, never()).findAllVisibleTo(any());
+            verify(campaignRepository, never()).findAllVisibleTo(any(), any());
         }
 
         @Test
@@ -226,7 +227,7 @@ class CampaignServiceTest {
         void getAllCampaigns_ShouldNotUseUnfilteredFindAll() {
             // Given
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             campaignService.getAllCampaigns();
@@ -390,7 +391,7 @@ class CampaignServiceTest {
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of(campaign1, campaign2));
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of(campaign1, campaign2));
 
             campaignService.getAllCampaigns();
 
@@ -405,7 +406,7 @@ class CampaignServiceTest {
             Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
             when(campaignValidationService.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.ACTIVE, TEST_USER_ID))
+            when(campaignRepository.findByGoalStatusVisibleTo(eq(CampaignStatus.ACTIVE), eq(TEST_USER_ID), any(LocalDateTime.class)))
                     .thenReturn(List.of(campaign1, campaign2));
 
             campaignService.getCampaignsByStatus("ACTIVE");
@@ -420,7 +421,7 @@ class CampaignServiceTest {
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByCategoryIdVisibleTo(5L, TEST_USER_ID)).thenReturn(List.of(campaign1, campaign2));
+            when(campaignRepository.findByCategoryIdVisibleTo(eq(5L), eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of(campaign1, campaign2));
 
             campaignService.getCampaignsByCategoryId(5L);
 
@@ -451,7 +452,7 @@ class CampaignServiceTest {
             Campaign campaign2 = createTestCampaign(2L, "Campaign 2");
             Campaign campaign3 = createTestCampaign(3L, "Campaign 3");
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(List.of(campaign2, campaign3, campaign1));
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of(campaign2, campaign3, campaign1));
             // Rows come back interleaved: the grouping must not depend on the query order
             when(campaignCategoryRepository.findByCampaignIdIn(List.of(2L, 3L, 1L))).thenReturn(List.of(
                     campaignCategory(campaign1, category(10L)),
@@ -471,7 +472,7 @@ class CampaignServiceTest {
         @DisplayName("An empty listing doesn't query the categories (SQL Server rejects IN ())")
         void listing_WithNoCampaigns_ShouldNotQueryCategories() {
             givenCaller(null, false);
-            when(campaignRepository.findAllVisibleTo(null)).thenReturn(List.of());
+            when(campaignRepository.findAllVisibleTo(isNull(), any(LocalDateTime.class))).thenReturn(List.of());
 
             List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
 
@@ -486,7 +487,7 @@ class CampaignServiceTest {
                     .mapToObj(id -> createTestCampaign(id, "Campaign " + id))
                     .toList();
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findAllVisibleTo(TEST_USER_ID)).thenReturn(campaigns);
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(campaigns);
 
             List<CampaignResponseDTO> result = campaignService.getAllCampaigns();
 
@@ -830,7 +831,7 @@ class CampaignServiceTest {
             // Given
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID)).thenReturn(List.of(campaign1));
+            when(campaignRepository.findByCategoryIdVisibleTo(eq(CATEGORY_ID), eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of(campaign1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
@@ -840,7 +841,7 @@ class CampaignServiceTest {
 
                 // Then
                 assertThat(result).hasSize(1);
-                verify(campaignRepository).findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID);
+                verify(campaignRepository).findByCategoryIdVisibleTo(eq(CATEGORY_ID), eq(TEST_USER_ID), any(LocalDateTime.class));
                 verify(campaignRepository, never()).findByCategoryIdWithActiveOwner(any());
             }
         }
@@ -850,7 +851,7 @@ class CampaignServiceTest {
         void getCampaignsByCategoryId_WithNoMatches_ShouldReturnEmptyList() {
             // Given
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findByCategoryIdVisibleTo(eq(CATEGORY_ID), eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByCategoryId(CATEGORY_ID);
@@ -864,13 +865,13 @@ class CampaignServiceTest {
         void getCampaignsByCategoryId_WhenAnonymous_ShouldUseVisibleToWithNull() {
             // Given
             givenCaller(null, false);
-            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, null)).thenReturn(List.of());
+            when(campaignRepository.findByCategoryIdVisibleTo(eq(CATEGORY_ID), isNull(), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             campaignService.getCampaignsByCategoryId(CATEGORY_ID);
 
             // Then
-            verify(campaignRepository).findByCategoryIdVisibleTo(CATEGORY_ID, null);
+            verify(campaignRepository).findByCategoryIdVisibleTo(eq(CATEGORY_ID), isNull(), any(LocalDateTime.class));
             verify(campaignRepository, never()).findByCategoryIdWithActiveOwner(any());
         }
 
@@ -886,7 +887,7 @@ class CampaignServiceTest {
 
             // Then
             verify(campaignRepository).findByCategoryIdWithActiveOwner(CATEGORY_ID);
-            verify(campaignRepository, never()).findByCategoryIdVisibleTo(any(), any());
+            verify(campaignRepository, never()).findByCategoryIdVisibleTo(any(), any(), any());
         }
 
         @Test
@@ -894,7 +895,7 @@ class CampaignServiceTest {
         void getCampaignsByCategoryId_ShouldUseSingleCampaignQuery() {
             // Given
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByCategoryIdVisibleTo(CATEGORY_ID, TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findByCategoryIdVisibleTo(eq(CATEGORY_ID), eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             campaignService.getCampaignsByCategoryId(CATEGORY_ID);
@@ -902,6 +903,58 @@ class CampaignServiceTest {
             // Then
             verify(campaignRepository, never()).findAllById(any());
             verifyNoInteractions(campaignCategoryRepository);
+        }
+    }
+
+    @Nested
+    @DisplayName("Listings hide campaigns of blocked owners (spec 45)")
+    class BlockedOwnerListingTests {
+
+        // The blocked-owner filter is JPQL; here we check that a non-admin passes the JVM clock as :now
+        private void assertIsNow(LocalDateTime captured, LocalDateTime before) {
+            assertThat(captured).isBetween(before, LocalDateTime.now());
+        }
+
+        @Test
+        @DisplayName("getAllCampaigns of a non-admin passes now to findAllVisibleTo")
+        void getAllCampaigns_WhenNotAdmin_ShouldPassNow() {
+            givenCaller(TEST_USER_ID, false);
+            ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+            when(campaignRepository.findAllVisibleTo(eq(TEST_USER_ID), nowCaptor.capture())).thenReturn(List.of());
+            LocalDateTime before = LocalDateTime.now();
+
+            campaignService.getAllCampaigns();
+
+            assertIsNow(nowCaptor.getValue(), before);
+        }
+
+        @Test
+        @DisplayName("getCampaignsByStatus of a non-admin passes now to findByGoalStatusVisibleTo")
+        void getCampaignsByStatus_WhenNotAdmin_ShouldPassNow() {
+            when(campaignValidationService.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
+            givenCaller(null, false);
+            ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+            when(campaignRepository.findByGoalStatusVisibleTo(eq(CampaignStatus.ACTIVE), isNull(), nowCaptor.capture()))
+                    .thenReturn(List.of());
+            LocalDateTime before = LocalDateTime.now();
+
+            campaignService.getCampaignsByStatus("ACTIVE");
+
+            assertIsNow(nowCaptor.getValue(), before);
+        }
+
+        @Test
+        @DisplayName("getCampaignsByCategoryId of a non-admin passes now to findByCategoryIdVisibleTo")
+        void getCampaignsByCategoryId_WhenNotAdmin_ShouldPassNow() {
+            givenCaller(TEST_USER_ID, false);
+            ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+            when(campaignRepository.findByCategoryIdVisibleTo(eq(5L), eq(TEST_USER_ID), nowCaptor.capture()))
+                    .thenReturn(List.of());
+            LocalDateTime before = LocalDateTime.now();
+
+            campaignService.getCampaignsByCategoryId(5L);
+
+            assertIsNow(nowCaptor.getValue(), before);
         }
     }
 
@@ -916,7 +969,7 @@ class CampaignServiceTest {
             Campaign campaign1 = createTestCampaign(1L, "Campaign 1");
             when(campaignValidationService.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.CLOSED, TEST_USER_ID)).thenReturn(List.of(campaign1));
+            when(campaignRepository.findByGoalStatusVisibleTo(eq(CampaignStatus.CLOSED), eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of(campaign1));
 
             try (MockedStatic<CampaignMapper> mapperMock = mockStatic(CampaignMapper.class)) {
                 mapperMock.when(() -> CampaignMapper.toResponseDTO(any(), any())).thenReturn(campaignResponseDTO);
@@ -927,7 +980,7 @@ class CampaignServiceTest {
                 // Then
                 assertThat(result).hasSize(1);
                 verify(campaignValidationService).parseStatus("CLOSED");
-                verify(campaignRepository).findByGoalStatusVisibleTo(CampaignStatus.CLOSED, TEST_USER_ID);
+                verify(campaignRepository).findByGoalStatusVisibleTo(eq(CampaignStatus.CLOSED), eq(TEST_USER_ID), any(LocalDateTime.class));
                 verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
             }
         }
@@ -938,14 +991,14 @@ class CampaignServiceTest {
             // Given
             when(campaignValidationService.parseStatus("CLOSED")).thenReturn(CampaignStatus.CLOSED);
             givenCaller(null, false);
-            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.CLOSED, null)).thenReturn(List.of());
+            when(campaignRepository.findByGoalStatusVisibleTo(eq(CampaignStatus.CLOSED), isNull(), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("CLOSED");
 
             // Then
             assertThat(result).isEmpty();
-            verify(campaignRepository).findByGoalStatusVisibleTo(CampaignStatus.CLOSED, null);
+            verify(campaignRepository).findByGoalStatusVisibleTo(eq(CampaignStatus.CLOSED), isNull(), any(LocalDateTime.class));
             verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
         }
 
@@ -962,7 +1015,7 @@ class CampaignServiceTest {
 
             // Then
             verify(campaignRepository).findByGoalStatusWithActiveOwner(CampaignStatus.CLOSED);
-            verify(campaignRepository, never()).findByGoalStatusVisibleTo(any(), any());
+            verify(campaignRepository, never()).findByGoalStatusVisibleTo(any(), any(), any());
         }
 
         @Test
@@ -978,7 +1031,7 @@ class CampaignServiceTest {
                     .hasMessage("Invalid campaign status: FOO");
 
             verify(campaignRepository, never()).findByGoalStatusWithActiveOwner(any());
-            verify(campaignRepository, never()).findByGoalStatusVisibleTo(any(), any());
+            verify(campaignRepository, never()).findByGoalStatusVisibleTo(any(), any(), any());
         }
 
         @Test
@@ -987,7 +1040,7 @@ class CampaignServiceTest {
             // Given
             when(campaignValidationService.parseStatus("ACTIVE")).thenReturn(CampaignStatus.ACTIVE);
             givenCaller(TEST_USER_ID, false);
-            when(campaignRepository.findByGoalStatusVisibleTo(CampaignStatus.ACTIVE, TEST_USER_ID)).thenReturn(List.of());
+            when(campaignRepository.findByGoalStatusVisibleTo(eq(CampaignStatus.ACTIVE), eq(TEST_USER_ID), any(LocalDateTime.class))).thenReturn(List.of());
 
             // When
             List<CampaignResponseDTO> result = campaignService.getCampaignsByStatus("ACTIVE");
