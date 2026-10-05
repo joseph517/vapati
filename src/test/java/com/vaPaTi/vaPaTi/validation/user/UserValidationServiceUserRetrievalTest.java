@@ -4,8 +4,10 @@ import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -32,6 +35,8 @@ class UserValidationServiceUserRetrievalTest {
 
     @Mock
     private UserRepository userRepository;
+    @Spy
+    private AccountStatusValidationService accountStatusValidationService;
     @InjectMocks
     private UserValidationService userValidationService;
 
@@ -541,6 +546,47 @@ class UserValidationServiceUserRetrievalTest {
         void isAdmin_WithNullId_ShouldReturnFalse() {
             assertThat(userValidationService.isAdmin(null)).isFalse();
             verifyNoInteractions(userRepository);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateProfileNotBlocked()")
+    class ValidateProfileNotBlockedTests {
+
+        @Test
+        @DisplayName("Banned user: 404 User not found")
+        void bannedUser_ShouldThrowNotFound() {
+            User user = User.builder().id(VALID_USER_ID).banned(true).build();
+
+            assertThatThrownBy(() -> userValidationService.validateProfileNotBlocked(user))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage(EXPECTED_ERROR_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("Current suspension: 404 User not found")
+        void currentlySuspendedUser_ShouldThrowNotFound() {
+            User user = User.builder().id(VALID_USER_ID).suspendedUntil(LocalDateTime.now().plusDays(1)).build();
+
+            assertThatThrownBy(() -> userValidationService.validateProfileNotBlocked(user))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage(EXPECTED_ERROR_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("Expired suspension: doesn't throw")
+        void expiredSuspension_ShouldNotThrow() {
+            User user = User.builder().id(VALID_USER_ID).suspendedUntil(LocalDateTime.now().minusDays(1)).build();
+
+            assertThatCode(() -> userValidationService.validateProfileNotBlocked(user)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("No sanction: doesn't throw")
+        void notSanctionedUser_ShouldNotThrow() {
+            User user = User.builder().id(VALID_USER_ID).banned(false).build();
+
+            assertThatCode(() -> userValidationService.validateProfileNotBlocked(user)).doesNotThrowAnyException();
         }
     }
 }
