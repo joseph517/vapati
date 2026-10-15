@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class DonationValidationService {
 
     private final CampaignValidationService campaignValidationService;
     private final UserRepository userRepository;
+    private final TextValidationService textValidationService;
 
     public void validateInput(@NotNull CreateDonationDTO dto) {
         if (dto.getCampaignId() == null) {
@@ -40,15 +42,7 @@ public class DonationValidationService {
             return null;
         }
 
-        String trimmed = message.trim();
-        if (trimmed.isEmpty()) {
-            throw new MessageException("Message cannot be blank");
-        }
-        if (trimmed.length() > MAX_MESSAGE_LENGTH) {
-            throw new MessageException("Message must be at most " + MAX_MESSAGE_LENGTH + " characters");
-        }
-
-        return trimmed;
+        return textValidationService.normalizeRequiredText(message, "Message", MAX_MESSAGE_LENGTH);
     }
 
     // callerId may be null (anonymous). A CLOSED campaign of someone else is reported as not found
