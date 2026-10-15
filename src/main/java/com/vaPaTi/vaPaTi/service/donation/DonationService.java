@@ -54,6 +54,10 @@ public class DonationService {
         // Validate input
         donationValidationService.validateInput(dto);
 
+        // Normalize the optional message. A private flag without a message has nothing to hide
+        String message = donationValidationService.validateAndNormalizeMessage(dto.getMessage());
+        boolean messagePrivate = message != null && Boolean.TRUE.equals(dto.getMessagePrivate());
+
         // Validate campaign exists, is visible to the donor and is not deleted (before the status check)
         Campaign campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId(), donorUserId);
 
@@ -75,6 +79,8 @@ public class DonationService {
                 .amount(dto.getAmount())
                 .status(DonationStatus.COMPLETED)
                 .transactionId(generateTransactionId())
+                .message(message)
+                .messagePrivate(messagePrivate)
                 .build();
 
         Donation savedDonation = donationRepository.save(donation);
