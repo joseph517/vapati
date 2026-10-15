@@ -111,6 +111,39 @@ class DonationMapperTest {
     }
 
     @Test
+    @DisplayName("Should copy message and messagePrivate from the donation")
+    void toDTO_WithPrivateMessage_ShouldCopyMessageFields() {
+        // Given
+        Donation donation = Donation.builder()
+                .id(10L).donor(donor).campaign(campaign).amount(new BigDecimal("50.0"))
+                .message("Solo para vos").messagePrivate(true)
+                .build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getMessage()).isEqualTo("Solo para vos");
+        assertThat(dto.getMessagePrivate()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should map a donation without message to message null and messagePrivate false")
+    void toDTO_WithoutMessage_ShouldMapNullMessageAndFalsePrivate() {
+        // Given
+        Donation donation = Donation.builder()
+                .id(10L).donor(donor).campaign(campaign).amount(new BigDecimal("50.0"))
+                .build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getMessage()).isNull();
+        assertThat(dto.getMessagePrivate()).isFalse();
+    }
+
+    @Test
     @DisplayName("Should pass the deleted campaign names to every element of the list")
     void toDTOList_WithDeletedNames_ShouldMapEachDonation() {
         // Given

@@ -24,6 +24,8 @@ public class DonationResponseDTO {
     private BigDecimal amount;
     private DonationStatus status;
     private String transactionId;
+    private String message;
+    private Boolean messagePrivate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
