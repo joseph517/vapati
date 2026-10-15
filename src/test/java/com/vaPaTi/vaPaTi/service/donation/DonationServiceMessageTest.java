@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
@@ -27,6 +28,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -189,6 +192,112 @@ class DonationServiceMessageTest {
                     .hasMessage("Message cannot be blank");
             verify(donationRepository, never()).save(any(Donation.class));
             verify(goalRepository, never()).addToAmountRaised(anyLong(), any(BigDecimal.class), any(LocalDateTime.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("getDonationsByCampaign() message visibility")
+    class GetDonationsByCampaignMessageTests {
+
+        // The private donation is the donor's, the public one and the one without message are another donor's
+        private static final Long OTHER_DONOR_ID = 4L;
+        private static final Long THIRD_PARTY_ID = 5L;
+        private static final Long ADMIN_ID = 6L;
+
+        private List<DonationResponseDTO> listAs(Long callerId) {
+            List<Donation> donations = List.of(Donation.builder().id(10L).build());
+            List<DonationResponseDTO> dtos = List.of(
+                    donationDTO(10L, DONOR_ID, "Solo para vos", true),
+                    donationDTO(11L, OTHER_DONOR_ID, "Mucha suerte", false),
+                    donationDTO(12L, OTHER_DONOR_ID, null, false));
+
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.ofNullable(callerId));
+            when(donationValidationService.validateAndGetCampaign(CAMPAIGN_ID, callerId)).thenReturn(campaign);
+            when(donationRepository.findByCampaignOrderByCreatedAtDesc(campaign)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations)).thenReturn(dtos);
+
+            return donationService.getDonationsByCampaign(CAMPAIGN_ID);
+        }
+
+        private DonationResponseDTO donationDTO(Long id, Long donorUserId, String message, boolean messagePrivate) {
+            return DonationResponseDTO.builder()
+                    .id(id)
+                    .donorUserId(donorUserId)
+                    .campaignId(CAMPAIGN_ID)
+                    .amount(AMOUNT)
+                    .transactionId("TXN-" + id)
+                    .message(message)
+                    .messagePrivate(messagePrivate)
+                    .build();
+        }
+
+        private void assertPrivateMessageVisible(List<DonationResponseDTO> result) {
+            assertThat(result).extracting(DonationResponseDTO::getMessage)
+                    .containsExactly("Solo para vos", "Mucha suerte", null);
+            assertThat(result).extracting(DonationResponseDTO::getMessagePrivate)
+                    .containsExactly(true, false, false);
+        }
+
+        private void assertPrivateMessageHidden(List<DonationResponseDTO> result) {
+            assertThat(result).extracting(DonationResponseDTO::getMessage)
+                    .containsExactly(null, "Mucha suerte", null);
+            assertThat(result).extracting(DonationResponseDTO::getMessagePrivate)
+                    .containsExactly(false, false, false);
+            assertThat(result).extracting(DonationResponseDTO::getDonorUserId)
+                    .containsExactly(DONOR_ID, OTHER_DONOR_ID, OTHER_DONOR_ID);
+        }
+
+        @Test
+        @DisplayName("Should show the campaign owner the private message")
+        void getDonationsByCampaign_WhenOwner_ShouldShowPrivateMessage() {
+            // When
+            List<DonationResponseDTO> result = listAs(OWNER_ID);
+
+            // Then
+            assertPrivateMessageVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show an ADMIN the private message")
+        void getDonationsByCampaign_WhenAdmin_ShouldShowPrivateMessage() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+
+            // When
+            List<DonationResponseDTO> result = listAs(ADMIN_ID);
+
+            // Then
+            assertPrivateMessageVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show the donor the private message of their own donation")
+        void getDonationsByCampaign_WhenDonor_ShouldShowOwnPrivateMessage() {
+            // When
+            List<DonationResponseDTO> result = listAs(DONOR_ID);
+
+            // Then
+            assertPrivateMessageVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show another USER the private donation as one without message, and the public message")
+        void getDonationsByCampaign_WhenThirdParty_ShouldHidePrivateMessage() {
+            // When
+            List<DonationResponseDTO> result = listAs(THIRD_PARTY_ID);
+
+            // Then
+            assertPrivateMessageHidden(result);
+        }
+
+        @Test
+        @DisplayName("Should show an anonymous caller the private donation as one without message, and the public message")
+        void getDonationsByCampaign_WhenAnonymous_ShouldHidePrivateMessage() {
+            // When
+            List<DonationResponseDTO> result = listAs(null);
+
+            // Then
+            assertPrivateMessageHidden(result);
         }
     }
 }
