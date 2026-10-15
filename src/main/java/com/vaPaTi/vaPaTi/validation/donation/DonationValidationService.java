@@ -17,6 +17,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DonationValidationService {
 
+    private static final int MAX_MESSAGE_LENGTH = 280;
+
     private final CampaignValidationService campaignValidationService;
     private final UserRepository userRepository;
 
@@ -30,6 +32,23 @@ public class DonationValidationService {
         if (dto.getAmount().signum() <= 0) {
             throw new MessageException("Amount must be greater than zero");
         }
+    }
+
+    // null means no message. The length check repeats the DTO's @Size, as validateInput does with @NotNull
+    public String validateAndNormalizeMessage(String message) {
+        if (message == null) {
+            return null;
+        }
+
+        String trimmed = message.trim();
+        if (trimmed.isEmpty()) {
+            throw new MessageException("Message cannot be blank");
+        }
+        if (trimmed.length() > MAX_MESSAGE_LENGTH) {
+            throw new MessageException("Message must be at most " + MAX_MESSAGE_LENGTH + " characters");
+        }
+
+        return trimmed;
     }
 
     // callerId may be null (anonymous). A CLOSED campaign of someone else is reported as not found
