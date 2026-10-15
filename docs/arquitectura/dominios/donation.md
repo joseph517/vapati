@@ -4,6 +4,8 @@
 
 Una donación es un aporte de dinero de un usuario autenticado a la campaña de otro usuario. Cada donación suma su monto al recaudado de la meta (`Goal`) de la campaña y, si con eso se alcanza la meta, pasa la campaña de `ACTIVE` a `COMPLETED`.
 
+El donante puede acompañar la donación con un mensaje opcional, público o privado. Un mensaje privado lo ven solo el donante, el dueño de la campaña y un ADMIN.
+
 No hay pasarela de pago: el sistema **simula la aprobación**. Toda donación que pasa las validaciones se guarda directamente en `COMPLETED` con un identificador de transacción generado en el momento. El propio service lo marca como el punto donde, en producción, se integraría una pasarela.
 
 Además de crear donaciones, el dominio ofrece tres lecturas: el historial del usuario que llama, el listado de donaciones de una campaña y las estadísticas de recaudación de una campaña. Las dos últimas son públicas.
@@ -22,6 +24,8 @@ Además de crear donaciones, el dominio ofrece tres lecturas: el historial del u
 | `amount` | `BigDecimal` | `amount` | `precision = 15, scale = 2`, no nulo. |
 | `status` | `DonationStatus` | `status` | Guardado como texto (`EnumType.STRING`), por defecto `PENDING`. |
 | `transactionId` | `String` | `transaction_id` | Único, hasta 100 caracteres. Formato `TXN-XXXXXXXX`. |
+| `message` | `String` | `message` | Mensaje opcional del donante, ya sin espacios en los extremos. `varchar(280)`, nulo. `null` si la donación no tiene mensaje. |
+| `messagePrivate` | `boolean` | `message_private` | `true` si el mensaje es privado. `bit NOT NULL` con `@ColumnDefault("0")` y `@Builder.Default` en `false`. Nunca es `true` sin mensaje. |
 | `createdAt` / `updatedAt` | `LocalDateTime` | `created_at` / `updated_at` | Marcas de tiempo de Hibernate más `@PrePersist`/`@PreUpdate`. |
 
 **Por qué cada FK está mapeada dos veces.** Las campañas y los usuarios tienen borrado lógico (`@SQLRestriction("deleted_at IS NULL")`). Si la relación fuera obligatoria, Hibernate haría un inner join contra la tabla filtrada y la donación desaparecería al borrar su campaña o su donante. Por eso:
@@ -31,6 +35,10 @@ Además de crear donaciones, el dominio ofrece tres lecturas: el historial del u
 - `campaignId` y `donorUserId` son copias de solo lectura de las mismas columnas: conservan el valor aunque la relación sea `null` y permiten filtrar por FK sin hacer join contra la tabla con borrado lógico (las consultas de estadísticas y el historial filtran por estas columnas).
 
 El detalle general del borrado lógico está en [Modelo de datos](../04-modelo-de-datos.md).
+
+**Por qué `message_private` lleva default en la base.** Las columnas las crea `ddl-auto=update`. Sin `@ColumnDefault("0")`, el `ALTER TABLE donation ADD message_private bit NOT NULL` falla en SQL Server si la tabla ya tiene filas. Con el default, las donaciones anteriores al mensaje quedaron con `message = NULL` y `message_private = 0`.
+
+**`message` es `varchar`, no `nvarchar`.** Sigue la convención del resto de los textos del proyecto, como `publication.description`. Las tildes y la `ñ` se guardan bien. Los emojis y los caracteres fuera de la página de códigos de SQL Server llegan como `?`.
 
 ### Enum `DonationStatus` (`entity/donation/DonationStatus.java`)
 
@@ -55,13 +63,14 @@ Todas las aplica `validation/donation/DonationValidationService.java`, salvo don
 
 1. **El donante sale del token.** `AuthenticatedUserService.getAuthenticatedUserId()`; el body no lleva id de usuario. Así nadie puede donar en nombre de otro.
 2. **Entrada válida.** `campaignId` y `amount` obligatorios, `amount > 0`, con hasta 13 enteros y 2 decimales. Lo valida Bean Validation en `CreateDonationDTO` (`@NotNull`, `@Positive`, `@Digits`) y lo repite `validateInput` con los mismos mensajes. El límite de dígitos coincide con la columna (`precision = 15, scale = 2`), así que un monto aceptado siempre entra en la base sin redondeo.
-3. **La campaña tiene que ser visible para el donante.** `validateAndGetCampaign` delega en `CampaignValidationService.findVisibleCampaignByIdOrThrow`: una campaña inexistente, borrada, `CLOSED` de otro usuario, de un dueño borrado o de un dueño baneado o suspendido responde lo mismo, `404 Campaign not found with id: {id}`. Así, donar no sirve para descubrir campañas que el usuario no puede ver. Un ADMIN ve toda campaña de un dueño no borrado (también las `CLOSED` y las de dueños sancionados). Como la regla es la misma que para leer, un ADMIN puede donar a la campaña de un dueño baneado o suspendido; a una `CLOSED` no, porque la corta la regla siguiente. El criterio completo de visibilidad está en [Campaign](campaign.md).
-4. **La meta tiene que existir y no estar `CLOSED`** (`validateGoalIsActive`). Una campaña `COMPLETED` **sí** acepta donaciones: la meta alcanzada no corta la recaudación, y el recaudado puede superar la meta. Solo el cierre la corta. El caso "sin meta" (`Campaign does not have a goal`) no aparece con datos creados por la API: `CampaignMapper` crea cada campaña con su `Goal` en `0` recaudado.
-5. **El donante existe** (`validateAndGetDonor`, `UserRepository.findById`). En la práctica siempre se cumple, porque el filtro JWT ya cargó al usuario.
-6. **No se puede donar a la campaña propia** (`validateNotSelfDonation`), comparando el id del token con el dueño de la campaña. Evita que un usuario infle su propia recaudación.
-7. **Aprobación simulada.** Se construye la `Donation` con `status = COMPLETED` y un `transactionId` `"TXN-"` + los primeros 8 caracteres de un UUID aleatorio en mayúsculas, y se guarda.
-8. **Suma atómica del recaudado** (`GoalRepository.addToAmountRaised`): un `UPDATE goal SET amount_raised = amount_raised + :amount ... WHERE id = :goalId AND status <> CLOSED`. La suma la hace la base, así dos donaciones simultáneas no se pisan (no hay lectura-modificación-escritura en Java). Si devuelve `0` filas, la campaña se cerró entre la validación y la suma: se lanza `400 Campaign goal is not active` y, como el método es `@Transactional`, se revierte también el `INSERT` de la donación.
-9. **Paso automático a `COMPLETED`** (`GoalRepository.completeIfGoalReached`): un segundo `UPDATE` que solo cambia la meta si sigue `ACTIVE` y `amount_raised >= amount_goal`. Devuelve `1` únicamente para la donación que produjo el cambio, así la transición se registra una sola vez en el historial aunque varias donaciones crucen la meta a la vez.
+3. **Mensaje opcional** (`validateAndNormalizeMessage`). Sin `message`, o con `message: null`, la donación no tiene mensaje. Con texto, se guarda con `trim`. `""` o solo espacios (incluidos saltos de línea y tabulaciones) responden `400 Message cannot be blank`: el mensaje es opcional, pero si llega tiene que tener texto. El largo máximo es 280 caracteres (`MAX_MESSAGE_LENGTH`): lo corta `@Size(max = 280)` en `CreateDonationDTO`, y `validateAndNormalizeMessage` lo repite sobre el texto ya recortado. `messagePrivate` ausente o `null` cuenta como `false`, y `messagePrivate: true` sin mensaje se guarda como `false`, porque no hay nada que ocultar.
+4. **La campaña tiene que ser visible para el donante.** `validateAndGetCampaign` delega en `CampaignValidationService.findVisibleCampaignByIdOrThrow`: una campaña inexistente, borrada, `CLOSED` de otro usuario, de un dueño borrado o de un dueño baneado o suspendido responde lo mismo, `404 Campaign not found with id: {id}`. Así, donar no sirve para descubrir campañas que el usuario no puede ver. Un ADMIN ve toda campaña de un dueño no borrado (también las `CLOSED` y las de dueños sancionados). Como la regla es la misma que para leer, un ADMIN puede donar a la campaña de un dueño baneado o suspendido; a una `CLOSED` no, porque la corta la regla siguiente. El criterio completo de visibilidad está en [Campaign](campaign.md).
+5. **La meta tiene que existir y no estar `CLOSED`** (`validateGoalIsActive`). Una campaña `COMPLETED` **sí** acepta donaciones: la meta alcanzada no corta la recaudación, y el recaudado puede superar la meta. Solo el cierre la corta. El caso "sin meta" (`Campaign does not have a goal`) no aparece con datos creados por la API: `CampaignMapper` crea cada campaña con su `Goal` en `0` recaudado.
+6. **El donante existe** (`validateAndGetDonor`, `UserRepository.findById`). En la práctica siempre se cumple, porque el filtro JWT ya cargó al usuario.
+7. **No se puede donar a la campaña propia** (`validateNotSelfDonation`), comparando el id del token con el dueño de la campaña. Evita que un usuario infle su propia recaudación.
+8. **Aprobación simulada.** Se construye la `Donation` con `status = COMPLETED` y un `transactionId` `"TXN-"` + los primeros 8 caracteres de un UUID aleatorio en mayúsculas, más el mensaje normalizado y su `messagePrivate`, y se guarda.
+9. **Suma atómica del recaudado** (`GoalRepository.addToAmountRaised`): un `UPDATE goal SET amount_raised = amount_raised + :amount ... WHERE id = :goalId AND status <> CLOSED`. La suma la hace la base, así dos donaciones simultáneas no se pisan (no hay lectura-modificación-escritura en Java). Si devuelve `0` filas, la campaña se cerró entre la validación y la suma: se lanza `400 Campaign goal is not active` y, como el método es `@Transactional`, se revierte también el `INSERT` de la donación.
+10. **Paso automático a `COMPLETED`** (`GoalRepository.completeIfGoalReached`): un segundo `UPDATE` que solo cambia la meta si sigue `ACTIVE` y `amount_raised >= amount_goal`. Devuelve `1` únicamente para la donación que produjo el cambio, así la transición se registra una sola vez en el historial aunque varias donaciones crucen la meta a la vez.
 
 **Concurrencia.** No hay locks explícitos en este dominio: la protección son los dos `UPDATE` condicionales. El primero bloquea la fila de la meta hasta el commit, que llega enseguida porque son las últimas escrituras de la transacción. Del otro lado, las operaciones de campaña que deciden un estado (cerrar, reabrir, editar el monto de la meta, borrar, cerrar todas al borrar la cuenta) releen la meta con `PESSIMISTIC_WRITE` (`CampaignService.lockGoal`), así que nunca se intercalan con una suma a medio hacer. Borrar una campaña primero la pasa a `CLOSED`, por lo que una donación en curso contra una campaña que se está borrando también cae en el caso de 0 filas y se revierte. La meta cargada en memoria queda desactualizada después de los `UPDATE` y el service no la vuelve a usar.
 
@@ -69,7 +78,9 @@ Todas las aplica `validation/donation/DonationValidationService.java`, salvo don
 
 **Identificador de transacción.** Los 8 caracteres son hexadecimales (32 bits de un UUID). La columna es única, así que si sale un valor repetido el `INSERT` falla y la donación responde `409` sin reintentar.
 
-**Validación duplicada y código inalcanzable.** `validateInput` repite lo que ya cortó Bean Validation antes de entrar al controller. `validateAndGetCampaign` también controla `campaign.getDeletedAt() != null` (`400 Cannot donate to a deleted campaign`), pero una campaña borrada nunca llega ahí: `@SQLRestriction` la excluye de la consulta y la respuesta es el `404`. El mismo método lo usan los dos endpoints de lectura, no solo el de donar.
+**Validación duplicada y código inalcanzable.** `validateInput` repite lo que ya cortó Bean Validation antes de entrar al controller. `validateAndGetCampaign` también controla `campaign.getDeletedAt() != null` (`400 Cannot donate to a deleted campaign`), pero una campaña borrada nunca llega ahí: `@SQLRestriction` la excluye de la consulta y la respuesta es el `404`. El mismo método lo usan los dos endpoints de lectura, no solo el de donar. El chequeo de largo de `validateAndNormalizeMessage` tampoco se alcanza por la API: `@Size` mide el texto con los espacios de los extremos, así que todo lo que pasa el DTO entra en 280 después del `trim`. Al revés, `@Size` sí puede rechazar un texto que recortado entraría (278 caracteres con 3 espacios alrededor). Es un caso raro, y el cliente debería mandar el texto ya recortado.
+
+El mensaje en blanco se rechaza en la validación (`400 Business logic error`) y no con un `@Pattern` en el DTO, porque las reglas de negocio viven en `validation/`. El largo se corta en el DTO (`400 Validation failed`), igual que el monto.
 
 ## Estados
 
@@ -97,9 +108,10 @@ sequenceDiagram
     participant V as DonationValidationService
     participant DB as Base de datos
     C->>S: POST /api/donations
-    S->>V: validateInput, validateAndGetCampaign, validateGoalIsActive
+    S->>V: validateInput, validateAndNormalizeMessage
+    S->>V: validateAndGetCampaign, validateGoalIsActive
     S->>V: validateAndGetDonor, validateNotSelfDonation
-    S->>DB: INSERT donation (COMPLETED, TXN-...)
+    S->>DB: INSERT donation (COMPLETED, TXN-..., mensaje)
     S->>DB: addToAmountRaised (suma si la meta no está CLOSED)
     alt 0 filas (campaña cerrada en el medio)
         S-->>C: 400 Campaign goal is not active (rollback)
@@ -115,14 +127,24 @@ sequenceDiagram
 ## Visibilidad y permisos
 
 - **Crear:** cualquier usuario autenticado (USER o ADMIN), no sancionado, sobre una campaña que pueda ver y que no sea suya.
-- **Historial propio** (`/my-donations`): solo las donaciones del que llama. Incluye donaciones a campañas que después se cerraron, se borraron o cuyo dueño fue sancionado o borrado: la consulta filtra solo por el donante y no aplica la visibilidad de la campaña. En consecuencia, el historial puede mostrar el id y el nombre de una campaña que, pedida por `/api/campaigns/{campaignId}`, responde `404`; solo la borrada se distingue, con `campaignDeleted = true`. Una campaña borrada aparece con `campaignDeleted = true`, su id y su nombre, que se recupera con una consulta nativa (`CampaignRepository.findNamesByIdsIncludingDeleted`) que saltea el borrado lógico.
+- **Historial propio** (`/my-donations`): solo las donaciones del que llama, con el mensaje completo de cada una, también los privados. Incluye donaciones a campañas que después se cerraron, se borraron o cuyo dueño fue sancionado o borrado: la consulta filtra solo por el donante y no aplica la visibilidad de la campaña. En consecuencia, el historial puede mostrar el id y el nombre de una campaña que, pedida por `/api/campaigns/{campaignId}`, responde `404`; solo la borrada se distingue, con `campaignDeleted = true`. Una campaña borrada aparece con `campaignDeleted = true`, su id y su nombre, que se recupera con una consulta nativa (`CampaignRepository.findNamesByIdsIncludingDeleted`) que saltea el borrado lógico.
 - **Donaciones y estadísticas de una campaña:** públicas (también sin token), pero con el mismo criterio de visibilidad de la campaña que al donar. Una campaña que el que llama no puede ver responde `404 Campaign not found with id: {id}`, sea porque no existe, está borrada, es `CLOSED` ajena o su dueño está sancionado.
 - **Quién es el donante es público.** El listado de una campaña muestra `donorUserId` y `donorUserName` a cualquiera. Un donante con la cuenta borrada aparece anónimo (`donorUserId` y `donorUserName` en `null`), porque la relación queda en `null`. El listado no filtra donantes baneados o suspendidos: aparecen con su id y su nombre, para cualquiera (a diferencia de los perfiles y los listados de seguidores, que los ocultan a quien no es ADMIN). Las estadísticas también los cuentan.
 - **El `transactionId` no es público.** Es la referencia de pago. En `GET /api/donations/campaign/{campaignId}`:
   - el dueño de la campaña y los ADMIN ven todos;
   - un donante ve solo los de sus propias donaciones;
   - cualquier otro, incluido el anónimo, no ve ninguno (`transactionId = null`).
-- **ADMIN.** Se decide con `CampaignAuthorizationService.isAdmin` (consulta `existsByIdAndRole_Name(id, "ADMIN")` contra la base, no el rol del token), tanto para la visibilidad de la campaña como para ver todos los `transactionId`. Un ADMIN puede donar como cualquier usuario, también a campañas de dueños sancionados (ver [Reglas de negocio](#reglas-de-negocio)).
+- **Un mensaje privado no es público.** Sigue la misma regla que el `transactionId`, y la decide el mismo chequeo (`DonationService.canSeePrivateDonationData`). En `GET /api/donations/campaign/{campaignId}`, una donación con mensaje privado se ve así:
+
+  | Quién llama | `message` | `messagePrivate` |
+  |---|---|---|
+  | Dueño de la campaña | El texto | `true` |
+  | ADMIN | El texto | `true` |
+  | El donante de esa donación | El texto | `true` |
+  | Otro USER o un anónimo | `null` | `false` |
+
+  Para quien no puede leerlo, la donación se ve como una sin mensaje: `messagePrivate: true` con `message: null` revelaría que hay un mensaje oculto. Un mensaje público lo ve cualquiera, con `messagePrivate: false`. La privacidad es solo del mensaje: el donante sigue siendo público. `POST /api/donations` y `/my-donations` devuelven siempre el mensaje completo, porque solo los ve el donante. Toda ruta nueva que exponga donaciones tiene que ocultar el mensaje privado con `canSeePrivateDonationData`. El mapper no decide la visibilidad, porque no conoce a quien llama.
+- **ADMIN.** Se decide con `CampaignAuthorizationService.isAdmin` (consulta `existsByIdAndRole_Name(id, "ADMIN")` contra la base, no el rol del token), tanto para la visibilidad de la campaña como para ver todos los `transactionId` y los mensajes privados. Un ADMIN puede donar como cualquier usuario, también a campañas de dueños sancionados (ver [Reglas de negocio](#reglas-de-negocio)).
 - **404 vs 403.** Este dominio nunca responde `403` por su cuenta: toda campaña que no se puede ver da `404`, con el mismo mensaje que una inexistente. El único `403` posible es el del filtro JWT para cuentas baneadas o suspendidas (ver [Seguridad](../03-seguridad.md)), que corta también las rutas públicas si el usuario sancionado manda su token.
 
 ## Endpoints
@@ -139,6 +161,8 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   |---|---|---|---|
   | `campaignId` | `Long` | sí | `@NotNull` |
   | `amount` | `BigDecimal` | sí | `@NotNull`, `@Positive`, `@Digits(integer = 13, fraction = 2)` |
+  | `message` | `String` | no | `@Size(max = 280, message = "Message must be at most 280 characters")`. Si llega, no puede estar en blanco (regla de negocio). |
+  | `messagePrivate` | `Boolean` | no | Ausente o `null` cuenta como `false`. Sin `message`, se guarda `false`. |
 
 - **Respuesta:** `201 Created`.
 
@@ -163,6 +187,8 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   | `amount` | `BigDecimal` | Monto donado. |
   | `status` | `DonationStatus` | Siempre `COMPLETED` hoy. |
   | `transactionId` | `String` | `TXN-` + 8 caracteres hexadecimales en mayúsculas. |
+  | `message` | `String` | Mensaje del donante, sin espacios en los extremos; `null` si no tiene, o si es privado y el que llama no puede verlo. |
+  | `messagePrivate` | `Boolean` | `true` si el mensaje es privado; `false` si es público, si no hay mensaje, o si es privado y el que llama no puede verlo. |
   | `createdAt` / `updatedAt` | `LocalDateTime` | Marcas de tiempo. |
 
   El `status` del primer nivel de la respuesta es un literal del controller, no se lee de la donación.
@@ -178,10 +204,12 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   | 400 | `One or more fields are invalid`, con `fields.amount = "Amount is required"` | Falta `amount`. |
   | 400 | `One or more fields are invalid`, con `fields.amount = "Amount must be greater than zero"` | `amount` es 0 o negativo. |
   | 400 | `One or more fields are invalid`, con `fields.amount = "numeric value out of bounds (<13 digits>.<2 digits> expected)"` (mensaje por defecto de Hibernate Validator, el DTO no define uno propio) | Más de 13 enteros o más de 2 decimales. |
+  | 400 | `One or more fields are invalid`, con `fields.message = "Message must be at most 280 characters"` | `message` de más de 280 caracteres, contando los espacios de los extremos. |
   | 400 | `Request body is required` | Body ausente. |
   | 400 | `Invalid value '{valor}' for field '{campo}'` | Un campo con un valor que no se puede convertir (por ejemplo `"amount": "abc"`). |
   | 400 | `Malformed request body` | JSON mal formado. |
   | 415 | `Content type '{tipo}' is not supported. Use application/json` | `Content-Type` distinto de JSON. |
+  | 400 | `Message cannot be blank` (con `error: "Business logic error"`) | `message` es `""` o solo espacios. No se guarda la donación ni se suma al recaudado. |
   | 404 | `Campaign not found with id: {id}` | La campaña no existe, está borrada, es `CLOSED` de otro usuario, o su dueño está borrado, baneado o suspendido. Para un ADMIN, solo si no existe, está borrada o su dueño está borrado. |
   | 400 | `Campaign does not have a goal` | La campaña no tiene meta. Solo con datos cargados por fuera de la API: toda campaña nace con meta. |
   | 400 | `Campaign goal is not active` | La meta está `CLOSED` (campaña propia cerrada, o cualquier campaña cerrada si llama un ADMIN), o se cerró entre la validación y la suma; en ese caso la donación se revierte. |
@@ -194,14 +222,15 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
 - **Qué hace:**
   1. Obtiene el id del donante del token (`AuthenticatedUserService.getAuthenticatedUserId`).
   2. `validateInput(dto)`.
-  3. `validateAndGetCampaign(campaignId, donorId)`: carga la campaña visible para el donante o `404`.
-  4. `validateGoalIsActive(campaign.getGoal())`.
-  5. `validateAndGetDonor(donorId)`.
-  6. `validateNotSelfDonation(donorId, ownerId)`.
-  7. Construye la donación en `COMPLETED` con un `transactionId` nuevo y la guarda.
-  8. `GoalRepository.addToAmountRaised`; si actualiza 0 filas, lanza `400 Campaign goal is not active` y la transacción se revierte.
-  9. `GoalRepository.completeIfGoalReached`; si actualiza 1 fila, `CampaignStatusHistoryService.recordTransition(campaign, ACTIVE, COMPLETED, null)`.
-  10. Mapea con `DonationMapper.toDTO` y el controller arma la respuesta.
+  3. `validateAndNormalizeMessage(dto.message)`: el mensaje con `trim`, `null` si no hay, o `400`. `messagePrivate` queda en `true` solo si hay mensaje y el request trae `messagePrivate: true`.
+  4. `validateAndGetCampaign(campaignId, donorId)`: carga la campaña visible para el donante o `404`.
+  5. `validateGoalIsActive(campaign.getGoal())`.
+  6. `validateAndGetDonor(donorId)`.
+  7. `validateNotSelfDonation(donorId, ownerId)`.
+  8. Construye la donación en `COMPLETED` con un `transactionId` nuevo, el mensaje y `messagePrivate`, y la guarda.
+  9. `GoalRepository.addToAmountRaised`; si actualiza 0 filas, lanza `400 Campaign goal is not active` y la transacción se revierte.
+  10. `GoalRepository.completeIfGoalReached`; si actualiza 1 fila, `CampaignStatusHistoryService.recordTransition(campaign, ACTIVE, COMPLETED, null)`.
+  11. Mapea con `DonationMapper.toDTO` y el controller arma la respuesta. El mensaje vuelve completo, aunque sea privado.
 
 ### `GET /api/donations/my-donations`
 
@@ -218,7 +247,7 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   }
   ```
 
-  Ordenadas por `createdAt` descendente, sin paginar. `total` es el tamaño de la lista. Cada donación incluye su `transactionId`. Las donaciones a campañas borradas traen `campaignDeleted = true` y el nombre que tenía la campaña.
+  Ordenadas por `createdAt` descendente, sin paginar. `total` es el tamaño de la lista. Cada donación incluye su `transactionId` y su mensaje completo, también los privados. Las donaciones a campañas borradas traen `campaignDeleted = true` y el nombre que tenía la campaña.
 
 - **Errores:**
 
@@ -254,7 +283,7 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   }
   ```
 
-  Ordenadas por `createdAt` descendente, sin paginar. `transactionId` va en `null` según las reglas de [Visibilidad y permisos](#visibilidad-y-permisos). Un donante borrado aparece con `donorUserId` y `donorUserName` en `null`.
+  Ordenadas por `createdAt` descendente, sin paginar. `transactionId` va en `null`, y un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), según las reglas de [Visibilidad y permisos](#visibilidad-y-permisos). Un donante borrado aparece con `donorUserId` y `donorUserName` en `null`.
 
 - **Errores:**
 
@@ -269,7 +298,7 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   2. `validateAndGetCampaign(campaignId, callerId)`: la campaña visible para el que llama o `404`.
   3. `DonationRepository.findByCampaignOrderByCreatedAtDesc(campaign)`: una consulta con los donantes (y su `userInfo` y `verificationRequest`) traídos con `LEFT JOIN FETCH`.
   4. Mapea con `DonationMapper.toDTOList`.
-  5. Si el que llama no es el dueño ni ADMIN, pone `transactionId = null` en todas las donaciones que no son suyas.
+  5. Si el que llama no es el dueño ni ADMIN (`canSeePrivateDonationData`), en todas las donaciones que no son suyas pone `transactionId = null` y, si el mensaje es privado, `message = null` y `messagePrivate = false`. Los mensajes públicos no se tocan.
 
 ### `GET /api/donations/campaign/{campaignId}/statistics`
 

@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
@@ -58,6 +59,15 @@ public class Donation {
 
     @Column(name = "transaction_id", unique = true, length = 100)
     private String transactionId;
+
+    @Column(name = "message", length = 280)
+    private String message;
+
+    // The default fills the rows that existed before the column, so ddl-auto=update can add it as NOT NULL
+    @Column(name = "message_private", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private boolean messagePrivate = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
