@@ -59,8 +59,8 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### Ocultar un campo en lugar de cerrar el endpoint
 
-- **Qué:** el listado de donaciones de una campaña es público, pero `transactionId` solo lo ven el dueño, un ADMIN o el propio donante.
-- **Dónde:** `service/donation/DonationService.java`.
+- **Qué:** el listado de donaciones de una campaña es público, pero `transactionId` y el mensaje privado solo los ven el dueño, un ADMIN o el propio donante. Para el resto, un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), para no revelar que hay algo oculto.
+- **Dónde:** `service/donation/DonationService.java` (`canSeePrivateDonationData`). Lo decide el service y no el mapper, porque el mapper no conoce a quien llama.
 
 ## Datos
 

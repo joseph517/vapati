@@ -128,6 +128,7 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | | `categoryIds` | `@NotEmpty`, `@Size(min = 1, max = 5)` |
 | `dtos/donation/CreateDonationDTO.java` | `campaignId` | `@NotNull(message = "Campaign ID is required")` |
 | | `amount` | `@NotNull(message = "Amount is required")`, `@Positive(message = "Amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
+| | `message` | `@Size(max = 280, message = "Message must be at most 280 characters")` (el blanco lo rechaza `DonationValidationService`) |
 | `dtos/publication/CreatePublicationDTO.java` | `description` | `@NotBlank`, `@Size(max = 255)` |
 | `dtos/category/CreateCategoryDTO.java` | `name` | `@NotBlank`, `@Size(max = 255)` |
 | | `description` | `@Size(max = 255)` |
@@ -155,7 +156,7 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | `dtos/verification/ProcessVerificationRequestDTO.java` | `requestId` | `@NotNull`, `@Positive` |
 | | `status` | `@NotNull` |
 
-Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
+Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, que declara `length = 280` igual que su `@Size`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
 
 La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
 
