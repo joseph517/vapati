@@ -78,6 +78,7 @@ public class DonationService {
         // In production, this would integrate with payment gateway
         Donation donation = Donation.builder()
                 .donor(donor)
+                .recipient(campaign.getUser())
                 .campaign(campaign)
                 .amount(dto.getAmount())
                 .status(DonationStatus.COMPLETED)

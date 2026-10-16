@@ -189,13 +189,20 @@ CREATE TABLE followers (
 CREATE TABLE donation (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     donor_user_id BIGINT NOT NULL,
-    campaign_id BIGINT NOT NULL,
+    recipient_user_id BIGINT NOT NULL,
+    campaign_id BIGINT NULL,
     amount DECIMAL(15,2) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     transaction_id VARCHAR(100) UNIQUE,
+    message VARCHAR(280) NULL,
+    message_private BIT NOT NULL DEFAULT 0,
+    thanks_message VARCHAR(280) NULL,
+    thanks_private BIT NOT NULL DEFAULT 0,
+    thanked_at DATETIME2 NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (donor_user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    FOREIGN KEY (recipient_user_id) REFERENCES [user](id) ON DELETE NO ACTION,
     FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE NO ACTION,
     CHECK (amount > 0)
 );
@@ -252,6 +259,7 @@ CREATE INDEX idx_campaign_deleted ON campaign(deleted_at);
 CREATE INDEX idx_goal_status ON goal(status);
 CREATE INDEX idx_goal_deleted ON goal(deleted_at);
 CREATE INDEX idx_donation_donor ON donation(donor_user_id);
+CREATE INDEX idx_donation_recipient ON donation(recipient_user_id);
 CREATE INDEX idx_donation_campaign ON donation(campaign_id);
 CREATE INDEX idx_donation_status ON donation(status);
 CREATE INDEX idx_donation_created ON donation(created_at);

@@ -216,6 +216,33 @@ class DonationServiceTest {
         }
 
         @Test
+        @DisplayName("Should save the campaign owner as the recipient of a campaign donation")
+        void createDonation_ShouldSetCampaignOwnerAsRecipient() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            ArgumentCaptor<Donation> donationCaptor = ArgumentCaptor.forClass(Donation.class);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            verify(donationRepository).save(donationCaptor.capture());
+            Donation savedDonation = donationCaptor.getValue();
+            assertThat(savedDonation.getRecipient()).isSameAs(testCampaignOwner);
+            assertThat(savedDonation.getRecipient().getId()).isEqualTo(TEST_CAMPAIGN_OWNER_ID);
+            assertThat(savedDonation.getCampaign()).isSameAs(testCampaign);
+        }
+
+        @Test
         @DisplayName("Should save the donation before adding its amount to the goal with an atomic update")
         void createDonation_ShouldSaveDonationBeforeAddingToAmountRaised() {
             // Given
