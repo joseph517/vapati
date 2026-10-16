@@ -1,4 +1,6 @@
--- Spec 51. Run with the app stopped, before starting the new image: sqlcmd -I -b
+-- Adds donation.recipient_user_id (backfilled with the campaign owner, NOT NULL, FK and index)
+-- and makes donation.campaign_id nullable for direct donations.
+-- Idempotent. Run with the app stopped, before starting the new image: sqlcmd -I -b
 -- 1. New column, nullable so it can be filled
 IF COL_LENGTH('donation', 'recipient_user_id') IS NULL
     ALTER TABLE donation ADD recipient_user_id BIGINT NULL;
@@ -13,7 +15,7 @@ GO
 
 -- 3. No row may be left without a recipient
 IF EXISTS (SELECT 1 FROM donation WHERE recipient_user_id IS NULL)
-    RAISERROR('spec 51: donations without recipient_user_id', 16, 1);
+    RAISERROR('donation migration: donations without recipient_user_id', 16, 1);
 GO
 
 -- 4. NOT NULL, FK and index

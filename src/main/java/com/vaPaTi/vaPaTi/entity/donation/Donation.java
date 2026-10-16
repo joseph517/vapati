@@ -42,7 +42,7 @@ public class Donation {
     private Campaign campaign;
 
     // Who receives the money: the campaign owner for a campaign donation, the user for a direct one.
-    // Optional in the mapping like donor; the column is NOT NULL in the database (scripts/spec-51-donation-recipient.sql)
+    // Optional in the mapping like donor; the column is NOT NULL in the database (scripts/migrate-donation-recipient.sql)
     @ManyToOne
     @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "recipient_user_id", updatable = false)
