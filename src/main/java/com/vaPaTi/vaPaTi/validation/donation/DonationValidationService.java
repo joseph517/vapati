@@ -16,6 +16,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -25,16 +26,22 @@ import org.springframework.stereotype.Service;
 public class DonationValidationService {
 
     private static final int MAX_MESSAGE_LENGTH = 280;
+    private static final String RECIPIENT_ROLE = "USER";
 
     private final CampaignValidationService campaignValidationService;
     private final UserRepository userRepository;
     private final TextValidationService textValidationService;
     private final DonationRepository donationRepository;
     private final CampaignAuthorizationService campaignAuthorizationService;
+    private final UserValidationService userValidationService;
 
+    // Exactly one destination: a campaign or a user (direct donation). Checked before the amount
     public void validateInput(@NotNull CreateDonationDTO dto) {
-        if (dto.getCampaignId() == null) {
-            throw new MessageException("Campaign ID is required");
+        if (dto.getCampaignId() == null && dto.getRecipientUserId() == null) {
+            throw new MessageException("Campaign ID or recipient user ID is required");
+        }
+        if (dto.getCampaignId() != null && dto.getRecipientUserId() != null) {
+            throw new MessageException("Only one of campaignId or recipientUserId can be set");
         }
         if (dto.getAmount() == null) {
             throw new MessageException("Amount is required");
@@ -81,6 +88,25 @@ public class DonationValidationService {
     public void validateNotSelfDonation(Long donorUserId, Long campaignOwnerId) {
         if (donorUserId.equals(campaignOwnerId)) {
             throw new MessageException("Cannot donate to your own campaign");
+        }
+    }
+
+    // Recipient of a direct donation. Missing, deleted, banned or suspended is "User not found", also for an
+    // ADMIN donor, so a sanction is not revealed. The role is LAZY: read it inside the caller's transaction
+    public User validateAndGetRecipient(Long recipientUserId) {
+        User recipient = userValidationService.getUserById(recipientUserId);
+        userValidationService.validateProfileNotBlocked(recipient);
+
+        if (!RECIPIENT_ROLE.equals(recipient.getRole().getName())) {
+            throw new MessageException("Cannot donate to an admin");
+        }
+
+        return recipient;
+    }
+
+    public void validateNotSelfDirectDonation(Long donorUserId, Long recipientUserId) {
+        if (donorUserId.equals(recipientUserId)) {
+            throw new MessageException("Cannot donate to yourself");
         }
     }
 
