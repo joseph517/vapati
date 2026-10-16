@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.DonationCreatedResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
@@ -9,6 +10,7 @@ import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
@@ -47,7 +49,7 @@ public class DonationService {
     private final CampaignAuthorizationService campaignAuthorizationService;
 
     @Transactional
-    public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
+    public DonationCreatedResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
         // Get authenticated user
         Long donorUserId = authenticatedUserService.getAuthenticatedUserId();
 
@@ -97,7 +99,16 @@ public class DonationService {
             campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
         }
 
-        return donationMapper.toDTO(savedDonation);
+        // The owner's current default thanks travels only in this response, it is not copied into the donation
+        return DonationCreatedResponseDTO.builder()
+                .donation(donationMapper.toDTO(savedDonation))
+                .autoThanksMessage(findAutoThanksMessage(campaign.getUser()))
+                .build();
+    }
+
+    private String findAutoThanksMessage(User owner) {
+        UserInfo ownerInfo = owner != null ? owner.getUserInfo() : null;
+        return ownerInfo != null ? ownerInfo.getAutoThanksMessage() : null;
     }
 
     @Transactional

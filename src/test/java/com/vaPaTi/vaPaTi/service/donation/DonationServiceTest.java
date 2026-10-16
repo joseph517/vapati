@@ -150,7 +150,7 @@ class DonationServiceTest {
             when(donationMapper.toDTO(testDonation)).thenReturn(donationResponseDTO);
 
             // When
-            DonationResponseDTO result = donationService.createDonation(createDonationDTO);
+            DonationResponseDTO result = donationService.createDonation(createDonationDTO).getDonation();
 
             // Then
             assertThat(result).isNotNull().isEqualTo(donationResponseDTO);
@@ -348,7 +348,7 @@ class DonationServiceTest {
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
-            DonationResponseDTO result = donationService.createDonation(createDonationDTO);
+            DonationResponseDTO result = donationService.createDonation(createDonationDTO).getDonation();
 
             // Then
             assertThat(result).isNotNull();
