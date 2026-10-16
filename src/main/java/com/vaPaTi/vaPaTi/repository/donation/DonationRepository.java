@@ -47,14 +47,15 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     @Query("SELECT COUNT(DISTINCT d.donorUserId) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countUniqueDonorsByCampaignId(@Param("campaignId") Long campaignId);
 
-    // Native: the @SQLRestriction of campaign and [user] does not apply, so deleted campaigns and donors are counted.
+    // Native: filters by recipient_user_id, so direct donations and donations to the creator's campaigns both count,
+    // and the @SQLRestriction of campaign and [user] does not apply: deleted campaigns and donors are counted.
     // SQL Server can't use an alias inside an ORDER BY expression nor parametrize ASC/DESC: one CASE per field and
     // direction, the ones that don't apply are NULL on every row. donor_user_id ASC is the fixed tie-breaker
     @Query(nativeQuery = true, value = """
             SELECT d.donor_user_id AS donorUserId, SUM(d.amount) AS totalAmount,
                    COUNT_BIG(*) AS donationsCount, MAX(d.created_at) AS lastDonationAt
-            FROM donation d JOIN campaign c ON c.id = d.campaign_id
-            WHERE c.user_id = :creatorId AND d.status = 'COMPLETED'
+            FROM donation d
+            WHERE d.recipient_user_id = :creatorId AND d.status = 'COMPLETED'
             GROUP BY d.donor_user_id
             ORDER BY
               CASE WHEN :sortBy = 'totalAmount'    AND :descending = 1 THEN SUM(d.amount) END DESC,
@@ -70,8 +71,8 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
 
     @Query(nativeQuery = true, value = """
             SELECT COUNT_BIG(DISTINCT d.donor_user_id)
-            FROM donation d JOIN campaign c ON c.id = d.campaign_id
-            WHERE c.user_id = :creatorId AND d.status = 'COMPLETED'
+            FROM donation d
+            WHERE d.recipient_user_id = :creatorId AND d.status = 'COMPLETED'
             """)
     long countSupportersByCreatorId(@Param("creatorId") Long creatorId);
 
