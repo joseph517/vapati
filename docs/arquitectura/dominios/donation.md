@@ -13,7 +13,7 @@ El dueño de la campaña agradece de dos formas:
 
 No hay pasarela de pago: el sistema **simula la aprobación**. Toda donación que pasa las validaciones se guarda directamente en `COMPLETED` con un identificador de transacción generado en el momento. El propio service lo marca como el punto donde, en producción, se integraría una pasarela.
 
-Además de crear donaciones y responderlas, el dominio ofrece tres lecturas: el historial del usuario que llama, el listado de donaciones de una campaña y las estadísticas de recaudación de una campaña. Las dos últimas son públicas.
+Además de crear donaciones y responderlas, el dominio ofrece cuatro lecturas: el historial del usuario que llama, el listado de donaciones de una campaña, las estadísticas de recaudación de una campaña y los **supporters de un creador**, un ranking paginado con una fila por donante que suma sus donaciones a todas las campañas de ese usuario. Las tres últimas son públicas. En los supporters, cualquiera ve quiénes son, pero los importes los ven solo el propio creador y un ADMIN.
 
 ## Entidades y datos
 
@@ -59,7 +59,7 @@ El detalle general del borrado lógico está en [Modelo de datos](../04-modelo-d
 - `Campaign` y `Goal` (`entity/campaign/`): la donación apunta a la campaña, y el monto se suma en `Goal.amountRaised`. `Goal.amountRaised` es `updatable = false` en el mapeo: solo lo modifica `GoalRepository.addToAmountRaised` con un `UPDATE` atómico, para que guardar una campaña con datos viejos nunca pise donaciones sumadas en el medio. Ver [Campaign](campaign.md).
 - `CampaignStatus` (`entity/campaign/CampaignStatus.java`): el estado de la meta (`ACTIVE`, `COMPLETED`, `CLOSED`) decide si se puede donar.
 - `CampaignStatusHistory`: la donación que completa la meta registra la transición `ACTIVE → COMPLETED` con `changedBy = null` (la hizo el sistema, no un usuario).
-- `User` (`entity/user/User.java`): el donante. Su nombre visible sale de `userInfo.userName`.
+- `User` (`entity/user/User.java`): el donante. Su nombre visible sale de `userInfo.userName`. En los supporters es también el creador (`userId`), y su visibilidad la deciden las reglas del dominio [User](user.md).
 - `UserInfo.autoThanksMessage` (`entity/user/UserInfo.java`): el mensaje predeterminado del dueño de la campaña, que `createDonation` lee de `campaign.getUser().getUserInfo()`. Lo administra el dominio [User](user.md).
 
 ### DTOs
@@ -69,6 +69,9 @@ El detalle general del borrado lógico está en [Modelo de datos](../04-modelo-d
 - `dtos/donation/CreateDonationThanksDTO.java`: entrada de `POST /api/donations/{donationId}/thanks`.
 - `dtos/donation/DonationResponseDTO.java`: una donación en las respuestas.
 - `dtos/donation/CampaignStatisticsDTO.java`: estadísticas de una campaña. Vive en `dtos/donation/` aunque describe una campaña, porque lo calcula este dominio a partir de las donaciones.
+- `dtos/donation/SupporterResponseDTO.java`: una fila del ranking de supporters (`donorUserId`, `donorUserName`, `totalAmount`, `donationsCount`, `lastDonationAt`). No es una donación: es el agregado de las donaciones de un donante a un creador.
+
+**Proyección `DonationRepository.SupporterProjection`.** Interfaz anidada en el repositorio, con `getDonorUserId()`, `getTotalAmount()`, `getDonationsCount()` y `getLastDonationAt()`. Es lo que devuelve la query nativa de supporters, y `DonationMapper.toSupporterDTO` la recibe directamente: es el único mapper que recibe un tipo de `repository/`, pero es solo un tipo de datos, sin acceso a la base.
 
 ## Reglas de negocio
 
@@ -116,6 +119,33 @@ Las aplica `DonationValidationService`, en el orden de `DonationService.thankDon
 
 El mensaje en blanco se rechaza en la validación (`400 Business logic error`) y no con un `@Pattern` en el DTO, porque las reglas de negocio viven en `validation/`. El largo se corta en el DTO (`400 Validation failed`), igual que el monto.
 
+### Supporters de un creador
+
+Las aplica `service/donation/SupporterService.java` (`getSupporters`), con ayuda de `UserValidationService` y `DonationValidationService`. **Vista completa** (`fullView`) es la de quien llama siendo el propio creador (`callerId == userId`) o un ADMIN. Cualquier otro, con o sin token, tiene la **vista pública**.
+
+1. **Qué se agrega.** Todas las donaciones `COMPLETED` a campañas cuyo dueño es `userId`, agrupadas por donante:
+   - en cualquier estado de campaña (`ACTIVE`, `CLOSED`, `COMPLETED`);
+   - también de campañas borradas: el dinero se recibió igual. Por eso las dos queries son nativas y no pasan por el `@SQLRestriction` de `Campaign` (ver [Modelo de datos](../04-modelo-de-datos.md#leer-a-través-del-borrado));
+   - `PENDING` y `FAILED` no cuentan.
+
+   Cada fila trae `totalAmount` (`SUM(amount)`), `donationsCount` (`COUNT_BIG(*)`) y `lastDonationAt` (`MAX(created_at)`).
+2. **El creador tiene que ser visible.** Mismas reglas que `UserService.getUserById` (ver [User](user.md)):
+   - `userId <= 0` → `400 ID must be a positive number`. El chequeo está copiado en el servicio, no en `UserValidationService`.
+   - Usuario inexistente o borrado → `404 User not found` (`UserValidationService.getUserById`).
+   - Usuario baneado o suspendido → `404 User not found` para la vista pública (`validateProfileNotBlocked`). Con vista completa el servicio responde `200`, pero por la API el propio creador sancionado no llega: el filtro JWT corta antes con `403` (ver [Seguridad](../03-seguridad.md#jwtauthenticationfilter)).
+3. **Quien llama es opcional** (`AuthenticatedUserService.findAuthenticatedUserId`). El rol se lee de la base con `UserValidationService.isAdmin`, como en `UserService.getUserById`, y no con `CampaignAuthorizationService.isAdmin`, que usa el resto del dominio. Los dos consultan la base, no el token.
+4. **Importes solo con vista completa.** El servicio, no el mapper, pone en `null` `totalAmount`, `donationsCount` y `lastDonationAt` para la vista pública. `donorUserId` y `donorUserName` los ve cualquiera. Es la misma regla de "lo decide el service" que el `transactionId` y el mensaje privado.
+5. **Orden** (`DonationValidationService.validateSupporterSort`). `sortBy` acepta `totalAmount` y `lastDonationAt`, y el desempate es siempre `donorUserId` ascendente. `sortBy=lastDonationAt` solo se permite con vista completa: ordenar por fecha revelaría quién donó más recientemente, que es justo el dato que la vista pública recibe en `null`. Si no, `400 Only the creator or an admin can sort supporters by lastDonationAt`. Esta regla depende de quién llama, por eso está en el dominio y no en la lista blanca del controller.
+6. **El orden de los chequeos.** Primero valida el controller (`page`, `size`, `sortBy` en la lista blanca, `sortDirection`). En el servicio, el `userId`, la existencia y el bloqueo del creador van antes que `validateSupporterSort`: un creador oculto da `404` y no el `400` del orden, que no revela nada de un perfil oculto. Si alguna validación falla, no se corren las queries de supporters.
+7. **Donantes inactivos.** Es un historial: sus donaciones siguen sumando y su fila sigue en el ranking. No hay código nuevo para representarlos:
+   - **Donante borrado:** `UserRepository.findAllWithDetailsByIdIn` no lo devuelve (`@SQLRestriction`), y `DonationMapper.toSupporterDTO` arma la fila con `donorUserId: null` y `donorUserName: null`, para todos, también para el ADMIN. Es la convención de `DonationMapper.toDTO`. Sus importes cuentan igual. Dos donantes borrados salen como dos filas anónimas, cada una en su posición.
+   - **Donante baneado o suspendido:** aparece normal, con su id y su `userName`. `findAllWithDetailsByIdIn` no filtra sanciones. Es el mismo criterio que el listado de donaciones de una campaña.
+   - Un donante sin `userInfo` sale con `donorUserName: null`, igual que en `toDTO`.
+
+**Riesgo del orden.** Aunque la vista pública no ve importes, el orden por defecto (`totalAmount` descendente) revela quién donó más. Es lo que hace Ko-fi con "Top supporters" y se aceptó así. El orden por fecha sí se restringe (regla 5).
+
+**"Top supporters".** No hay un endpoint aparte: es `page=0&size=3&sortBy=totalAmount&sortDirection=desc`.
+
 ## Estados
 
 `DonationStatus` declara cuatro valores, pero con la aprobación simulada solo uno se alcanza:
@@ -131,7 +161,7 @@ stateDiagram-v2
 
 - `PENDING` es el valor por defecto del builder y de `@PrePersist`, pero `createDonation` siempre asigna `COMPLETED` antes de guardar.
 - `FAILED` y `REFUNDED` no se asignan en ningún lugar. No hay endpoint para cambiar el estado de una donación ni para reembolsarla: el estado, el monto y el mensaje del donante no cambian una vez creada. Lo único que cambia es la respuesta del dueño (`thanksMessage`, `thanksPrivate`, `thankedAt`).
-- Las estadísticas cuentan solo donaciones `COMPLETED`; los listados devuelven todas sin filtrar por estado (hoy es lo mismo).
+- Las estadísticas y los supporters cuentan solo donaciones `COMPLETED`; los listados devuelven todas sin filtrar por estado (hoy es lo mismo).
 
 La donación además dispara una transición de **otra** máquina de estados: la meta de la campaña pasa de `ACTIVE` a `COMPLETED` cuando el recaudado alcanza la meta. Ese diagrama está en [Campaign](campaign.md).
 
@@ -202,9 +232,26 @@ stateDiagram-v2
   | El donante de esa donación | El texto | `true` | La fecha |
   | Otro USER o un anónimo | `null` | `false` | `null` |
 
-  Para el resto la donación se ve como una sin respuesta, también sin `thankedAt`: una fecha con el texto vacío revelaría que hay algo oculto. Una respuesta pública la ve cualquiera. `/my-donations` y las respuestas de `POST` y `DELETE /thanks` la devuelven completa, porque solo las piden el donante, el dueño o un ADMIN. Toda ruta nueva que exponga donaciones (por ejemplo un feed de apoyos o una lista de supporters) tiene que ocultarla con `canSeePrivateDonationData`, igual que el mensaje.
-- **ADMIN.** Se decide con `CampaignAuthorizationService.isAdmin` (consulta `existsByIdAndRole_Name(id, "ADMIN")` contra la base, no el rol del token), tanto para la visibilidad de la campaña como para ver todos los `transactionId` y los mensajes privados. Un ADMIN puede donar como cualquier usuario, también a campañas de dueños sancionados (ver [Reglas de negocio](#reglas-de-negocio)).
-- **404 vs 403.** Al donar y en las lecturas, toda campaña que no se puede ver da `404`, con el mismo mensaje que una inexistente. Los dos endpoints de `/thanks` son la excepción: responden `403` a quien no es el dueño (o ADMIN, al borrar) sin aplicar la visibilidad de la campaña. Un tercero que prueba ids recibe `404` si la donación no existe y `403` si existe, también cuando es de una campaña `CLOSED` ajena o de un dueño sancionado, que en el resto de la API darían `404`. El `400` de campaña borrada también confirma que la donación existe. Además está el `403` del filtro JWT para cuentas baneadas o suspendidas (ver [Seguridad](../03-seguridad.md)), que corta también las rutas públicas si el usuario sancionado manda su token.
+  Para el resto la donación se ve como una sin respuesta, también sin `thankedAt`: una fecha con el texto vacío revelaría que hay algo oculto. Una respuesta pública la ve cualquiera. `/my-donations` y las respuestas de `POST` y `DELETE /thanks` la devuelven completa, porque solo las piden el donante, el dueño o un ADMIN. Toda ruta nueva que exponga donaciones sueltas (por ejemplo un feed de apoyos) tiene que ocultarla con `canSeePrivateDonationData`, igual que el mensaje. Los supporters de un creador no usan ese chequeo: cada fila es un agregado por donante, sin mensajes, respuestas ni `transactionId`, y lo que ocultan son los importes (ver el punto siguiente).
+- **Supporters de un creador** (`GET /api/users/{userId}/supporters`): público, también sin token. La identidad del donante es pública y los agregados son del creador y del ADMIN:
+
+  | Quién llama | `donorUserId` / `donorUserName` | `totalAmount` / `donationsCount` / `lastDonationAt` | `sortBy=lastDonationAt` | Creador baneado o suspendido |
+  |---|---|---|---|---|
+  | El creador (`userId`), no sancionado | Sí | Sí | Sí | No aplica: si está sancionado, cae en la última fila |
+  | ADMIN | Sí | Sí | Sí | `200` |
+  | Otro USER | Sí | `null` | `400` | `404` |
+  | Anónimo (o token inválido) | Sí | `null` | `400` | `404` |
+  | Cualquiera con el token de una cuenta sancionada | — | — | — | `403` del filtro JWT, no llega al servicio |
+
+  | Donante | Fila |
+  |---|---|
+  | Activo | Normal. |
+  | Baneado o suspendido | Normal, con su id y su `userName`. |
+  | Borrado | `donorUserId: null`, `donorUserName: null` para todos, también para el ADMIN. Sus importes cuentan igual. |
+
+  Un creador inexistente, borrado u oculto responde `404 User not found` con el mismo mensaje, así que la ruta no revela sanciones. Sí distingue un id de usuario existente (`200`) de uno inexistente (`404`) sin token, lo que ninguna otra ruta anónima hacía (ver [User](user.md#visibilidad-y-permisos)).
+- **ADMIN.** Se decide con `CampaignAuthorizationService.isAdmin` (consulta `existsByIdAndRole_Name(id, "ADMIN")` contra la base, no el rol del token), tanto para la visibilidad de la campaña como para ver todos los `transactionId` y los mensajes privados. Los supporters son la excepción: usan `UserValidationService.isAdmin`, que también lee el rol de la base. Un ADMIN puede donar como cualquier usuario, también a campañas de dueños sancionados (ver [Reglas de negocio](#reglas-de-negocio)).
+- **404 vs 403.** Al donar y en las lecturas, toda campaña que no se puede ver da `404`, con el mismo mensaje que una inexistente. En los supporters pasa lo mismo con el creador: oculto o inexistente, `404 User not found`. Los dos endpoints de `/thanks` son la excepción: responden `403` a quien no es el dueño (o ADMIN, al borrar) sin aplicar la visibilidad de la campaña. Un tercero que prueba ids recibe `404` si la donación no existe y `403` si existe, también cuando es de una campaña `CLOSED` ajena o de un dueño sancionado, que en el resto de la API darían `404`. El `400` de campaña borrada también confirma que la donación existe. Además está el `403` del filtro JWT para cuentas baneadas o suspendidas (ver [Seguridad](../03-seguridad.md)), que corta también las rutas públicas si el usuario sancionado manda su token.
 
 ## Endpoints
 
@@ -490,19 +537,130 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   4. Lee meta y recaudado de la meta de la campaña y calcula porcentaje y promedio.
   5. Arma el `CampaignStatisticsDTO` con el builder (no hay mapper: el DTO es un cálculo, no una entidad).
 
+### `GET /api/users/{userId}/supporters`
+
+Vive en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")` como `FollowerController`: la ruta cuelga del usuario, pero el código es de este dominio. `UserController` no participa.
+
+- **Acceso:** público (`/api/users/*/supporters` en `PUBLIC_GET_URLS`, solo `GET`). Sin token responde igual que con el token de un tercero. El service resuelve al que llama como opcional (`findAuthenticatedUserId`): un token inválido se trata como anónimo. Un usuario sancionado que manda su token recibe el `403` del filtro, también el propio creador. `GET /api/users/{id}` sigue pidiendo token: el `*` del patrón cubre un solo segmento.
+- **Parámetros** (validados por `validation/common/SortValidationService.java` con la lista `SUPPORTER_SORT_FIELDS` del controller):
+
+  | Nombre | Ubicación | Tipo | Default | Validación |
+  |---|---|---|---|---|
+  | `userId` | path | `Long` | — | Mayor que 0. Tiene que ser un usuario visible (ver [Supporters de un creador](#supporters-de-un-creador)). |
+  | `page` | query | `int` | `0` | Mayor o igual a 0. |
+  | `size` | query | `int` | `10` | Entre 1 y 100. |
+  | `sortBy` | query | `String` | `totalAmount` | `totalAmount` o `lastDonationAt`. `lastDonationAt` solo con vista completa. |
+  | `sortDirection` | query | `String` | `desc` | `asc` o `desc`, sin distinguir mayúsculas. |
+
+  El desempate es siempre `donorUserId` ascendente, en las dos direcciones.
+
+- **Body:** sin body.
+- **Respuesta:** `200 OK` con un `Page<SupporterResponseDTO>` de Spring (`content`, `totalElements`, `totalPages`, `number`, `size`, etc.), una fila por donante. `totalElements` es la cantidad de donantes distintos con al menos una donación `COMPLETED` a campañas del creador. Un creador sin donaciones devuelve `content: []` y `totalElements: 0`.
+
+  Vista completa (el creador o un ADMIN):
+
+  ```json
+  {
+    "content": [
+      { "donorUserId": 20003, "donorUserName": "ana", "totalAmount": 150.00, "donationsCount": 3, "lastDonationAt": "2026-10-14T18:02:11.123456" },
+      { "donorUserId": null, "donorUserName": null, "totalAmount": 40.00, "donationsCount": 1, "lastDonationAt": "2026-09-30T10:15:00" }
+    ],
+    "totalElements": 2,
+    "totalPages": 1,
+    "number": 0,
+    "size": 10
+  }
+  ```
+
+  Vista pública (otro USER o un anónimo), la misma página:
+
+  ```json
+  {
+    "content": [
+      { "donorUserId": 20003, "donorUserName": "ana", "totalAmount": null, "donationsCount": null, "lastDonationAt": null },
+      { "donorUserId": null, "donorUserName": null, "totalAmount": null, "donationsCount": null, "lastDonationAt": null }
+    ],
+    "totalElements": 2,
+    "totalPages": 1,
+    "number": 0,
+    "size": 10
+  }
+  ```
+
+  `SupporterResponseDTO`:
+
+  | Campo | Tipo | Descripción |
+  |---|---|---|
+  | `donorUserId` | `Long` | Id del donante; `null` si su cuenta está borrada. |
+  | `donorUserName` | `String` | Nombre de usuario del donante; `null` si su cuenta está borrada. |
+  | `totalAmount` | `BigDecimal` | Suma de sus donaciones `COMPLETED` a campañas del creador, incluidas las borradas. `null` sin vista completa. |
+  | `donationsCount` | `Long` | Cantidad de esas donaciones. `null` sin vista completa. |
+  | `lastDonationAt` | `LocalDateTime` | Fecha de la última. `null` sin vista completa. |
+
+- **Errores:**
+
+  | Status | Mensaje | Cuándo |
+  |---|---|---|
+  | 403 | `Your account has been banned. Reason: {motivo}` / `Your account is suspended until {fecha}. Reason: {motivo}` | El que llama manda el token de una cuenta sancionada (filtro JWT). |
+  | 400 | `Invalid value '{valor}' for parameter 'userId'` (con `error: "Invalid parameter"`) | `userId` no es un número. Lo mismo con `page` o `size`. |
+  | 400 | `Page must be greater than or equal to 0` | `page` negativo. |
+  | 400 | `Size must be between 1 and 100` | `size` fuera de rango. |
+  | 400 | `Invalid sortBy '{valor}'. Allowed: totalAmount, lastDonationAt` | `sortBy` fuera de la lista. |
+  | 400 | `Invalid sortDirection '{valor}'. Allowed: asc, desc` | Dirección inválida. |
+  | 400 | `ID must be a positive number` (con `error: "Business logic error"`) | `userId <= 0`. |
+  | 404 | `User not found` | El usuario no existe o está borrado. |
+  | 404 | `User not found` | El usuario está baneado o suspendido y el que llama no es él mismo ni ADMIN. |
+  | 400 | `Only the creator or an admin can sort supporters by lastDonationAt` (con `error: "Business logic error"`) | `sortBy=lastDonationAt` sin vista completa. |
+
+  Responde la primera regla que falla, en el orden de la tabla: los parámetros de paginación los valida el controller antes de llamar al service. Para un creador oculto, `sortBy=lastDonationAt` da `404`, no `400`.
+
+- **Qué hace** (`SupporterService.getSupporters`, `@Transactional`):
+  1. `userId <= 0` → `400`.
+  2. `UserValidationService.getUserById(userId)`: el creador o `404`.
+  3. Obtiene el id del que llama si hay token válido, o `null`. `fullView = userId.equals(callerId) || isAdmin(callerId)`. Sin vista completa, `validateProfileNotBlocked(creator)`.
+  4. Toma `sortBy` y la dirección del `Sort` del `Pageable` (si llega sin orden, `totalAmount` y `desc`) y llama a `validateSupporterSort(sortBy, fullView)`.
+  5. `DonationRepository.findSupportersByCreatorId(userId, sortBy, descending, offset, size)` y `countSupportersByCreatorId(userId)`: dos queries nativas, con el `ORDER BY` y el `OFFSET/FETCH` escritos en la query (ver [Modelo de datos](../04-modelo-de-datos.md#leer-a-través-del-borrado)). Si la página está vacía, devuelve `PageImpl` vacío con el total.
+  6. Carga los donantes de la página con `UserRepository.findAllWithDetailsByIdIn(ids)`, una sola query. Un id que no vuelve es un donante borrado.
+  7. Mapea cada fila con `DonationMapper.toSupporterDTO(row, donor)`. Sin vista completa, pone en `null` `totalAmount`, `donationsCount` y `lastDonationAt`.
+  8. Devuelve `new PageImpl<>(rows, pageable, total)`.
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant SC as SupporterController
+    participant SV as SortValidationService
+    participant S as SupporterService
+    participant UV as UserValidationService
+    participant DV as DonationValidationService
+    participant DB as Base de datos
+    C->>SC: GET /api/users/{userId}/supporters
+    SC->>SV: validateAndGetPageable (page, size, sortBy, sortDirection)
+    SC->>S: getSupporters(userId, pageable)
+    S->>UV: getUserById (404 si no existe o está borrado)
+    S->>UV: isAdmin(callerId) si no es el creador
+    opt sin vista completa
+        S->>UV: validateProfileNotBlocked (404 si está sancionado)
+    end
+    S->>DV: validateSupporterSort (400 si lastDonationAt sin vista completa)
+    S->>DB: findSupportersByCreatorId + countSupportersByCreatorId (nativas)
+    S->>DB: findAllWithDetailsByIdIn (donantes de la página)
+    S-->>C: 200 Page de SupporterResponseDTO (importes en null sin vista completa)
+```
+
 ## Clases involucradas
 
 | Capa | Clase |
 |---|---|
-| Controller | `controller/donation/DonationController.java` |
-| Service | `service/donation/DonationService.java` |
-| Validation | `validation/donation/DonationValidationService.java`, `validation/common/TextValidationService.java` (texto obligatorio del mensaje y la respuesta) |
+| Controller | `controller/donation/DonationController.java`, `controller/donation/SupporterController.java` (supporters, bajo `/api/users/{userId}`) |
+| Service | `service/donation/DonationService.java`, `service/donation/SupporterService.java` |
+| Validation | `validation/donation/DonationValidationService.java`, `validation/common/TextValidationService.java` (texto obligatorio del mensaje y la respuesta), `validation/common/SortValidationService.java` (paginación de supporters) |
 | Validation (de campaign) | `validation/campaign/CampaignValidationService.java` (visibilidad), `validation/campaign/CampaignAuthorizationService.java` (`isAdmin`) |
+| Validation (de user) | `validation/user/UserValidationService.java` (`getUserById`, `isAdmin` y `validateProfileNotBlocked`, en supporters) |
 | Service (de campaign) | `service/campaign/CampaignStatusHistoryService.java` |
 | Mapper | `mapper/donation/DonationMapper.java` (y `mapper/campaign/CampaignMapper.java`, que crea la meta de cada campaña) |
 | Repository | `repository/donation/DonationRepository.java`, `repository/campaign/GoalRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java` |
 | Entity | `entity/donation/Donation.java`, `entity/donation/DonationStatus.java`, `entity/campaign/Goal.java`, `entity/campaign/Campaign.java`, `entity/user/UserInfo.java` (`autoThanksMessage`) |
-| DTOs | `dtos/donation/CreateDonationDTO.java`, `dtos/donation/DonationCreatedResponseDTO.java`, `dtos/donation/CreateDonationThanksDTO.java`, `dtos/donation/DonationResponseDTO.java`, `dtos/donation/CampaignStatisticsDTO.java` |
+| DTOs | `dtos/donation/CreateDonationDTO.java`, `dtos/donation/DonationCreatedResponseDTO.java`, `dtos/donation/CreateDonationThanksDTO.java`, `dtos/donation/DonationResponseDTO.java`, `dtos/donation/CampaignStatisticsDTO.java`, `dtos/donation/SupporterResponseDTO.java` |
 | Seguridad | `security/AuthenticatedUserService.java`, `security/SecurityConfig.java`, `security/JwtAuthenticationFilter.java`, `validation/auth/AccountStatusValidationService.java` (mensajes del `403`) |
 | Errores | `exception/GlobalExceptionHandler.java`, `exception/MessageException.java`, `exception/ResourceNotFoundException.java`, `exception/ForbiddenActionException.java`, `exception/ConflictException.java` |
 

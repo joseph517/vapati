@@ -109,10 +109,13 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 | `/api/campaigns/*/publications` | Publicaciones de una campaña. |
 | `/api/donations/campaign/*` | Donaciones de una campaña. |
 | `/api/donations/campaign/*/statistics` | Estadísticas de donaciones de una campaña. |
+| `/api/users/*/supporters` | Supporters de un creador (`controller/donation/SupporterController.java`). |
+
+`/api/users/*/supporters` es la única ruta pública bajo `/api/users` además de `/api/users/create`. El `*` cubre un solo segmento: `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él).
 
 `/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`.
 
-En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. Detalle en [Campañas](dominios/campaign.md) y [Donaciones](dominios/donation.md).
+En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. Detalle en [Campañas](dominios/campaign.md) y [Donaciones](dominios/donation.md).
 
 No hay reglas por rol en `SecurityConfig`: ninguna ruta pide `hasRole` a nivel de URL. Los roles se controlan con `@PreAuthorize` y la propiedad de los recursos en la capa `validation/`.
 
@@ -262,7 +265,7 @@ Como el origen por defecto es solo `http://localhost:3000`, en cualquier otro de
 
 ## OpenAPI
 
-`security/OpenAPIConfig.java` define el título y la versión, y un esquema de seguridad `bearerAuth` (HTTP bearer, formato JWT) aplicado a toda la API. En Swagger UI (`/swagger-ui.html`) se pega el access token una vez en "Authorize" y se manda en todos los requests. Como el requisito es global, Swagger muestra el candado también en los endpoints públicos; mandar el token ahí no cambia nada, salvo para los `PUBLIC_GET_URLS`, que con token muestran además las campañas `CLOSED` propias.
+`security/OpenAPIConfig.java` define el título y la versión, y un esquema de seguridad `bearerAuth` (HTTP bearer, formato JWT) aplicado a toda la API. En Swagger UI (`/swagger-ui.html`) se pega el access token una vez en "Authorize" y se manda en todos los requests. Como el requisito es global, Swagger muestra el candado también en los endpoints públicos; mandar el token ahí no cambia nada, salvo para los `PUBLIC_GET_URLS`, que con token muestran además las campañas `CLOSED` propias y, en los supporters, los importes al creador y al ADMIN.
 
 Swagger UI y `/v3/api-docs` son públicos en todos los perfiles.
 

@@ -200,6 +200,7 @@ Valida y arma el `Pageable` de los listados paginados. Cada controller le pasa s
 |---|---|---|---|
 | `controller/user/UserController.java` | `GET /api/users/list/paginated` | `id`, `createdAt` | `page=0`, `size=10`, `sortBy=id`, `sortDirection=asc` |
 | `controller/report/ReportController.java` | `GET /api/reports` | `createdAt`, `status` | `page=0`, `size=10`, `sortBy=createdAt`, `sortDirection=desc` |
+| `controller/donation/SupporterController.java` | `GET /api/users/{userId}/supporters` | `totalAmount`, `lastDonationAt` | `page=0`, `size=10`, `sortBy=totalAmount`, `sortDirection=desc` |
 
 Reglas, en este orden, todas con `400 Business logic error`:
 
@@ -213,6 +214,8 @@ Reglas, en este orden, todas con `400 Business logic error`:
 La lista blanca evita que un `sortBy` arbitrario llegue a la query y falle en la base con un `500`. En usuarios se limita a columnas de `User` porque la query paginada usa `SELECT DISTINCT` y SQL Server no acepta `ORDER BY` sobre columnas de tablas unidas que no estén en el `SELECT` (lo explica el comentario de `USER_SORT_FIELDS`). El tope de `size` impide pedir la tabla entera en una sola página.
 
 Si `page` o `size` no son números, el error lo produce Spring antes de llegar al servicio: `400 Invalid parameter`, `Invalid value 'abc' for parameter 'page'`.
+
+En los supporters, los campos de orden no son columnas: el servicio lee `sortBy` y la dirección del `Pageable` y los pasa como parámetros a una query nativa con el `ORDER BY` escrito (ver [Modelo de datos](04-modelo-de-datos.md#leer-a-través-del-borrado)). La lista blanca dice qué campos existen, pero no quién puede usarlos: `lastDonationAt` además lo restringe `DonationValidationService.validateSupporterSort` al propio creador y al ADMIN (`400 Only the creator or an admin can sort supporters by lastDonationAt`). Esa regla depende de quién llama, así que va en el dominio y corre en el servicio, después de los chequeos del creador. Ver [Donation](dominios/donation.md#supporters-de-un-creador).
 
 ### `validation/common/TextValidationService.java`
 
@@ -240,7 +243,7 @@ El criterio del proyecto es que **un recurso que quien llama no puede ver respon
 | Campaña `CLOSED` de otro usuario (visitante o `USER` que no es el dueño) | 404 | `Campaign not found with id: <id>` | `validation/campaign/CampaignValidationService.java` (`findVisibleCampaignByIdOrThrow`), `validation/campaign/CampaignAuthorizationService.java` |
 | Campaña de un dueño baneado o suspendido (para quien no es ADMIN) | 404 | `Campaign not found with id: <id>` | `CampaignValidationService.findVisibleCampaignById` y las queries `*VisibleTo` de `repository/campaign/CampaignRepository.java` |
 | Donar, publicar o reportar sobre una campaña oculta | 404 | el mismo de la campaña | `validation/donation/DonationValidationService.java`, `validation/publication/PublicationValidationService.java`, `validation/report/ReportValidationService.java` |
-| Perfil, seguidores o reporte de un usuario baneado o suspendido (para quien no es ADMIN) | 404 | `User not found` | `validation/user/UserValidationService.java` (`validateProfileNotBlocked`), `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java` |
+| Perfil, seguidores, supporters o reporte de un usuario baneado o suspendido (para quien no es ADMIN) | 404 | `User not found` | `validation/user/UserValidationService.java` (`validateProfileNotBlocked`, también desde `service/donation/SupporterService.java`), `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java` |
 | Recurso borrado lógicamente | 404 | el de "no encontrado" del dominio | `@SQLRestriction` sobre `deleted_at` en `User`, `Campaign`, `Goal`, `Publication`, `BankAccount` y `VerificationRequest` (ver [Modelo de datos](04-modelo-de-datos.md)) |
 | Campaña visible pero ajena, al modificarla, cerrarla o ver su historial | 403 | `You are not authorized to perform this action` | `CampaignAuthorizationService.validateOwnershipOrAdmin` |
 | Responder o borrar la respuesta de una donación ajena, **sin importar si la campaña es visible** | 403 | `Only the campaign owner can reply to this donation` / `Only the campaign owner or an admin can delete this reply` | `DonationValidationService.validateIsCampaignOwner` / `validateIsCampaignOwnerOrAdmin` |

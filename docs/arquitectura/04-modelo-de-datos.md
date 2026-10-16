@@ -314,6 +314,20 @@ Algunos casos necesitan ver filas borradas. Como `@SQLRestriction` se aplica a t
 | `UserRepository.findByIdIncludingDeleted` | Moderación: banear o suspender también una cuenta borrada, para que restaurarla con el login no esquive la sanción. |
 | `CampaignRepository.findNamesByIdsIncludingDeleted` | Historial de donaciones: mostrar el nombre de una campaña ya borrada. |
 | `BankAccountRepository.findByAccountNumberIgnoreDeleted`, `findByUserIdAndAccountNumberAndDeletedAtIsNotNull` | Alta de cuenta bancaria: decidir si un número está libre, es de otro usuario o se puede restaurar. |
+| `DonationRepository.findSupportersByCreatorId` | Supporters de un creador: una fila por donante con `SUM(amount)`, `COUNT_BIG(*)` y `MAX(created_at)` de sus donaciones `COMPLETED` a campañas con `user_id = :creatorId`, paginada. Cuenta campañas borradas y donantes borrados. |
+| `DonationRepository.countSupportersByCreatorId` | El total de esa página: `COUNT_BIG(DISTINCT donor_user_id)` con el mismo `WHERE`. |
+
+Las dos queries de supporters hacen `JOIN` de `donation` con `campaign` sin mirar `campaign.deleted_at`, y no tocan `[user]`: por eso suman las donaciones a campañas borradas y las de donantes borrados (el dinero se recibió igual). Qué se muestra de un donante borrado lo decide el servicio, que carga los donantes por JPA y no los encuentra (ver [Donation](dominios/donation.md#supporters-de-un-creador)).
+
+`findSupportersByCreatorId` lleva el `ORDER BY` y el `OFFSET ... FETCH NEXT` escritos en la query, en lugar de recibir un `Pageable`, para que el desempate (`donor_user_id ASC`) sea fijo y no dependa de cómo Spring Data ordena una query nativa. Su forma sale de reglas de SQL Server:
+
+- Un alias no se puede usar dentro de una expresión del `ORDER BY`: se repiten `SUM(d.amount)` y `MAX(d.created_at)`.
+- Un mismo `CASE` no puede devolver `decimal` en una rama y `datetime2` en otra: hay un `CASE` por campo.
+- `ASC`/`DESC` no se pueden parametrizar: hay un `CASE` por dirección (`:sortBy` y `:descending`). Los `CASE` que no aplican valen `NULL` en todas las filas y no alteran el orden.
+
+Las columnas de la proyección `SupporterProjection` llegan como `bigint` (`donorUserId`), `decimal(38,2)` (`totalAmount`, el tipo de `SUM` sobre `decimal(15,2)`), `bigint` (`donationsCount`, por `COUNT_BIG`) y `datetime2(6)` (`lastDonationAt`), que coinciden con `Long`, `BigDecimal`, `Long` y `LocalDateTime` sin conversiones.
+
+Las queries nativas no se validan al arrancar: un error de SQL aparece recién al llamarlas. Para correr `findSupportersByCreatorId` a mano hay que mandarla parametrizada, como la manda JDBC. Con valores literales en lugar de los parámetros, SQL Server la rechaza con `Msg 408` (una expresión constante en la lista del `ORDER BY`).
 
 ### Relaciones hacia filas borradas: `@NotFound` y FKs de solo lectura
 
