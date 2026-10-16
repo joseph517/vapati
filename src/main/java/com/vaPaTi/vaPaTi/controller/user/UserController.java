@@ -1,5 +1,7 @@
 package com.vaPaTi.vaPaTi.controller.user;
 
+import com.vaPaTi.vaPaTi.dtos.user.AutoThanksResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UpdateAutoThanksDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
@@ -73,6 +75,26 @@ public class UserController {
                     + "Anyone else gets a PublicUserProfileDTO: id, categories, firstName, lastName, userName, description and profilePicture")
     public ResponseEntity<Object> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    @GetMapping("/me/auto-thanks")
+    @Operation(summary = "Get my auto thanks message",
+            description = "Default thanks message the authenticated user's donors receive right after donating. null if not set")
+    public ResponseEntity<AutoThanksResponseDTO> getAutoThanksMessage() {
+        return ResponseEntity.ok(userService.getAutoThanksMessage());
+    }
+
+    @PutMapping("/me/auto-thanks")
+    @Operation(summary = "Set my auto thanks message",
+            description = "Stored trimmed, applies to all of the user's campaigns. Blank (400) or over 280 characters (400) is rejected")
+    public ResponseEntity<AutoThanksResponseDTO> updateAutoThanksMessage(@Valid @RequestBody UpdateAutoThanksDTO dto) {
+        return ResponseEntity.ok(userService.updateAutoThanksMessage(dto));
+    }
+
+    @DeleteMapping("/me/auto-thanks")
+    @Operation(summary = "Delete my auto thanks message", description = "Removes the default thanks message (it becomes null)")
+    public ResponseEntity<AutoThanksResponseDTO> deleteAutoThanksMessage() {
+        return ResponseEntity.ok(userService.deleteAutoThanksMessage());
     }
 
     @PreAuthorize("hasRole('ADMIN')")
