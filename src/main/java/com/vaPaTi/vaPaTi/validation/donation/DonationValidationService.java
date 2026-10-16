@@ -119,25 +119,28 @@ public class DonationValidationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Donation not found with id: " + donationId));
     }
 
-    // A soft-deleted campaign leaves the relation null (@NotFound), so its donations can't be replied to
-    public Campaign validateAndGetDonationCampaign(Donation donation) {
-        Campaign campaign = donation.getCampaign();
-        if (campaign == null) {
+    // A soft-deleted campaign leaves the relation null (@NotFound) while campaignId keeps the id, so its donations
+    // can't be replied to. A direct donation has no campaign at all and passes
+    public void validateDonationCampaignNotDeleted(Donation donation) {
+        if (donation.getCampaignId() != null && donation.getCampaign() == null) {
             throw new MessageException("Cannot reply to a donation of a deleted campaign");
         }
-        return campaign;
     }
 
-    // Only the owner replies: an ADMIN can delete a reply but not write one
-    public void validateIsCampaignOwner(Campaign campaign, Long callerId) {
-        if (!isCampaignOwner(campaign, callerId)) {
-            throw new ForbiddenActionException("Only the campaign owner can reply to this donation");
+    // Only the recipient replies (the campaign owner in a campaign donation): an ADMIN can delete a reply but not write one
+    public void validateIsRecipient(Donation donation, Long callerId) {
+        if (!isRecipient(donation, callerId)) {
+            throw new ForbiddenActionException(donation.getCampaignId() != null
+                    ? "Only the campaign owner can reply to this donation"
+                    : "Only the recipient can reply to this donation");
         }
     }
 
-    public void validateIsCampaignOwnerOrAdmin(Campaign campaign, Long callerId) {
-        if (!isCampaignOwner(campaign, callerId) && !campaignAuthorizationService.isAdmin(callerId)) {
-            throw new ForbiddenActionException("Only the campaign owner or an admin can delete this reply");
+    public void validateIsRecipientOrAdmin(Donation donation, Long callerId) {
+        if (!isRecipient(donation, callerId) && !campaignAuthorizationService.isAdmin(callerId)) {
+            throw new ForbiddenActionException(donation.getCampaignId() != null
+                    ? "Only the campaign owner or an admin can delete this reply"
+                    : "Only the recipient or an admin can delete this reply");
         }
     }
 
@@ -167,7 +170,7 @@ public class DonationValidationService {
         }
     }
 
-    private boolean isCampaignOwner(Campaign campaign, Long callerId) {
-        return callerId != null && campaign.getUser() != null && callerId.equals(campaign.getUser().getId());
+    private boolean isRecipient(Donation donation, Long callerId) {
+        return callerId != null && callerId.equals(donation.getRecipientUserId());
     }
 }

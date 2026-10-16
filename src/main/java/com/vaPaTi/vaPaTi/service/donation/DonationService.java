@@ -126,7 +126,7 @@ public class DonationService {
         return recipientInfo != null ? recipientInfo.getAutoThanksMessage() : null;
     }
 
-    // One reply per donation, only by the campaign owner. It is not editable: it has to be deleted to reply again
+    // One reply per donation, only by the recipient. It is not editable: it has to be deleted to reply again
     @Transactional
     public DonationResponseDTO thankDonation(Long donationId, @NotNull CreateDonationThanksDTO dto) {
         Long callerId = authenticatedUserService.getAuthenticatedUserId();
@@ -134,8 +134,8 @@ public class DonationService {
         String thanksMessage = donationValidationService.validateAndNormalizeThanksMessage(dto.getThanksMessage());
 
         Donation donation = donationValidationService.validateAndGetDonation(donationId);
-        Campaign campaign = donationValidationService.validateAndGetDonationCampaign(donation);
-        donationValidationService.validateIsCampaignOwner(campaign, callerId);
+        donationValidationService.validateDonationCampaignNotDeleted(donation);
+        donationValidationService.validateIsRecipient(donation, callerId);
         donationValidationService.validateDonationCompleted(donation);
         donationValidationService.validateHasNoThanks(donation);
 
@@ -146,14 +146,14 @@ public class DonationService {
         return donationMapper.toDTO(donationRepository.save(donation));
     }
 
-    // The campaign owner or an ADMIN. Clears the three fields together, so the owner can reply again
+    // The recipient or an ADMIN. Clears the three fields together, so the recipient can reply again
     @Transactional
     public DonationResponseDTO deleteDonationThanks(Long donationId) {
         Long callerId = authenticatedUserService.getAuthenticatedUserId();
 
         Donation donation = donationValidationService.validateAndGetDonation(donationId);
-        Campaign campaign = donationValidationService.validateAndGetDonationCampaign(donation);
-        donationValidationService.validateIsCampaignOwnerOrAdmin(campaign, callerId);
+        donationValidationService.validateDonationCampaignNotDeleted(donation);
+        donationValidationService.validateIsRecipientOrAdmin(donation, callerId);
         donationValidationService.validateHasThanks(donation);
 
         donation.setThanksMessage(null);

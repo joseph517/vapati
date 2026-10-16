@@ -43,6 +43,8 @@ class DonationValidationServiceThanksTest {
     private static final Long OWNER_ID = 1L;
     private static final Long ADMIN_ID = 2L;
     private static final Long THIRD_PARTY_ID = 3L;
+    private static final Long RECIPIENT_ID = 4L;
+    private static final Long CAMPAIGN_ID = 10L;
 
     @Mock
     private CampaignValidationService campaignValidationService;
@@ -63,13 +65,26 @@ class DonationValidationServiceThanksTest {
     @InjectMocks
     private DonationValidationService donationValidationService;
 
-    private Campaign campaign;
+    // The recipient of a campaign donation is the campaign owner
+    private Donation campaignDonation;
+    // A direct donation has no campaign: relation and id are null
+    private Donation directDonation;
 
     @BeforeEach
     void setUp() {
-        campaign = Campaign.builder()
-                .id(10L)
-                .user(User.builder().id(OWNER_ID).build())
+        User owner = User.builder().id(OWNER_ID).build();
+        Campaign campaign = Campaign.builder().id(CAMPAIGN_ID).user(owner).build();
+        campaignDonation = Donation.builder()
+                .id(5L)
+                .campaign(campaign)
+                .campaignId(CAMPAIGN_ID)
+                .recipient(owner)
+                .recipientUserId(OWNER_ID)
+                .build();
+        directDonation = Donation.builder()
+                .id(6L)
+                .recipient(User.builder().id(RECIPIENT_ID).build())
+                .recipientUserId(RECIPIENT_ID)
                 .build();
     }
 
@@ -140,101 +155,184 @@ class DonationValidationServiceThanksTest {
     }
 
     @Nested
-    @DisplayName("validateAndGetDonationCampaign")
-    class ValidateAndGetDonationCampaignTests {
+    @DisplayName("validateDonationCampaignNotDeleted")
+    class ValidateDonationCampaignNotDeletedTests {
 
         @Test
-        @DisplayName("Should return the campaign when it is alive")
-        void withAliveCampaign_ShouldReturnCampaign() {
-            // Given
-            Donation donation = Donation.builder().id(5L).campaign(campaign).build();
-
-            // When
-            Campaign result = donationValidationService.validateAndGetDonationCampaign(donation);
-
-            // Then
-            assertThat(result).isSameAs(campaign);
+        @DisplayName("Should pass when the campaign is alive")
+        void withAliveCampaign_ShouldPass() {
+            // When & Then
+            assertThatCode(() -> donationValidationService.validateDonationCampaignNotDeleted(campaignDonation))
+                    .doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("Should throw when the campaign is soft deleted (relation null)")
+        @DisplayName("Should throw when the campaign is soft deleted (relation null, id kept)")
         void withDeletedCampaign_ShouldThrow() {
             // Given
-            Donation donation = Donation.builder().id(5L).campaign(null).campaignId(10L).build();
+            campaignDonation.setCampaign(null);
 
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateAndGetDonationCampaign(donation))
+            assertThatThrownBy(() -> donationValidationService.validateDonationCampaignNotDeleted(campaignDonation))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot reply to a donation of a deleted campaign");
         }
+
+        @Test
+        @DisplayName("Should pass for a direct donation, which has no campaign")
+        void withDirectDonation_ShouldPass() {
+            // When & Then
+            assertThatCode(() -> donationValidationService.validateDonationCampaignNotDeleted(directDonation))
+                    .doesNotThrowAnyException();
+        }
     }
 
     @Nested
-    @DisplayName("validateIsCampaignOwner")
-    class ValidateIsCampaignOwnerTests {
+    @DisplayName("validateIsRecipient")
+    class ValidateIsRecipientTests {
 
         @Test
-        @DisplayName("Should pass when the caller owns the campaign")
-        void whenOwner_ShouldPass() {
+        @DisplayName("Should pass when the caller owns the campaign of a campaign donation")
+        void campaignDonation_WhenOwner_ShouldPass() {
             // When & Then
-            assertThatCode(() -> donationValidationService.validateIsCampaignOwner(campaign, OWNER_ID))
+            assertThatCode(() -> donationValidationService.validateIsRecipient(campaignDonation, OWNER_ID))
                     .doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("Should throw when the caller does not own the campaign")
-        void whenThirdParty_ShouldThrow() {
+        @DisplayName("Should pass when the caller is the recipient of a direct donation")
+        void directDonation_WhenRecipient_ShouldPass() {
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateIsCampaignOwner(campaign, THIRD_PARTY_ID))
+            assertThatCode(() -> donationValidationService.validateIsRecipient(directDonation, RECIPIENT_ID))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Should throw the campaign owner message when a third party replies to a campaign donation")
+        void campaignDonation_WhenThirdParty_ShouldThrow() {
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipient(campaignDonation, THIRD_PARTY_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Only the campaign owner can reply to this donation");
         }
 
         @Test
-        @DisplayName("Should throw for an ADMIN who does not own the campaign, without checking the role")
-        void whenAdmin_ShouldThrow() {
+        @DisplayName("Should throw the campaign owner message for an ADMIN, without checking the role")
+        void campaignDonation_WhenAdmin_ShouldThrow() {
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateIsCampaignOwner(campaign, ADMIN_ID))
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipient(campaignDonation, ADMIN_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Only the campaign owner can reply to this donation");
             verifyNoInteractions(campaignAuthorizationService);
         }
+
+        @Test
+        @DisplayName("Should throw the recipient message when a third party replies to a direct donation")
+        void directDonation_WhenThirdParty_ShouldThrow() {
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipient(directDonation, THIRD_PARTY_ID))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the recipient can reply to this donation");
+        }
+
+        @Test
+        @DisplayName("Should throw the recipient message for an ADMIN on a direct donation, without checking the role")
+        void directDonation_WhenAdmin_ShouldThrow() {
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipient(directDonation, ADMIN_ID))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the recipient can reply to this donation");
+            verifyNoInteractions(campaignAuthorizationService);
+        }
+
+        @Test
+        @DisplayName("Should throw when there is no caller id")
+        void whenCallerIdNull_ShouldThrow() {
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipient(directDonation, null))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the recipient can reply to this donation");
+        }
+
+        @Test
+        @DisplayName("Should throw when the donation has no recipient id")
+        void whenRecipientIdNull_ShouldThrow() {
+            // Given
+            directDonation.setRecipientUserId(null);
+
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipient(directDonation, RECIPIENT_ID))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the recipient can reply to this donation");
+        }
     }
 
     @Nested
-    @DisplayName("validateIsCampaignOwnerOrAdmin")
-    class ValidateIsCampaignOwnerOrAdminTests {
+    @DisplayName("validateIsRecipientOrAdmin")
+    class ValidateIsRecipientOrAdminTests {
 
         @Test
-        @DisplayName("Should pass when the caller owns the campaign, without checking the role")
-        void whenOwner_ShouldPass() {
+        @DisplayName("Should pass when the caller owns the campaign of a campaign donation, without checking the role")
+        void campaignDonation_WhenOwner_ShouldPass() {
             // When & Then
-            assertThatCode(() -> donationValidationService.validateIsCampaignOwnerOrAdmin(campaign, OWNER_ID))
+            assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(campaignDonation, OWNER_ID))
                     .doesNotThrowAnyException();
             verifyNoInteractions(campaignAuthorizationService);
         }
 
         @Test
-        @DisplayName("Should pass when the caller is an ADMIN")
-        void whenAdmin_ShouldPass() {
+        @DisplayName("Should pass when the caller is the recipient of a direct donation, without checking the role")
+        void directDonation_WhenRecipient_ShouldPass() {
+            // When & Then
+            assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(directDonation, RECIPIENT_ID))
+                    .doesNotThrowAnyException();
+            verifyNoInteractions(campaignAuthorizationService);
+        }
+
+        @Test
+        @DisplayName("Should pass when an ADMIN deletes the reply of a campaign donation")
+        void campaignDonation_WhenAdmin_ShouldPass() {
             // Given
             when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
 
             // When & Then
-            assertThatCode(() -> donationValidationService.validateIsCampaignOwnerOrAdmin(campaign, ADMIN_ID))
+            assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(campaignDonation, ADMIN_ID))
                     .doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("Should throw when the caller is neither the owner nor an ADMIN")
-        void whenThirdParty_ShouldThrow() {
+        @DisplayName("Should pass when an ADMIN deletes the reply of a direct donation")
+        void directDonation_WhenAdmin_ShouldPass() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+
+            // When & Then
+            assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(directDonation, ADMIN_ID))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Should throw the campaign owner message when a third party deletes the reply of a campaign donation")
+        void campaignDonation_WhenThirdParty_ShouldThrow() {
             // Given
             when(campaignAuthorizationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
 
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateIsCampaignOwnerOrAdmin(campaign, THIRD_PARTY_ID))
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipientOrAdmin(campaignDonation, THIRD_PARTY_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Only the campaign owner or an admin can delete this reply");
+        }
+
+        @Test
+        @DisplayName("Should throw the recipient message when a third party deletes the reply of a direct donation")
+        void directDonation_WhenThirdParty_ShouldThrow() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateIsRecipientOrAdmin(directDonation, THIRD_PARTY_ID))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the recipient or an admin can delete this reply");
         }
     }
 
