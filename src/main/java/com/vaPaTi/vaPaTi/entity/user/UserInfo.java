@@ -43,6 +43,10 @@ public class UserInfo {
     @Column(name = "profile_picture")
     private String profilePicture;
 
+    // Default thanks shown to the donor right after donating to any of this user's campaigns
+    @Column(name = "auto_thanks_message", length = 280)
+    private String autoThanksMessage;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

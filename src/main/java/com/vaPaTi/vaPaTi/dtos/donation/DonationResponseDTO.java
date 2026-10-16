@@ -26,6 +26,9 @@ public class DonationResponseDTO {
     private String transactionId;
     private String message;
     private Boolean messagePrivate;
+    private String thanksMessage;
+    private Boolean thanksPrivate;
+    private LocalDateTime thankedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

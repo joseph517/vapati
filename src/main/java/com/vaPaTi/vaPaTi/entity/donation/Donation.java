@@ -69,6 +69,19 @@ public class Donation {
     @Builder.Default
     private boolean messagePrivate = false;
 
+    // The campaign owner's reply. thanksMessage and thankedAt are null together; replying and deleting write all three
+    @Column(name = "thanks_message", length = 280)
+    private String thanksMessage;
+
+    // Same default as message_private: lets ddl-auto=update add it as NOT NULL on a populated table
+    @Column(name = "thanks_private", nullable = false)
+    @ColumnDefault("0")
+    @Builder.Default
+    private boolean thanksPrivate = false;
+
+    @Column(name = "thanked_at")
+    private LocalDateTime thankedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
