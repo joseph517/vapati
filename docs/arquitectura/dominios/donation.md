@@ -541,7 +541,7 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
 
 Vive en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")` como `FollowerController`: la ruta cuelga del usuario, pero el código es de este dominio. `UserController` no participa.
 
-- **Acceso:** público (`/api/users/*/supporters` en `PUBLIC_GET_URLS`, solo `GET`). Sin token responde igual que con el token de un tercero. El service resuelve al que llama como opcional (`findAuthenticatedUserId`): un token inválido se trata como anónimo. Un usuario sancionado que manda su token recibe el `403` del filtro, también el propio creador. `GET /api/users/{id}` sigue pidiendo token: el `*` del patrón cubre un solo segmento.
+- **Acceso:** público (`/api/users/*/supporters` en `PUBLIC_GET_URLS`, solo `GET`). Sin token responde igual que con el token de un tercero. El service resuelve al que llama como opcional (`findAuthenticatedUserId`): un token inválido se trata como anónimo. Un usuario sancionado que manda su token recibe el `403` del filtro, también el propio creador. `GET /api/users/{id}` y las rutas de seguidores siguen pidiendo token: el patrón termina en el literal `/supporters`, así que no coinciden. El `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`.
 - **Parámetros** (validados por `validation/common/SortValidationService.java` con la lista `SUPPORTER_SORT_FIELDS` del controller):
 
   | Nombre | Ubicación | Tipo | Default | Validación |
@@ -643,7 +643,9 @@ sequenceDiagram
     end
     S->>DV: validateSupporterSort (400 si lastDonationAt sin vista completa)
     S->>DB: findSupportersByCreatorId + countSupportersByCreatorId (nativas)
-    S->>DB: findAllWithDetailsByIdIn (donantes de la página)
+    opt página no vacía
+        S->>DB: findAllWithDetailsByIdIn (donantes de la página)
+    end
     S-->>C: 200 Page de SupporterResponseDTO (importes en null sin vista completa)
 ```
 

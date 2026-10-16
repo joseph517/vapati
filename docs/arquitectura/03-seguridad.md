@@ -111,7 +111,7 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 | `/api/donations/campaign/*/statistics` | Estadísticas de donaciones de una campaña. |
 | `/api/users/*/supporters` | Supporters de un creador (`controller/donation/SupporterController.java`). |
 
-`/api/users/*/supporters` es la única ruta pública bajo `/api/users` además de `/api/users/create`. El `*` cubre un solo segmento: `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él).
+`/api/users/*/supporters` es la única ruta pública bajo `/api/users` además de `/api/users/create`. El patrón termina en el literal `/supporters`, así que `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él). El `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`.
 
 `/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`.
 
