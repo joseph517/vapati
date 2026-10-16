@@ -134,6 +134,13 @@ public class DonationValidationService {
         }
     }
 
+    // Sorting by date would reveal who donated most recently, which the public view hides
+    public void validateSupporterSort(String sortBy, boolean fullView) {
+        if ("lastDonationAt".equals(sortBy) && !fullView) {
+            throw new MessageException("Only the creator or an admin can sort supporters by lastDonationAt");
+        }
+    }
+
     private boolean isCampaignOwner(Campaign campaign, Long callerId) {
         return callerId != null && campaign.getUser() != null && callerId.equals(campaign.getUser().getId());
     }
