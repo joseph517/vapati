@@ -35,6 +35,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -504,6 +507,141 @@ class DonationServiceThanksTest {
             assertThat(donation.getThanksMessage()).isEqualTo("Gracias otra vez");
             assertThat(donation.isThanksPrivate()).isFalse();
             assertThat(donation.getThankedAt()).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Thanks visibility in the listings")
+    class ThanksVisibilityTests {
+
+        // The private reply is on the donor's donation, the public one on another donor's
+        private static final Long OTHER_DONOR_ID = 6L;
+        private static final LocalDateTime PRIVATE_THANKED_AT = LocalDateTime.of(2026, 10, 15, 10, 0);
+        private static final LocalDateTime PUBLIC_THANKED_AT = LocalDateTime.of(2026, 10, 15, 11, 0);
+
+        private List<DonationResponseDTO> donationDTOs() {
+            return List.of(
+                    donationDTO(20L, DONOR_ID, "Gracias en privado", true, PRIVATE_THANKED_AT),
+                    donationDTO(21L, OTHER_DONOR_ID, "Gracias a todos", false, PUBLIC_THANKED_AT));
+        }
+
+        private DonationResponseDTO donationDTO(Long id, Long donorUserId, String thanksMessage,
+                                                boolean thanksPrivate, LocalDateTime thankedAt) {
+            return DonationResponseDTO.builder()
+                    .id(id)
+                    .donorUserId(donorUserId)
+                    .campaignId(CAMPAIGN_ID)
+                    .amount(AMOUNT)
+                    .messagePrivate(false)
+                    .thanksMessage(thanksMessage)
+                    .thanksPrivate(thanksPrivate)
+                    .thankedAt(thankedAt)
+                    .build();
+        }
+
+        private List<DonationResponseDTO> listCampaignAs(Long callerId) {
+            List<Donation> donations = List.of(Donation.builder().id(20L).build());
+            List<DonationResponseDTO> dtos = donationDTOs();
+
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.ofNullable(callerId));
+            when(donationValidationService.validateAndGetCampaign(CAMPAIGN_ID, callerId)).thenReturn(campaign);
+            when(donationRepository.findByCampaignOrderByCreatedAtDesc(campaign)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations)).thenReturn(dtos);
+
+            return donationService.getDonationsByCampaign(CAMPAIGN_ID);
+        }
+
+        private void assertPrivateThanksVisible(List<DonationResponseDTO> result) {
+            assertThat(result).extracting(DonationResponseDTO::getThanksMessage)
+                    .containsExactly("Gracias en privado", "Gracias a todos");
+            assertThat(result).extracting(DonationResponseDTO::getThanksPrivate)
+                    .containsExactly(true, false);
+            assertThat(result).extracting(DonationResponseDTO::getThankedAt)
+                    .containsExactly(PRIVATE_THANKED_AT, PUBLIC_THANKED_AT);
+        }
+
+        private void assertPrivateThanksHidden(List<DonationResponseDTO> result) {
+            assertThat(result).extracting(DonationResponseDTO::getThanksMessage)
+                    .containsExactly(null, "Gracias a todos");
+            assertThat(result).extracting(DonationResponseDTO::getThanksPrivate)
+                    .containsExactly(false, false);
+            assertThat(result).extracting(DonationResponseDTO::getThankedAt)
+                    .containsExactly(null, PUBLIC_THANKED_AT);
+        }
+
+        @Test
+        @DisplayName("Should show the campaign owner the private reply")
+        void getDonationsByCampaign_WhenOwner_ShouldShowPrivateThanks() {
+            // When
+            List<DonationResponseDTO> result = listCampaignAs(OWNER_ID);
+
+            // Then
+            assertPrivateThanksVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show an ADMIN the private reply")
+        void getDonationsByCampaign_WhenAdmin_ShouldShowPrivateThanks() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+
+            // When
+            List<DonationResponseDTO> result = listCampaignAs(ADMIN_ID);
+
+            // Then
+            assertPrivateThanksVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show the donor the private reply to their own donation")
+        void getDonationsByCampaign_WhenDonor_ShouldShowOwnPrivateThanks() {
+            // When
+            List<DonationResponseDTO> result = listCampaignAs(DONOR_ID);
+
+            // Then
+            assertPrivateThanksVisible(result);
+        }
+
+        @Test
+        @DisplayName("Should show another USER the private reply as no reply, without thankedAt, and the public reply")
+        void getDonationsByCampaign_WhenThirdParty_ShouldHidePrivateThanks() {
+            // When
+            List<DonationResponseDTO> result = listCampaignAs(THIRD_PARTY_ID);
+
+            // Then
+            assertPrivateThanksHidden(result);
+        }
+
+        @Test
+        @DisplayName("Should show an anonymous caller the private reply as no reply, without thankedAt, and the public reply")
+        void getDonationsByCampaign_WhenAnonymous_ShouldHidePrivateThanks() {
+            // When
+            List<DonationResponseDTO> result = listCampaignAs(null);
+
+            // Then
+            assertPrivateThanksHidden(result);
+        }
+
+        @Test
+        @DisplayName("Should return the donor the private reply in my-donations")
+        void getDonationsByAuthenticatedUser_ShouldShowPrivateThanks() {
+            // Given
+            List<Donation> donations = List.of(completedDonation());
+            List<DonationResponseDTO> dtos = List.of(
+                    donationDTO(DONATION_ID, DONOR_ID, "Gracias en privado", true, PRIVATE_THANKED_AT));
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(DONOR_ID);
+            when(donationRepository.findByDonorIdOrderByCreatedAtDesc(DONOR_ID)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations, Map.of())).thenReturn(dtos);
+
+            // When
+            List<DonationResponseDTO> result = donationService.getDonationsByAuthenticatedUser();
+
+            // Then
+            assertThat(result).singleElement().satisfies(dto -> {
+                assertThat(dto.getThanksMessage()).isEqualTo("Gracias en privado");
+                assertThat(dto.getThanksPrivate()).isTrue();
+                assertThat(dto.getThankedAt()).isEqualTo(PRIVATE_THANKED_AT);
+            });
         }
     }
 }

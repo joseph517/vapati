@@ -184,9 +184,10 @@ public class DonationService {
         List<Donation> donations = donationRepository.findByCampaignOrderByCreatedAtDesc(campaign);
         List<DonationResponseDTO> dtos = donationMapper.toDTOList(donations);
 
-        // The transaction id (the payment reference) and a private message are seen by the campaign owner
-        // and admins on every donation, by a donor on their own, and by anyone else (anonymous included)
-        // on none. A hidden private message looks like no message at all. The donor stays public.
+        // The transaction id (the payment reference), a private message and a private reply are seen by the
+        // campaign owner and admins on every donation, by a donor on their own, and by anyone else (anonymous
+        // included) on none. A hidden private message or reply looks like no message or reply at all, without
+        // thankedAt either. The donor stays public.
         if (!canSeePrivateDonationData(campaign, callerId)) {
             dtos.stream()
                     .filter(dto -> callerId == null || !callerId.equals(dto.getDonorUserId()))
@@ -195,6 +196,11 @@ public class DonationService {
                         if (Boolean.TRUE.equals(dto.getMessagePrivate())) {
                             dto.setMessage(null);
                             dto.setMessagePrivate(false);
+                        }
+                        if (Boolean.TRUE.equals(dto.getThanksPrivate())) {
+                            dto.setThanksMessage(null);
+                            dto.setThanksPrivate(false);
+                            dto.setThankedAt(null);
                         }
                     });
         }
