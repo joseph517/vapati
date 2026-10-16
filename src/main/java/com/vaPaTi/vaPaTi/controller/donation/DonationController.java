@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.controller.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationThanksDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationCreatedResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.service.donation.DonationService;
@@ -39,6 +40,32 @@ public class DonationController {
         body.put("autoThanksMessage", created.getAutoThanksMessage());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
+    }
+
+    @PostMapping("/{donationId}/thanks")
+    @Operation(summary = "Reply to a donation with a thanks message",
+            description = "Only the campaign owner (not an ADMIN), once per COMPLETED donation. thanksPrivate defaults to false. "
+                    + "409 if the donation already has a reply: it is not editable, delete it to reply again")
+    public ResponseEntity<Map<String, Object>> thankDonation(@PathVariable Long donationId,
+                                                             @Valid @RequestBody CreateDonationThanksDTO dto) {
+        DonationResponseDTO donation = donationService.thankDonation(donationId, dto);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Thanks sent successfully",
+                "donation", donation
+        ));
+    }
+
+    @DeleteMapping("/{donationId}/thanks")
+    @Operation(summary = "Delete the thanks message of a donation",
+            description = "The campaign owner or an ADMIN. Afterwards the owner can reply again")
+    public ResponseEntity<Map<String, Object>> deleteDonationThanks(@PathVariable Long donationId) {
+        DonationResponseDTO donation = donationService.deleteDonationThanks(donationId);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Thanks deleted successfully",
+                "donation", donation
+        ));
     }
 
     @GetMapping("/my-donations")

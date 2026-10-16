@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationThanksDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationCreatedResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
@@ -109,6 +110,43 @@ public class DonationService {
     private String findAutoThanksMessage(User owner) {
         UserInfo ownerInfo = owner != null ? owner.getUserInfo() : null;
         return ownerInfo != null ? ownerInfo.getAutoThanksMessage() : null;
+    }
+
+    // One reply per donation, only by the campaign owner. It is not editable: it has to be deleted to reply again
+    @Transactional
+    public DonationResponseDTO thankDonation(Long donationId, @NotNull CreateDonationThanksDTO dto) {
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+
+        String thanksMessage = donationValidationService.validateAndNormalizeThanksMessage(dto.getThanksMessage());
+
+        Donation donation = donationValidationService.validateAndGetDonation(donationId);
+        Campaign campaign = donationValidationService.validateAndGetDonationCampaign(donation);
+        donationValidationService.validateIsCampaignOwner(campaign, callerId);
+        donationValidationService.validateDonationCompleted(donation);
+        donationValidationService.validateHasNoThanks(donation);
+
+        donation.setThanksMessage(thanksMessage);
+        donation.setThanksPrivate(Boolean.TRUE.equals(dto.getThanksPrivate()));
+        donation.setThankedAt(LocalDateTime.now());
+
+        return donationMapper.toDTO(donationRepository.save(donation));
+    }
+
+    // The campaign owner or an ADMIN. Clears the three fields together, so the owner can reply again
+    @Transactional
+    public DonationResponseDTO deleteDonationThanks(Long donationId) {
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+
+        Donation donation = donationValidationService.validateAndGetDonation(donationId);
+        Campaign campaign = donationValidationService.validateAndGetDonationCampaign(donation);
+        donationValidationService.validateIsCampaignOwnerOrAdmin(campaign, callerId);
+        donationValidationService.validateHasThanks(donation);
+
+        donation.setThanksMessage(null);
+        donation.setThanksPrivate(false);
+        donation.setThankedAt(null);
+
+        return donationMapper.toDTO(donationRepository.save(donation));
     }
 
     @Transactional

@@ -1,14 +1,20 @@
 package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationThanksDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationCreatedResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
+import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
+import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.GoalRepository;
@@ -31,8 +37,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,6 +73,9 @@ class DonationServiceThanksTest {
     private static final Long DONOR_ID = 1L;
     private static final Long CAMPAIGN_ID = 2L;
     private static final Long OWNER_ID = 3L;
+    private static final Long ADMIN_ID = 4L;
+    private static final Long THIRD_PARTY_ID = 5L;
+    private static final Long DONATION_ID = 10L;
     private static final BigDecimal AMOUNT = new BigDecimal("100.0");
     private static final String AUTO_THANKS = "¡Gracias por tu apoyo!";
 
@@ -171,6 +184,326 @@ class DonationServiceThanksTest {
             assertThat(saved.getThanksMessage()).isNull();
             assertThat(saved.isThanksPrivate()).isFalse();
             assertThat(saved.getThankedAt()).isNull();
+        }
+    }
+
+    private Donation completedDonation() {
+        return Donation.builder()
+                .id(DONATION_ID)
+                .donor(donor)
+                .campaign(campaign)
+                .amount(AMOUNT)
+                .status(DonationStatus.COMPLETED)
+                .build();
+    }
+
+    private CreateDonationThanksDTO thanksDTO(String thanksMessage, Boolean thanksPrivate) {
+        CreateDonationThanksDTO dto = new CreateDonationThanksDTO();
+        dto.setThanksMessage(thanksMessage);
+        dto.setThanksPrivate(thanksPrivate);
+        return dto;
+    }
+
+    private void givenSavedAndMapped() {
+        when(donationRepository.save(any(Donation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(donationMapper.toDTO(any(Donation.class))).thenReturn(DonationResponseDTO.builder().id(DONATION_ID).build());
+    }
+
+    private Donation captureSavedDonation() {
+        ArgumentCaptor<Donation> captor = ArgumentCaptor.forClass(Donation.class);
+        verify(donationRepository).save(captor.capture());
+        return captor.getValue();
+    }
+
+    @Nested
+    @DisplayName("thankDonation()")
+    class ThankDonationTests {
+
+        private Donation donation;
+
+        @BeforeEach
+        void setUp() {
+            donation = completedDonation();
+        }
+
+        private void givenOwnerReplying(String rawMessage, String normalizedMessage) {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+            when(donationValidationService.validateAndNormalizeThanksMessage(rawMessage)).thenReturn(normalizedMessage);
+            when(donationValidationService.validateAndGetDonation(DONATION_ID)).thenReturn(donation);
+            when(donationValidationService.validateAndGetDonationCampaign(donation)).thenReturn(campaign);
+        }
+
+        @Test
+        @DisplayName("Should save the normalized text, the private flag and thankedAt")
+        void thankDonation_AsOwner_ShouldSaveThanks() {
+            // Given
+            givenOwnerReplying("  Gracias, B  ", "Gracias, B");
+            givenSavedAndMapped();
+            LocalDateTime before = LocalDateTime.now();
+
+            // When
+            DonationResponseDTO result = donationService.thankDonation(DONATION_ID, thanksDTO("  Gracias, B  ", true));
+
+            // Then
+            assertThat(result).isNotNull();
+            Donation saved = captureSavedDonation();
+            assertThat(saved.getThanksMessage()).isEqualTo("Gracias, B");
+            assertThat(saved.isThanksPrivate()).isTrue();
+            assertThat(saved.getThankedAt()).isAfterOrEqualTo(before);
+            verify(donationValidationService).validateIsCampaignOwner(campaign, OWNER_ID);
+            verify(donationValidationService).validateDonationCompleted(donation);
+            verify(donationValidationService).validateHasNoThanks(donation);
+        }
+
+        @Test
+        @DisplayName("Should save thanksPrivate false when it is null")
+        void thankDonation_WithNullPrivate_ShouldSaveFalse() {
+            // Given
+            givenOwnerReplying("Gracias", "Gracias");
+            givenSavedAndMapped();
+
+            // When
+            donationService.thankDonation(DONATION_ID, thanksDTO("Gracias", null));
+
+            // Then
+            assertThat(captureSavedDonation().isThanksPrivate()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Should reply to a donation that has no donor message")
+        void thankDonation_WithoutDonorMessage_ShouldSaveThanks() {
+            // Given
+            givenOwnerReplying("Gracias", "Gracias");
+            givenSavedAndMapped();
+
+            // When
+            donationService.thankDonation(DONATION_ID, thanksDTO("Gracias", false));
+
+            // Then
+            Donation saved = captureSavedDonation();
+            assertThat(saved.getMessage()).isNull();
+            assertThat(saved.getThanksMessage()).isEqualTo("Gracias");
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the caller is not the owner")
+        void thankDonation_AsThirdParty_ShouldThrowAndNotSave() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(THIRD_PARTY_ID);
+            when(donationValidationService.validateAndNormalizeThanksMessage("Gracias")).thenReturn("Gracias");
+            when(donationValidationService.validateAndGetDonation(DONATION_ID)).thenReturn(donation);
+            when(donationValidationService.validateAndGetDonationCampaign(donation)).thenReturn(campaign);
+            doThrow(new ForbiddenActionException("Only the campaign owner can reply to this donation"))
+                    .when(donationValidationService).validateIsCampaignOwner(campaign, THIRD_PARTY_ID);
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.thankDonation(DONATION_ID, thanksDTO("Gracias", false)))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the campaign owner can reply to this donation");
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the caller is an ADMIN who does not own the campaign")
+        void thankDonation_AsAdmin_ShouldThrowAndNotSave() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(ADMIN_ID);
+            when(donationValidationService.validateAndNormalizeThanksMessage("Gracias")).thenReturn("Gracias");
+            when(donationValidationService.validateAndGetDonation(DONATION_ID)).thenReturn(donation);
+            when(donationValidationService.validateAndGetDonationCampaign(donation)).thenReturn(campaign);
+            doThrow(new ForbiddenActionException("Only the campaign owner can reply to this donation"))
+                    .when(donationValidationService).validateIsCampaignOwner(campaign, ADMIN_ID);
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.thankDonation(DONATION_ID, thanksDTO("Gracias", false)))
+                    .isInstanceOf(ForbiddenActionException.class);
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the campaign is soft deleted")
+        void thankDonation_WithDeletedCampaign_ShouldThrowAndNotSave() {
+            // Given
+            donation.setCampaign(null);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+            when(donationValidationService.validateAndNormalizeThanksMessage("Gracias")).thenReturn("Gracias");
+            when(donationValidationService.validateAndGetDonation(DONATION_ID)).thenReturn(donation);
+            when(donationValidationService.validateAndGetDonationCampaign(donation))
+                    .thenThrow(new MessageException("Cannot reply to a donation of a deleted campaign"));
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.thankDonation(DONATION_ID, thanksDTO("Gracias", false)))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Cannot reply to a donation of a deleted campaign");
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the donation already has a reply, keeping its text")
+        void thankDonation_AlreadyThanked_ShouldThrowAndNotSave() {
+            // Given
+            donation.setThanksMessage("Primera respuesta");
+            donation.setThankedAt(LocalDateTime.now());
+            givenOwnerReplying("Otra", "Otra");
+            doThrow(new ConflictException("Donation already has a thanks message"))
+                    .when(donationValidationService).validateHasNoThanks(donation);
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.thankDonation(DONATION_ID, thanksDTO("Otra", false)))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage("Donation already has a thanks message");
+            assertThat(donation.getThanksMessage()).isEqualTo("Primera respuesta");
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the text is blank, before loading the donation")
+        void thankDonation_WithBlankText_ShouldThrowAndNotSave() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+            when(donationValidationService.validateAndNormalizeThanksMessage("   "))
+                    .thenThrow(new MessageException("Thanks message cannot be blank"));
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.thankDonation(DONATION_ID, thanksDTO("   ", false)))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Thanks message cannot be blank");
+            verify(donationValidationService, never()).validateAndGetDonation(any());
+            verify(donationRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteDonationThanks()")
+    class DeleteDonationThanksTests {
+
+        private Donation donation;
+
+        @BeforeEach
+        void setUp() {
+            donation = completedDonation();
+            donation.setThanksMessage("Gracias, B");
+            donation.setThanksPrivate(true);
+            donation.setThankedAt(LocalDateTime.now());
+        }
+
+        private void givenCaller(Long callerId) {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(callerId);
+            when(donationValidationService.validateAndGetDonation(DONATION_ID)).thenReturn(donation);
+            when(donationValidationService.validateAndGetDonationCampaign(donation)).thenReturn(campaign);
+        }
+
+        private void assertThanksCleared(Donation saved) {
+            assertThat(saved.getThanksMessage()).isNull();
+            assertThat(saved.isThanksPrivate()).isFalse();
+            assertThat(saved.getThankedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("Should clear the three fields when the owner deletes the reply")
+        void deleteDonationThanks_AsOwner_ShouldClearThanks() {
+            // Given
+            givenCaller(OWNER_ID);
+            givenSavedAndMapped();
+
+            // When
+            DonationResponseDTO result = donationService.deleteDonationThanks(DONATION_ID);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThanksCleared(captureSavedDonation());
+            verify(donationValidationService).validateIsCampaignOwnerOrAdmin(campaign, OWNER_ID);
+            verify(donationValidationService).validateHasThanks(donation);
+        }
+
+        @Test
+        @DisplayName("Should clear the three fields when an ADMIN deletes the reply")
+        void deleteDonationThanks_AsAdmin_ShouldClearThanks() {
+            // Given
+            givenCaller(ADMIN_ID);
+            givenSavedAndMapped();
+
+            // When
+            donationService.deleteDonationThanks(DONATION_ID);
+
+            // Then
+            assertThanksCleared(captureSavedDonation());
+            verify(donationValidationService).validateIsCampaignOwnerOrAdmin(campaign, ADMIN_ID);
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when a third party deletes the reply")
+        void deleteDonationThanks_AsThirdParty_ShouldThrowAndNotSave() {
+            // Given
+            givenCaller(THIRD_PARTY_ID);
+            doThrow(new ForbiddenActionException("Only the campaign owner or an admin can delete this reply"))
+                    .when(donationValidationService).validateIsCampaignOwnerOrAdmin(campaign, THIRD_PARTY_ID);
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.deleteDonationThanks(DONATION_ID))
+                    .isInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("Only the campaign owner or an admin can delete this reply");
+            assertThat(donation.getThanksMessage()).isEqualTo("Gracias, B");
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the donation has no reply")
+        void deleteDonationThanks_WithoutThanks_ShouldThrowAndNotSave() {
+            // Given
+            donation.setThanksMessage(null);
+            donation.setThanksPrivate(false);
+            donation.setThankedAt(null);
+            givenCaller(OWNER_ID);
+            doThrow(new ResourceNotFoundException("Donation has no thanks message"))
+                    .when(donationValidationService).validateHasThanks(donation);
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.deleteDonationThanks(DONATION_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Donation has no thanks message");
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw and not save when the campaign is soft deleted")
+        void deleteDonationThanks_WithDeletedCampaign_ShouldThrowAndNotSave() {
+            // Given
+            donation.setCampaign(null);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+            when(donationValidationService.validateAndGetDonation(DONATION_ID)).thenReturn(donation);
+            when(donationValidationService.validateAndGetDonationCampaign(donation))
+                    .thenThrow(new MessageException("Cannot reply to a donation of a deleted campaign"));
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.deleteDonationThanks(DONATION_ID))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Cannot reply to a donation of a deleted campaign");
+            verify(donationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should let the owner reply again after deleting the reply")
+        void deleteDonationThanks_ThenThankAgain_ShouldSaveNewThanks() {
+            // Given: the conflict check behaves like the real one, reading the donation's current state
+            givenCaller(OWNER_ID);
+            givenSavedAndMapped();
+            when(donationValidationService.validateAndNormalizeThanksMessage("Gracias otra vez")).thenReturn("Gracias otra vez");
+            doAnswer(invocation -> {
+                if (invocation.<Donation>getArgument(0).getThanksMessage() != null) {
+                    throw new ConflictException("Donation already has a thanks message");
+                }
+                return null;
+            }).when(donationValidationService).validateHasNoThanks(donation);
+
+            // When
+            donationService.deleteDonationThanks(DONATION_ID);
+            donationService.thankDonation(DONATION_ID, thanksDTO("Gracias otra vez", false));
+
+            // Then
+            assertThat(donation.getThanksMessage()).isEqualTo("Gracias otra vez");
+            assertThat(donation.isThanksPrivate()).isFalse();
+            assertThat(donation.getThankedAt()).isNotNull();
         }
     }
 }
