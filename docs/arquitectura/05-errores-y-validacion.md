@@ -24,7 +24,7 @@ Los errores de Bean Validation agregan un cuarto campo, `fields`, con el mensaje
 {
   "error": "Validation failed",
   "message": "One or more fields are invalid",
-  "fields": { "amount": "Amount must be greater than zero", "campaignId": "Campaign ID is required" },
+  "fields": { "amount": "Amount must be greater than zero", "message": "Message must be at most 280 characters" },
   "timestamp": "2026-10-09T14:30:12.123456"
 }
 ```
@@ -126,7 +126,7 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | | `description` | `@Size(max = 255)` |
 | | `amountGoal` | `@Positive`, `@Digits(integer = 13, fraction = 2)` |
 | | `categoryIds` | `@NotEmpty`, `@Size(min = 1, max = 5)` |
-| `dtos/donation/CreateDonationDTO.java` | `campaignId` | `@NotNull(message = "Campaign ID is required")` |
+| `dtos/donation/CreateDonationDTO.java` | `campaignId`, `recipientUserId` | Sin anotaciones: que llegue exactamente uno lo valida `DonationValidationService.validateInput` (`Campaign ID or recipient user ID is required` / `Only one of campaignId or recipientUserId can be set`) |
 | | `amount` | `@NotNull(message = "Amount is required")`, `@Positive(message = "Amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
 | | `message` | `@Size(max = 280, message = "Message must be at most 280 characters")` (el blanco lo rechaza `DonationValidationService`) |
 | `dtos/donation/CreateDonationThanksDTO.java` | `thanksMessage` | `@Size(max = 280, message = "Thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `DonationValidationService`) |
@@ -201,6 +201,7 @@ Valida y arma el `Pageable` de los listados paginados. Cada controller le pasa s
 | `controller/user/UserController.java` | `GET /api/users/list/paginated` | `id`, `createdAt` | `page=0`, `size=10`, `sortBy=id`, `sortDirection=asc` |
 | `controller/report/ReportController.java` | `GET /api/reports` | `createdAt`, `status` | `page=0`, `size=10`, `sortBy=createdAt`, `sortDirection=desc` |
 | `controller/donation/SupporterController.java` | `GET /api/users/{userId}/supporters` | `totalAmount`, `lastDonationAt` | `page=0`, `size=10`, `sortBy=totalAmount`, `sortDirection=desc` |
+| `controller/donation/DonationController.java` | `GET /api/donations/received` | `createdAt`, `amount` | `page=0`, `size=10`, `sortBy=createdAt`, `sortDirection=desc` |
 
 Reglas, en este orden, todas con `400 Business logic error`:
 
@@ -229,7 +230,7 @@ Regla de texto obligatorio que comparten dos dominios. Un solo método, `normali
 | Quién lo usa | `fieldLabel` | `maxLength` | Nota |
 |---|---|---|---|
 | `DonationValidationService.validateAndNormalizeMessage` | `Message` | 280 | El mensaje del donante es opcional: `null` devuelve `null` sin llamar al servicio. |
-| `DonationValidationService.validateAndNormalizeThanksMessage` | `Thanks message` | 280 | La respuesta del dueño a una donación. |
+| `DonationValidationService.validateAndNormalizeThanksMessage` | `Thanks message` | 280 | La respuesta del receptor a una donación. |
 | `UserValidationService.validateAndNormalizeAutoThanksMessage` | `Auto thanks message` | 280 | El mensaje predeterminado del usuario. |
 
 En los tres casos el DTO tiene además un `@Size(max = 280)` con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
@@ -243,16 +244,17 @@ El criterio del proyecto es que **un recurso que quien llama no puede ver respon
 | Campaña `CLOSED` de otro usuario (visitante o `USER` que no es el dueño) | 404 | `Campaign not found with id: <id>` | `validation/campaign/CampaignValidationService.java` (`findVisibleCampaignByIdOrThrow`), `validation/campaign/CampaignAuthorizationService.java` |
 | Campaña de un dueño baneado o suspendido (para quien no es ADMIN) | 404 | `Campaign not found with id: <id>` | `CampaignValidationService.findVisibleCampaignById` y las queries `*VisibleTo` de `repository/campaign/CampaignRepository.java` |
 | Donar, publicar o reportar sobre una campaña oculta | 404 | el mismo de la campaña | `validation/donation/DonationValidationService.java`, `validation/publication/PublicationValidationService.java`, `validation/report/ReportValidationService.java` |
+| Donar directo a un usuario inexistente, borrado, baneado o suspendido (también si dona un ADMIN) | 404 | `User not found` | `DonationValidationService.validateAndGetRecipient`, con `UserValidationService.getUserById` y `validateProfileNotBlocked` |
 | Perfil, seguidores, supporters o reporte de un usuario baneado o suspendido (para quien no es ADMIN) | 404 | `User not found` | `validation/user/UserValidationService.java` (`validateProfileNotBlocked`, también desde `service/donation/SupporterService.java`), `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java` |
 | Recurso borrado lógicamente | 404 | el de "no encontrado" del dominio | `@SQLRestriction` sobre `deleted_at` en `User`, `Campaign`, `Goal`, `Publication`, `BankAccount` y `VerificationRequest` (ver [Modelo de datos](04-modelo-de-datos.md)) |
 | Campaña visible pero ajena, al modificarla, cerrarla o ver su historial | 403 | `You are not authorized to perform this action` | `CampaignAuthorizationService.validateOwnershipOrAdmin` |
-| Responder o borrar la respuesta de una donación ajena, **sin importar si la campaña es visible** | 403 | `Only the campaign owner can reply to this donation` / `Only the campaign owner or an admin can delete this reply` | `DonationValidationService.validateIsCampaignOwner` / `validateIsCampaignOwnerOrAdmin` |
+| Responder o borrar la respuesta de una donación ajena, **sin importar si la campaña es visible** | 403 | Donación a campaña: `Only the campaign owner can reply to this donation` / `Only the campaign owner or an admin can delete this reply`. Donación directa: `Only the recipient can reply to this donation` / `Only the recipient or an admin can delete this reply` | `DonationValidationService.validateIsRecipient` / `validateIsRecipientOrAdmin` (el literal lo elige `campaignId`) |
 | Endpoint de ADMIN llamado por un `USER` | 403 | `You don't have permission to access this resource` | `@PreAuthorize` + `GlobalExceptionHandler` |
 | Cuenta propia baneada o suspendida | 403 | `Your account has been banned. Reason: ...` / `Your account is suspended until ... Reason: ...` | `validation/auth/AccountStatusValidationService.java` |
 
 La consecuencia observable es que un tercero no puede usar la API para averiguar si una campaña existe pero está cerrada, ni si un usuario existe pero está sancionado: el `404` es idéntico, incluido el mensaje. Por eso `CampaignAuthorizationService` vuelve a comprobar si la campaña está `CLOSED` antes de decidir entre `404` y `403`: un `403` sobre una campaña cerrada revelaría que existe.
 
-**Excepción conocida: `/api/donations/{donationId}/thanks`.** Los dos endpoints buscan la donación por id y no aplican la visibilidad de la campaña. Un tercero recibe `404 Donation not found` si la donación no existe y `403` si existe, también cuando es de una campaña `CLOSED` ajena o de un dueño baneado o suspendido. El `400 Cannot reply to a donation of a deleted campaign` también confirma la existencia. Lo único que se revela es que hay una donación con ese id: ni el texto, ni el monto, ni la campaña. Ver [Donation](dominios/donation.md#visibilidad-y-permisos).
+**Excepción conocida: `/api/donations/{donationId}/thanks`.** Los dos endpoints buscan la donación por id y no aplican la visibilidad de la campaña. Un tercero recibe `404 Donation not found` si la donación no existe y `403` si existe, también cuando es de una campaña `CLOSED` ajena o de un dueño baneado o suspendido, y vale igual para las donaciones directas (con los literales de receptor). El `400 Cannot reply to a donation of a deleted campaign` también confirma la existencia. Lo único que se revela es que hay una donación con ese id: ni el texto, ni el monto, ni la campaña. Ver [Donation](dominios/donation.md#visibilidad-y-permisos).
 
 El titular de una cuenta sancionada, en cambio, sí recibe `403` con el motivo: es el único que tiene que enterarse (ver `validateNotBlocked` frente a `isBlocked` en [Seguridad](03-seguridad.md)).
 

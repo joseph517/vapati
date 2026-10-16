@@ -2,7 +2,7 @@
 
 ## Qué es VaPaTi
 
-VaPaTi es el backend, una API REST, de una plataforma de donaciones. Un usuario crea **campañas** con una meta de recaudación y las acompaña con **publicaciones** de avance. Otros usuarios **donan** a esas campañas y **siguen** a quienes les interesan. Los administradores **moderan** el contenido a partir de **reportes**, **sancionan** usuarios y aprueban **solicitudes de verificación** de cuenta.
+VaPaTi es el backend, una API REST, de una plataforma de donaciones. Un usuario crea **campañas** con una meta de recaudación y las acompaña con **publicaciones** de avance. Otros usuarios **donan** a esas campañas, o directo a un creador sin campaña de por medio, y **siguen** a quienes les interesan. Los administradores **moderan** el contenido a partir de **reportes**, **sancionan** usuarios y aprueban **solicitudes de verificación** de cuenta.
 
 El cobro no es real: una donación se aprueba sola en el momento (aprobación simulada). Las **cuentas bancarias** que un usuario vincula se guardan y validan, pero no se integran con ningún medio de pago.
 
@@ -24,7 +24,7 @@ Las rutas públicas están definidas en `security/SecurityConfig.java`. El detal
 | `user` | Registro, perfil propio, mensaje de agradecimiento predeterminado, perfil público, baja de la cuenta y listado de usuarios (ADMIN). | 9 | [dominios/user.md](dominios/user.md) |
 | `category` | Categorías que clasifican campañas e intereses de usuarios; el ADMIN las gestiona. | 4 | [dominios/category.md](dominios/category.md) |
 | `campaign` | Campañas con meta, estados (`ACTIVE`, `COMPLETED`, `CLOSED`), historial de transiciones y visibilidad. | 9 | [dominios/campaign.md](dominios/campaign.md) |
-| `donation` | Donar a una campaña, responder una donación, mis donaciones, donaciones de una campaña, sus estadísticas y los supporters de un creador. | 7 | [dominios/donation.md](dominios/donation.md) |
+| `donation` | Donar a una campaña o a un creador, responder una donación, mis donaciones, donaciones recibidas, donaciones de una campaña, sus estadísticas y los supporters de un creador. | 8 | [dominios/donation.md](dominios/donation.md) |
 | `follower` | Seguir y dejar de seguir usuarios, listas y contadores. | 7 | [dominios/follower.md](dominios/follower.md) |
 | `publication` | Novedades que el dueño publica dentro de su campaña. | 3 | [dominios/publication.md](dominios/publication.md) |
 | `bankaccount` | Cuentas bancarias vinculadas al usuario. | 4 | [dominios/bankaccount.md](dominios/bankaccount.md) |
@@ -64,7 +64,9 @@ El proyecto se construye con el Maven wrapper (`./mvnw`), así que no hace falta
 | **Estado de campaña** | `ACTIVE` (recibe donaciones), `COMPLETED` (alcanzó la meta) o `CLOSED` (cerrada por el dueño, por un ADMIN o por baja). Se guarda en `Goal.status`, y cada cambio queda en `CampaignStatusHistory`. |
 | **Campaña visible** | Una campaña no borrada, cuyo dueño no está borrado ni bloqueado y que no está `CLOSED`, salvo para su dueño o un ADMIN. Lo que no es visible responde `404`, como si no existiera. |
 | **Publicación** | Novedad que el dueño publica dentro de una de sus campañas. |
-| **Donación** | Aporte de un usuario a una campaña. Se aprueba sola al crearse y suma al monto recaudado. |
+| **Donación** | Aporte de un usuario a una campaña o directo a otro usuario. Se aprueba sola al crearse y, si es a una campaña, suma al monto recaudado. |
+| **Donación directa** | Donación a un usuario, sin campaña (`campaignId: null`). No toca ninguna meta. El receptor tiene que ser un usuario `USER` activo: un ADMIN no recibe donaciones directas. |
+| **Receptor** | Quien recibe una donación (`recipient`): el dueño de la campaña en una donación a campaña, el usuario elegido en una directa. Es quien puede responderla, y quien la ve en `GET /api/donations/received`. |
 | **Seguir** | Relación entre dos usuarios (`Follower`): uno sigue al otro. |
 | **Reporte** | Denuncia de un usuario sobre otro usuario, una campaña o una publicación, con un motivo. Un ADMIN lo revisa y lo resuelve con una acción (`ActionTaken`). |
 | **Sanción** | Suspensión temporal (`suspendedUntil`) o baneo (`banned`) de un usuario, aplicada al resolver un reporte. |

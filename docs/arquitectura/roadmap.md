@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Nada de lo que describe este archivo está implementado.** Es lo planeado al momento de esta foto (commit `8dde5bb`, 2026-10-09). El resto de la documentación describe solo lo que existe en el código.
+> **Nada de lo que describe este archivo está implementado.** Es lo planeado al momento de esta foto (commit `6bb7c6f`, 2026-10-16). El resto de la documentación describe solo lo que existe en el código.
 
 Son cuatro líneas de trabajo. El orden sugerido es:
 
