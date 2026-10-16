@@ -23,7 +23,7 @@ flowchart TD
 
 | Capa | Paquete | Responsabilidad | Ejemplo |
 |---|---|---|---|
-| Controller | `controller/<dominio>/` | Recibir el request, validar el body con `@Valid`, delegar en un service y armar la respuesta. No tiene lógica de negocio. | `controller/campaign/CampaignController.java` |
+| Controller | `controller/<dominio>/` | Recibir el request, validar el body con `@Valid`, delegar en un service de su dominio y armar la respuesta. No tiene lógica de negocio. | `controller/campaign/CampaignController.java` |
 | Service | `service/<dominio>/` | Orquestar un caso de uso: saber quién llama, ejecutar las validaciones en orden, escribir con los repositorios y mapear a DTO. Define los límites transaccionales (`@Transactional`). | `service/campaign/CampaignService.java` |
 | Validation | `validation/<dominio>/` | Reglas de negocio: existencia, propiedad, visibilidad, transiciones de estado, autorreferencias. Lanza excepciones o devuelve la entidad ya cargada. | `validation/campaign/CampaignAuthorizationService.java` |
 | Mapper | `mapper/<dominio>/` | Convertir entidades en DTOs y DTOs en entidades. Escritos a mano. | `mapper/campaign/CampaignMapper.java` |
@@ -62,6 +62,7 @@ utils/               ValidationUtils, PasswordHashGenerator
 
 - **Por capa, y dentro por dominio.** Todo lo de un dominio se encuentra buscando la misma subcarpeta en cada capa. Ningún `.java` vive suelto en una carpeta de capa.
 - **No todos los dominios tienen todas las capas.** `auth` no tiene mapper (sus DTOs se arman en `AuthenticationService`), `category` no tiene `validation/`, y `campaign` tiene dos clases de validación.
+- **Un controller solo inyecta services de su dominio (y `validation/common`).** Ninguno inyecta el service de otro dominio: `ReportController`, `UserController` y `SupporterController` inyectan su service más `validation/common/SortValidationService`. Si una ruta cuelga del recurso de otro dominio, el controller vive en el dominio dueño de los datos: `controller/donation/SupporterController.java` atiende `GET /api/users/{userId}/supporters`, igual que `controller/follower/FollowerController.java` atiende las rutas de seguidores bajo `/api/users/{userId}` (ver [Decisiones de diseño](08-decisiones-de-diseno.md#la-ruta-no-decide-el-dominio-del-código)).
 - **Los enums viven con su entidad.** `CampaignStatus` está en `entity/campaign/`, `ReportStatus` en `entity/report/`.
 - **Lo transversal no se divide por dominio.** `exception/`, `security/` y `utils/` son planos.
 

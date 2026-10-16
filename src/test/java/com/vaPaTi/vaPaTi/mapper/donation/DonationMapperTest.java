@@ -1,11 +1,13 @@
 package com.vaPaTi.vaPaTi.mapper.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.SupporterResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -193,5 +195,83 @@ class DonationMapperTest {
         // Then
         assertThat(dtos).extracting(DonationResponseDTO::getCampaignDeleted).containsExactly(false, true);
         assertThat(dtos).extracting(DonationResponseDTO::getCampaignName).containsExactly("Alive campaign", "Deleted campaign");
+    }
+
+    @Test
+    @DisplayName("Should copy the four aggregates and the donor into the supporter row")
+    void toSupporterDTO_WithAliveDonor_ShouldCopyAggregatesAndDonor() {
+        // Given
+        LocalDateTime lastDonationAt = LocalDateTime.of(2026, 10, 15, 12, 0);
+        DonationRepository.SupporterProjection row = supporterRow(1L, new BigDecimal("75.50"), 3L, lastDonationAt);
+
+        // When
+        SupporterResponseDTO dto = donationMapper.toSupporterDTO(row, donor);
+
+        // Then
+        assertThat(dto.getDonorUserId()).isEqualTo(1L);
+        assertThat(dto.getDonorUserName()).isEqualTo("donor_user");
+        assertThat(dto.getTotalAmount()).isEqualByComparingTo("75.50");
+        assertThat(dto.getDonationsCount()).isEqualTo(3L);
+        assertThat(dto.getLastDonationAt()).isEqualTo(lastDonationAt);
+    }
+
+    @Test
+    @DisplayName("Should keep the supporter anonymous and keep the aggregates when the donor is deleted (null)")
+    void toSupporterDTO_WithDeletedDonor_ShouldReturnNullDonorFieldsAndKeepAggregates() {
+        // Given
+        LocalDateTime lastDonationAt = LocalDateTime.of(2026, 10, 15, 12, 0);
+        DonationRepository.SupporterProjection row = supporterRow(1L, new BigDecimal("40.00"), 2L, lastDonationAt);
+
+        // When
+        SupporterResponseDTO dto = donationMapper.toSupporterDTO(row, null);
+
+        // Then
+        assertThat(dto.getDonorUserId()).isNull();
+        assertThat(dto.getDonorUserName()).isNull();
+        assertThat(dto.getTotalAmount()).isEqualByComparingTo("40.00");
+        assertThat(dto.getDonationsCount()).isEqualTo(2L);
+        assertThat(dto.getLastDonationAt()).isEqualTo(lastDonationAt);
+    }
+
+    @Test
+    @DisplayName("Should map donorUserName to null when the donor has no userInfo")
+    void toSupporterDTO_WithDonorWithoutUserInfo_ShouldReturnNullUserName() {
+        // Given
+        User donorWithoutInfo = new User();
+        donorWithoutInfo.setId(5L);
+        DonationRepository.SupporterProjection row =
+                supporterRow(5L, new BigDecimal("10.00"), 1L, LocalDateTime.of(2026, 10, 15, 12, 0));
+
+        // When
+        SupporterResponseDTO dto = donationMapper.toSupporterDTO(row, donorWithoutInfo);
+
+        // Then
+        assertThat(dto.getDonorUserId()).isEqualTo(5L);
+        assertThat(dto.getDonorUserName()).isNull();
+    }
+
+    private DonationRepository.SupporterProjection supporterRow(Long donorUserId, BigDecimal totalAmount,
+                                                                Long donationsCount, LocalDateTime lastDonationAt) {
+        return new DonationRepository.SupporterProjection() {
+            @Override
+            public Long getDonorUserId() {
+                return donorUserId;
+            }
+
+            @Override
+            public BigDecimal getTotalAmount() {
+                return totalAmount;
+            }
+
+            @Override
+            public Long getDonationsCount() {
+                return donationsCount;
+            }
+
+            @Override
+            public LocalDateTime getLastDonationAt() {
+                return lastDonationAt;
+            }
+        };
     }
 }

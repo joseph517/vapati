@@ -16,6 +16,12 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** los DTOs no son copias de la entidad: aplanan relaciones (meta y dueño en la campaña) y reciben datos ya cargados (las categorías), lo que deja explícito qué hace falta cargar antes de mapear.
 - **Dónde:** `mapper/`.
 
+### La ruta no decide el dominio del código
+
+- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` está en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia.
+- **Por qué:** ningún controller inyecta el service de otro dominio. Los supporters son donaciones agregadas, así que el controller, el service (`SupporterService`) y la regla de orden van en donation, y la ruta queda donde la busca el cliente, bajo el usuario.
+- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`. Spec: `specs/50-supporters-de-un-creador.md`.
+
 ## Identidad y autorización
 
 ### Quién llama sale del token, nunca del body
@@ -62,6 +68,14 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** el listado de donaciones de una campaña es público, pero `transactionId`, el mensaje privado y la respuesta privada del dueño solo los ven el dueño, un ADMIN o el propio donante. Para el resto, un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), y una respuesta privada como una donación sin respuesta (`thanksMessage: null`, `thanksPrivate: false`, `thankedAt: null`), para no revelar que hay algo oculto.
 - **Dónde:** `service/donation/DonationService.java` (`canSeePrivateDonationData`). Lo decide el service y no el mapper, porque el mapper no conoce a quien llama.
 
+### Supporters: la identidad es pública, los importes no
+
+- **Qué:** `GET /api/users/{userId}/supporters` es público, también sin token, como las donaciones de una campaña. Cualquiera ve `donorUserId` y `donorUserName`. Solo el propio creador y un ADMIN ven `totalAmount`, `donationsCount` y `lastDonationAt`; el resto los recibe en `null`. `sortBy=lastDonationAt` solo se permite a esos dos (`400` para el resto). Hay un solo endpoint paginado: el "top" es `size=3`.
+- **Por qué:** sigue a Ko-fi, cuyo perfil público muestra los primeros supporters sin importes. Ordenar por fecha revelaría quién donó más recientemente, que es el dato oculto; por eso se restringe. El orden por `totalAmount` sí revela quién donó más, y se aceptó como riesgo, como en Ko-fi. Ocultar campos y no cerrar la ruta es el mismo criterio que el `transactionId` y el mensaje privado, y como cada fila es un agregado sin mensajes no aplica `canSeePrivateDonationData`.
+- **Donantes inactivos, sin código nuevo:** un donante borrado sale anónimo (`donorUserId` y `donorUserName` en `null`) para todos, también para el ADMIN, como en `DonationMapper.toDTO`. Un donante baneado o suspendido sale normal, como en el listado de donaciones de una campaña. Sus importes siguen sumando: el ranking es un historial.
+- **Creador:** mismas reglas que el perfil (`404 User not found` si no existe, está borrado o, para la vista pública, sancionado). Es la primera ruta anónima que distingue un id de usuario existente de uno inexistente; no revela sanciones.
+- **Dónde:** `service/donation/SupporterService.java`, `validation/donation/DonationValidationService.java` (`validateSupporterSort`), `mapper/donation/DonationMapper.java` (`toSupporterDTO`). Detalle en [Donation](dominios/donation.md#supporters-de-un-creador). Spec: `specs/50-supporters-de-un-creador.md`.
+
 ## Datos
 
 ### Borrado lógico, con relaciones tolerantes
@@ -69,6 +83,12 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** `User`, `Campaign`, `Publication` y `VerificationRequest` se borran con `@SQLDelete` + `@SQLRestriction("deleted_at IS NULL")`. Las relaciones que apuntan a ellas desde registros históricos (donaciones, reportes, publicaciones) usan `@ManyToOne` opcional + `@NotFound(IGNORE)` + `updatable = false`, y una copia de solo lectura de la FK (`campaignId`, `donorUserId`).
 - **Por qué:** lo borrado desaparece de toda consulta, pero una donación o un reporte no desaparecen porque se borró su campaña o su autor: la relación queda en `null` y la FK no se pisa en un `UPDATE`. La FK de solo lectura permite filtrar sin hacer join a una tabla con restricción.
 - **Dónde:** `entity/donation/Donation.java`, `entity/publication/Publication.java`, `entity/report/Report.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md).
+
+### Agregados que atraviesan el borrado: SQL nativo con el orden escrito
+
+- **Qué:** los supporters suman las donaciones `COMPLETED` a campañas en cualquier estado, también las borradas, y las de donantes borrados. La agregación la hace la base, con dos queries nativas (`findSupportersByCreatorId` y `countSupportersByCreatorId`) que llevan el `ORDER BY` (un `CASE` por campo y dirección, desempate por `donor_user_id`) y el `OFFSET/FETCH` escritos, sin pasar un `Pageable`.
+- **Por qué:** el dinero se recibió aunque la campaña o el donante se hayan borrado, y JPQL aplicaría el `@SQLRestriction`. Agregar en Java traería todas las donaciones para devolver una página. Con el orden escrito en la query, el desempate es fijo y no depende de cómo Spring Data ordena una query nativa. El costo: las queries nativas no se validan al arrancar ni tienen tests unitarios, así que un error de SQL aparece recién al llamarlas.
+- **Dónde:** `repository/donation/DonationRepository.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md#leer-a-través-del-borrado).
 
 ### Borrar una cuenta cierra sus campañas, y loguearse la restaura
 

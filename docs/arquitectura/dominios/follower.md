@@ -62,7 +62,7 @@ Este dominio no tiene estados: una relación existe o no existe.
 
 ### Quién puede llamar
 
-Ninguna ruta del dominio está en `PUBLIC_URLS` ni en `PUBLIC_GET_URLS` de `security/SecurityConfig.java` (la única ruta pública bajo `/api/users` es `/api/users/create`), y `FollowerController` no usa `@PreAuthorize`. Por eso los 7 endpoints caen en `anyRequest().authenticated()`: cualquier usuario autenticado, `USER` o `ADMIN`, puede llamarlos. Las listas y contadores de **cualquier** usuario son visibles para cualquier usuario autenticado; no hay perfiles privados. El detalle del filtro JWT está en [Seguridad](../03-seguridad.md).
+Ninguna ruta del dominio está en `PUBLIC_URLS` ni en `PUBLIC_GET_URLS` de `security/SecurityConfig.java` (las únicas rutas públicas bajo `/api/users` son `/api/users/create` y `GET /api/users/*/supporters`, del dominio [Donation](donation.md#get-apiusersuseridsupporters)), y `FollowerController` no usa `@PreAuthorize`. Por eso los 7 endpoints caen en `anyRequest().authenticated()`: cualquier usuario autenticado, `USER` o `ADMIN`, puede llamarlos. Las listas y contadores de **cualquier** usuario son visibles para cualquier usuario autenticado; no hay perfiles privados. El detalle del filtro JWT está en [Seguridad](../03-seguridad.md).
 
 ### Usuarios borrados
 
