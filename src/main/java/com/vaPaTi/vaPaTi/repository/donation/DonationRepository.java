@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -44,4 +46,14 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
 
     @Query("SELECT COUNT(DISTINCT d.donorUserId) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countUniqueDonorsByCampaignId(@Param("campaignId") Long campaignId);
+
+    interface SupporterProjection {
+        Long getDonorUserId();
+
+        BigDecimal getTotalAmount();
+
+        Long getDonationsCount();
+
+        LocalDateTime getLastDonationAt();
+    }
 }
