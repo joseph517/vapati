@@ -1,7 +1,9 @@
 package com.vaPaTi.vaPaTi.service.user;
 
+import com.vaPaTi.vaPaTi.dtos.user.AutoThanksResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.CreateUserInfoDTO;
+import com.vaPaTi.vaPaTi.dtos.user.UpdateAutoThanksDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserUserInfoRequestDTO;
@@ -172,6 +174,47 @@ public class UserService {
         }
         userValidationService.validateProfileNotBlocked(user);
         return userMapper.toPublicUserProfileDTO(user);
+    }
+
+    public AutoThanksResponseDTO getAutoThanksMessage() {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+        User user = userValidationService.getUserById(userId);
+
+        UserInfo userInfo = user.getUserInfo();
+        return new AutoThanksResponseDTO(userInfo != null ? userInfo.getAutoThanksMessage() : null);
+    }
+
+    @Transactional
+    public AutoThanksResponseDTO updateAutoThanksMessage(UpdateAutoThanksDTO dto) {
+        if (dto == null) {
+            throw new MessageException("DTO cannot be null");
+        }
+
+        // Before loading the user: a blank text throws without touching anything
+        String autoThanksMessage = userValidationService.validateAndNormalizeAutoThanksMessage(dto.getAutoThanksMessage());
+
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+        User user = userValidationService.getUserById(userId);
+
+        UserInfo userInfo = user.getUserInfo();
+        userValidationService.updateUserInfoTimestamp(userInfo);
+        userInfo.setAutoThanksMessage(autoThanksMessage);
+
+        userRepository.save(user);
+        return new AutoThanksResponseDTO(autoThanksMessage);
+    }
+
+    @Transactional
+    public AutoThanksResponseDTO deleteAutoThanksMessage() {
+        Long userId = authenticatedUserService.getAuthenticatedUserId();
+        User user = userValidationService.getUserById(userId);
+
+        UserInfo userInfo = user.getUserInfo();
+        userValidationService.updateUserInfoTimestamp(userInfo);
+        userInfo.setAutoThanksMessage(null);
+
+        userRepository.save(user);
+        return new AutoThanksResponseDTO(null);
     }
 
 }

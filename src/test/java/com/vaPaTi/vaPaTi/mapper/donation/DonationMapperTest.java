@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -141,6 +142,42 @@ class DonationMapperTest {
         // Then
         assertThat(dto.getMessage()).isNull();
         assertThat(dto.getMessagePrivate()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should copy thanksMessage, thanksPrivate and thankedAt from the donation")
+    void toDTO_WithThanks_ShouldCopyThanksFields() {
+        // Given
+        LocalDateTime thankedAt = LocalDateTime.of(2026, 10, 15, 12, 0);
+        Donation donation = Donation.builder()
+                .id(10L).donor(donor).campaign(campaign).amount(new BigDecimal("50.0"))
+                .thanksMessage("Gracias, de verdad").thanksPrivate(true).thankedAt(thankedAt)
+                .build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getThanksMessage()).isEqualTo("Gracias, de verdad");
+        assertThat(dto.getThanksPrivate()).isTrue();
+        assertThat(dto.getThankedAt()).isEqualTo(thankedAt);
+    }
+
+    @Test
+    @DisplayName("Should map a donation without thanks to thanksMessage null, thanksPrivate false and thankedAt null")
+    void toDTO_WithoutThanks_ShouldMapEmptyThanksFields() {
+        // Given
+        Donation donation = Donation.builder()
+                .id(10L).donor(donor).campaign(campaign).amount(new BigDecimal("50.0"))
+                .build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getThanksMessage()).isNull();
+        assertThat(dto.getThanksPrivate()).isFalse();
+        assertThat(dto.getThankedAt()).isNull();
     }
 
     @Test

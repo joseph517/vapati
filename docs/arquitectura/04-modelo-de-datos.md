@@ -38,6 +38,7 @@ erDiagram
         string phone UK
         string description
         string profile_picture
+        string auto_thanks_message "varchar 280, null"
         datetime created_at
         datetime updated_at
     }
@@ -93,6 +94,9 @@ erDiagram
         string transaction_id UK
         string message "varchar 280, null"
         bit message_private "default 0"
+        string thanks_message "varchar 280, null"
+        bit thanks_private "default 0"
+        datetime thanked_at "null"
         datetime created_at
         datetime updated_at
     }
@@ -189,7 +193,7 @@ erDiagram
 | Entidad | Archivo | Tabla | Campos relevantes | Relaciones |
 |---|---|---|---|---|
 | `User` | `entity/user/User.java` | `[user]` (entre corchetes porque `user` es palabra reservada en SQL Server) | `verified` (columna `is_verified`), estado de sanción (`banned`, `bannedAt`, `suspendedUntil`, `bannedReason`), `tokensValidAfter`, `createdAt`, `updatedAt`, `deletedAt` | `role` (`@ManyToOne` LAZY); inversas: `userInfo` y `verificationRequest` (`@OneToOne mappedBy`), `userCategories` y `bankAccounts` (`Set`), `campaigns` (`List`). Todas las inversas tienen `cascade = ALL`; las colecciones, además, `orphanRemoval = true`. |
-| `UserInfo` | `entity/user/UserInfo.java` | `user_info` | Datos de perfil y credenciales: `firstName`, `lastName`, `email`, `userName`, `password`, `phone`, `description`, `profilePicture` | Dueña de la FK `user_id` (`@OneToOne` LAZY, `unique`). |
+| `UserInfo` | `entity/user/UserInfo.java` | `user_info` | Datos de perfil y credenciales: `firstName`, `lastName`, `email`, `userName`, `password`, `phone`, `description`, `profilePicture`, y el mensaje de agradecimiento predeterminado `autoThanksMessage` (opcional, hasta 280) | Dueña de la FK `user_id` (`@OneToOne` LAZY, `unique`). |
 | `Role` | `entity/user/Role.java` | `roles` | `name` (`unique`) | Ninguna. No es un enum: es una tabla con dos filas que siembra `data.sql`. |
 | `UserCategory` | `entity/user/UserCategory.java` | `user_category` | Tabla intermedia con id propio | `user` y `category` (`@ManyToOne`). |
 
@@ -215,7 +219,7 @@ erDiagram
 
 | Entidad | Archivo | Tabla | Campos relevantes | Relaciones |
 |---|---|---|---|---|
-| `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId` y `donorUserId` | `donor` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
+| `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), la respuesta del dueño `thanksMessage` (opcional, hasta 280), `thanksPrivate` (`bit NOT NULL`, default `0`) y `thankedAt`, `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId` y `donorUserId` | `donor` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
 | `Publication` | `entity/publication/Publication.java` | `publication` | `description`, `createdAt`, `updatedAt`, `deletedAt`, y la copia de solo lectura `campaignId` | `user` (autor) y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
 | `Follower` | `entity/follower/Follower.java` | `followers` | `createdAt`, `updatedAt` | `user` (el seguido) y `follower` (quien sigue), ambos `@ManyToOne` a `User`. `UNIQUE (user_id, follower_id)`: no se puede seguir dos veces a la misma persona. |
 
@@ -360,7 +364,7 @@ Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` 
 
 Dos detalles a tener en cuenta al tocar entidades:
 
-- Con `@Builder`, los valores iniciales de los campos solo se respetan si llevan `@Builder.Default`. `Goal.status`, `Donation.status`, `Donation.messagePrivate` y `Report.status` lo tienen; los campos de `User` (`banned`, `userCategories`, `bankAccounts`) no, y en un `User` creado con el builder quedan en `null`.
+- Con `@Builder`, los valores iniciales de los campos solo se respetan si llevan `@Builder.Default`. `Goal.status`, `Donation.status`, `Donation.messagePrivate`, `Donation.thanksPrivate` y `Report.status` lo tienen; los campos de `User` (`banned`, `userCategories`, `bankAccounts`) no, y en un `User` creado con el builder quedan en `null`.
 - `User` no excluye `campaigns` de `toString`, y `Campaign` y `Follower` no excluyen nada: llamar a `toString` sobre esas entidades puede recorrer la relación de ida y vuelta (ver [Deuda técnica](deuda-tecnica.md)).
 
 ## Esquema de la base y datos iniciales

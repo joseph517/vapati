@@ -2,7 +2,9 @@
 
 ## Para qué existe
 
-El dominio `user` maneja las cuentas de la plataforma: el registro público, la edición del propio perfil (datos personales, credenciales y categorías de interés), el borrado lógico de la propia cuenta, la consulta del perfil de cualquier usuario y los listados de usuarios para el `ADMIN`.
+El dominio `user` maneja las cuentas de la plataforma: el registro público, la edición del propio perfil (datos personales, credenciales y categorías de interés), el mensaje de agradecimiento predeterminado, el borrado lógico de la propia cuenta, la consulta del perfil de cualquier usuario y los listados de usuarios para el `ADMIN`.
+
+El **mensaje predeterminado** (`autoThanksMessage`) es un texto por usuario, el mismo para todas sus campañas, que recibe cada donante en la respuesta de `POST /api/donations`. Se administra acá y lo lee [Donation](donation.md).
 
 Es el dominio del que dependen casi todos los demás: el usuario autenticado sale siempre del token (ver [Seguridad](../03-seguridad.md)), y las sanciones (ban y suspensión) que aplica la moderación de reportes se guardan en la entidad `User` (ver [Reportes](report.md)). Las cuentas bancarias del usuario se gestionan en [Cuentas bancarias](bankaccount.md), pero se devuelven dentro del perfil completo. El flag `verified` lo activa el flujo de [Verificación](verification.md).
 
@@ -13,7 +15,7 @@ Detalle de columnas y relaciones con el resto del modelo en [Modelo de datos](..
 | Entidad | Archivo | Qué guarda |
 |---|---|---|
 | `User` | `entity/user/User.java` | La cuenta: `verified`, `role`, el estado de sanción (`banned`, `bannedAt`, `suspendedUntil`, `bannedReason`), `tokensValidAfter`, `createdAt`, `updatedAt` y `deletedAt` (borrado lógico). Tabla `[user]`. |
-| `UserInfo` | `entity/user/UserInfo.java` | Los datos personales y las credenciales: `firstName`, `lastName`, `email` (único), `userName` (único), `password` (hash BCrypt), `phone` (único), `description`, `profilePicture`. Tabla `user_info`, relación 1 a 1 con `User` (la FK `user_id` está en `user_info`). |
+| `UserInfo` | `entity/user/UserInfo.java` | Los datos personales y las credenciales: `firstName`, `lastName`, `email` (único), `userName` (único), `password` (hash BCrypt), `phone` (único), `description`, `profilePicture`, y el mensaje predeterminado `autoThanksMessage` (columna `auto_thanks_message`, `varchar(280)`, nulo). Tabla `user_info`, relación 1 a 1 con `User` (la FK `user_id` está en `user_info`). |
 | `UserCategory` | `entity/user/UserCategory.java` | Tabla intermedia `user_category` entre `User` y `Category`: las categorías de interés del usuario (de 1 a 6). |
 | `Role` | `entity/user/Role.java` | Tabla `roles` con `name` único. Los valores usados son `USER` y `ADMIN`, sembrados por `src/main/resources/data.sql`. |
 
@@ -50,6 +52,7 @@ Casi todas viven en `validation/user/UserValidationService.java`. El chequeo de 
 | "Es admin" se lee de la base, no del claim `role` del token. | El claim queda viejo si el rol cambia mientras el token sigue vigente. | `isAdmin` |
 | Un usuario baneado o con suspensión vigente se oculta como si no existiera (`404`). | El perfil de un sancionado no se distingue del de un id inexistente: el mensaje es el mismo `User not found`. Una suspensión vencida (`suspendedUntil` en el pasado) ya no bloquea. | `validateProfileNotBlocked`, `AccountStatusValidationService.isBlocked` |
 | El borrado es lógico y cierra las campañas del usuario. | Se marca `deletedAt` y se pasan a `CLOSED` todas sus campañas que no lo estuvieran, registrando la transición en el historial (`CampaignService.closeAllByOwner`). | `UserService.deleteUser`, `service/campaign/CampaignService.java` |
+| El mensaje predeterminado es obligatorio al fijarlo, de hasta 280 caracteres. | Se guarda con `trim`. `null`, `""` o solo espacios en el `PUT` responden `400 Auto thanks message cannot be blank`: para quitarlo está el `DELETE`. El largo lo corta `@Size(max = 280)` en `UpdateAutoThanksDTO` y la validación lo repite sobre el texto recortado (`MAX_AUTO_THANKS_LENGTH`). La regla de texto es la compartida de `validation/common/TextValidationService.java`. | `validateAndNormalizeAutoThanksMessage` |
 | Loguearse con una cuenta borrada la restaura. | El login busca incluyendo borrados y, si la contraseña es correcta y la cuenta no está sancionada, pone `deletedAt = null` (ver [Auth](auth.md)). Las campañas que se cerraron al borrar siguen `CLOSED`. Una cuenta borrada y además sancionada recibe `403` y sigue borrada. | `service/auth/AuthenticationService.java` |
 
 ## Estados
@@ -90,7 +93,7 @@ stateDiagram-v2
 - **Perfil público vs completo.** El `PublicUserProfileDTO` no incluye email, teléfono, `verified` ni cuentas bancarias. El `UserDTO` completo sí, con el número de cuenta; por eso solo lo ven el propio usuario y el `ADMIN`.
 - **`404` y no `403`.** Ver el perfil de otro nunca da `403`: o se devuelve el perfil público, o `404` si está sancionado o no existe. Así una sanción no se filtra a terceros. El criterio general está en [Errores y validación](../05-errores-y-validacion.md).
 - **`403` del dominio:** solo los listados (`/list` y `/list/paginated`), protegidos con `@PreAuthorize("hasRole('ADMIN')")`, y el corte del filtro JWT a un usuario sancionado que llama con su token.
-- **Modificar.** `PUT /update` y `DELETE /delete` no reciben id: actúan siempre sobre el usuario del token (`AuthenticatedUserService.getAuthenticatedUserId`). No existe forma de editar ni borrar a otro usuario desde este dominio; un `ADMIN` sanciona por medio de [Reportes](report.md).
+- **Modificar.** `PUT /update`, `DELETE /delete` y los tres verbos de `/me/auto-thanks` no reciben id: actúan siempre sobre el usuario del token (`AuthenticatedUserService.getAuthenticatedUserId`). Cada usuario solo ve y cambia su propio mensaje predeterminado; no aparece en `UserDTO`, `UserInfoDTO` ni `PublicUserProfileDTO`. No existe forma de editar ni borrar a otro usuario desde este dominio; un `ADMIN` sanciona por medio de [Reportes](report.md).
 - **Listados para `ADMIN`.** Incluyen a los usuarios sancionados (el `ADMIN` los ve) pero no a los borrados (por `@SQLRestriction`). El `UserDTO` no expone las columnas de sanción.
 - **Acceso por ruta.** En `security/SecurityConfig.java`, `/api/users/create` está en `PUBLIC_URLS`; el resto de `/api/users/**` cae en `anyRequest().authenticated()`. No hay reglas por verbo para `/api/users/**`: la restricción a `ADMIN` está en el `@PreAuthorize` de cada método del controller.
 
@@ -294,6 +297,61 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
   3. Si quien llama es el mismo usuario o es `ADMIN` (leído de la base con `isAdmin`), devuelve `UserMapper.toUserDTO`.
   4. Si no, aplica `validateProfileNotBlocked` (`404` con el mismo mensaje que un inexistente) y devuelve `UserMapper.toPublicUserProfileDTO`.
 
+### `GET /api/users/me/auto-thanks`
+
+- **Acceso:** cualquier usuario autenticado; lee el mensaje del usuario del token. La ruta tiene un segmento más que `GET /api/users/{id}`, así que no chocan.
+- **Parámetros:** ninguno.
+- **Body:** sin body.
+- **Respuesta:** `200` con `AutoThanksResponseDTO`: `{"autoThanksMessage": "¡Gracias por tu apoyo!"}`, o `{"autoThanksMessage": null}` si no configuró ninguno.
+- **Errores:**
+
+| Status | Mensaje | Cuándo |
+|---|---|---|
+| 401 / 403 | (comunes, ver arriba) | Sin token válido o usuario sancionado. |
+
+- **Qué hace** (`UserService.getAutoThanksMessage`): carga el usuario del token (`UserValidationService.getUserById`) y devuelve `userInfo.autoThanksMessage`.
+
+### `PUT /api/users/me/auto-thanks`
+
+- **Acceso:** cualquier usuario autenticado; fija el mensaje del usuario del token.
+- **Parámetros:** ninguno.
+- **Body:** `UpdateAutoThanksDTO`.
+
+| Campo | Tipo | Obligatorio | Validación |
+|---|---|---|---|
+| `autoThanksMessage` | `String` | sí | `@Size(max = 280, message = "Auto thanks message must be at most 280 characters")`. Ausente o en blanco → `400` (regla de negocio). |
+
+- **Respuesta:** `200` con `AutoThanksResponseDTO`, con el texto ya recortado.
+- **Errores:**
+
+| Status | Mensaje | Cuándo |
+|---|---|---|
+| 401 / 403 | (comunes, ver arriba) | Sin token válido o usuario sancionado. |
+| 400 | `Request body is required` / `Malformed request body` | Sin body o JSON inválido. |
+| 400 | `One or more fields are invalid`, con `fields.autoThanksMessage = "Auto thanks message must be at most 280 characters"` | Más de 280 caracteres, contando los espacios de los extremos. |
+| 400 | `Auto thanks message cannot be blank` (con `error: "Business logic error"`) | `autoThanksMessage` ausente, `null`, `""` o solo espacios. El mensaje anterior no cambia. |
+
+- **Qué hace** (`UserService.updateAutoThanksMessage`, transaccional):
+  1. Normaliza el texto (`validateAndNormalizeAutoThanksMessage`) antes de cargar nada: un texto en blanco no toca la base.
+  2. Carga el usuario del token, actualiza `userInfo.updatedAt` (`updateUserInfoTimestamp`) y fija `autoThanksMessage`.
+  3. Guarda el `User` (el `cascade = ALL` llega a `UserInfo`) y devuelve el texto normalizado.
+
+  El cambio vale para las donaciones siguientes. Las ya hechas no guardan el mensaje, así que no se modifican.
+
+### `DELETE /api/users/me/auto-thanks`
+
+- **Acceso:** cualquier usuario autenticado; quita el mensaje del usuario del token.
+- **Parámetros:** ninguno.
+- **Body:** sin body.
+- **Respuesta:** `200` con `{"autoThanksMessage": null}`. Borrar sin tener un mensaje también responde `200`.
+- **Errores:**
+
+| Status | Mensaje | Cuándo |
+|---|---|---|
+| 401 / 403 | (comunes, ver arriba) | Sin token válido o usuario sancionado. |
+
+- **Qué hace** (`UserService.deleteAutoThanksMessage`, transaccional): carga el usuario del token, actualiza `userInfo.updatedAt`, pone `autoThanksMessage = null` y guarda. Desde ahí, `POST /api/donations` a sus campañas devuelve `autoThanksMessage: null`.
+
 ### `GET /api/users/list/paginated`
 
 - **Acceso:** solo `ADMIN` (`@PreAuthorize("hasRole('ADMIN')")`).
@@ -332,9 +390,9 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 |---|---|
 | Controller | `controller/user/UserController.java` |
 | Service | `service/user/UserService.java` (usa también `service/campaign/CampaignService.java` al borrar) |
-| Validation | `validation/user/UserValidationService.java`, `validation/auth/AccountStatusValidationService.java`, `validation/common/SortValidationService.java` |
+| Validation | `validation/user/UserValidationService.java`, `validation/auth/AccountStatusValidationService.java`, `validation/common/SortValidationService.java`, `validation/common/TextValidationService.java` |
 | Mapper | `mapper/user/UserMapper.java`, `mapper/user/UserInfoMapper.java` (usa `mapper/bankaccount/BankAccountMapper.java`) |
 | Repository | `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java`, `repository/user/RoleRepository.java`, `repository/user/UserCategoryRepository.java`, `repository/category/CategoryRepository.java` |
-| DTOs | `dtos/user/UserUserInfoRequestDTO.java`, `dtos/user/CreateUserDTO.java`, `dtos/user/CreateUserInfoDTO.java`, `dtos/user/UpdateUserDTO.java`, `dtos/user/UserDTO.java`, `dtos/user/UserInfoDTO.java`, `dtos/user/PublicUserProfileDTO.java`, `dtos/user/UserInfoResponseDTO.java` (sin uso en el código) |
+| DTOs | `dtos/user/UserUserInfoRequestDTO.java`, `dtos/user/CreateUserDTO.java`, `dtos/user/CreateUserInfoDTO.java`, `dtos/user/UpdateUserDTO.java`, `dtos/user/UserDTO.java`, `dtos/user/UserInfoDTO.java`, `dtos/user/PublicUserProfileDTO.java`, `dtos/user/UpdateAutoThanksDTO.java`, `dtos/user/AutoThanksResponseDTO.java`, `dtos/user/UserInfoResponseDTO.java` (sin uso en el código) |
 | Entity | `entity/user/User.java`, `entity/user/UserInfo.java`, `entity/user/UserCategory.java`, `entity/user/Role.java` |
 | Seguridad | `security/AuthenticatedUserService.java`, `security/JwtAuthenticationFilter.java`, `security/SecurityConfig.java` |

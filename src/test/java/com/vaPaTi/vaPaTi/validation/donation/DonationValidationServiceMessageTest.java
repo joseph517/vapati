@@ -3,6 +3,7 @@ package com.vaPaTi.vaPaTi.validation.donation;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,6 +26,10 @@ class DonationValidationServiceMessageTest {
 
     @Mock
     private UserRepository userRepository;
+
+    // Real instance: the message rule lives in TextValidationService
+    @Spy
+    private TextValidationService textValidationService = new TextValidationService();
 
     @InjectMocks
     private DonationValidationService donationValidationService;

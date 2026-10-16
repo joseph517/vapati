@@ -59,7 +59,7 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### Ocultar un campo en lugar de cerrar el endpoint
 
-- **Qué:** el listado de donaciones de una campaña es público, pero `transactionId` y el mensaje privado solo los ven el dueño, un ADMIN o el propio donante. Para el resto, un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), para no revelar que hay algo oculto.
+- **Qué:** el listado de donaciones de una campaña es público, pero `transactionId`, el mensaje privado y la respuesta privada del dueño solo los ven el dueño, un ADMIN o el propio donante. Para el resto, un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), y una respuesta privada como una donación sin respuesta (`thanksMessage: null`, `thanksPrivate: false`, `thankedAt: null`), para no revelar que hay algo oculto.
 - **Dónde:** `service/donation/DonationService.java` (`canSeePrivateDonationData`). Lo decide el service y no el mapper, porque el mapper no conoce a quien llama.
 
 ## Datos
@@ -111,6 +111,18 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** una donación se guarda directamente como `COMPLETED`, con un `transactionId` generado. `PENDING`, `FAILED` y `REFUNDED` existen en el enum, pero no se usan.
 - **Por qué:** no hay pasarela de pago. El service marca el punto donde se integraría una.
 - **Dónde:** `service/donation/DonationService.java`, `entity/donation/DonationStatus.java`.
+
+### Agradecer una donación: respuesta única y mensaje predeterminado por usuario
+
+- **Qué:** el dueño de una campaña responde una sola vez a cada donación (`thanksMessage`, `thanksPrivate`, `thankedAt` en la propia `Donation`). La respuesta no se edita: un segundo `POST` responde `409`, y para cambiarla hay que borrarla y volver a escribirla. La borran el dueño o un ADMIN; la escribe solo el dueño. Aparte, cada usuario tiene un mensaje predeterminado (`UserInfo.autoThanksMessage`) que viaja solo en la respuesta de `POST /api/donations` y no se copia en la donación.
+- **Por qué:** sigue el comportamiento de Ko-fi verificado en el cliente: sin botón de editar, con borrar y volver a responder, privacidad propia de la respuesta y mensaje predeterminado por creador. La relación es 1 a 1, así que basta con columnas en `Donation`, sin una entidad aparte. El ADMIN modera borrando, no escribiendo en nombre del dueño. El mensaje predeterminado no se guarda en la donación porque solo sirve como confirmación al donar; guardarlo en `DonationResponseDTO` lo dejaría vacío en todas las demás lecturas.
+- **Dónde:** `service/donation/DonationService.java` (`thankDonation`, `deleteDonationThanks`, `createDonation`), `validation/donation/DonationValidationService.java`, `service/user/UserService.java`. Detalle en [Donation](dominios/donation.md) y [User](dominios/user.md). Spec: `specs/49-agradecer-una-donacion.md`.
+
+### Una regla de texto obligatorio compartida
+
+- **Qué:** el mensaje del donante, la respuesta del dueño y el mensaje predeterminado se validan con el mismo `TextValidationService.normalizeRequiredText`: `trim`, blanco → `400 <campo> cannot be blank`, más de 280 → `400 <campo> must be at most 280 characters`.
+- **Por qué:** la usan dos dominios (`donation` y `user`), y lo compartido va en `validation/common/`. Así no hay tres copias de la misma regla.
+- **Dónde:** `validation/common/TextValidationService.java`.
 
 ### Moderación solo por reportes
 

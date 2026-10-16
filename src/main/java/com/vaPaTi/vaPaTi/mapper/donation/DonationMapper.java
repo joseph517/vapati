@@ -43,6 +43,9 @@ public class DonationMapper {
                 .transactionId(donation.getTransactionId())
                 .message(donation.getMessage())
                 .messagePrivate(donation.isMessagePrivate())
+                .thanksMessage(donation.getThanksMessage())
+                .thanksPrivate(donation.isThanksPrivate())
+                .thankedAt(donation.getThankedAt())
                 .createdAt(donation.getCreatedAt())
                 .updatedAt(donation.getUpdatedAt())
                 .build();
