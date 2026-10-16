@@ -113,9 +113,10 @@ class DonationMapperTest {
         Donation donation = Donation.builder().id(10L).donor(donor).recipient(recipientWithName("owner_user", 7L))
                 .campaign(null).campaignId(null).amount(new BigDecimal("5.0")).build();
 
-        // When & Then
-        assertThatCode(() -> donationMapper.toDTO(donation, Map.of())).doesNotThrowAnyException();
+        // When
         DonationResponseDTO dto = donationMapper.toDTO(donation, Map.of());
+
+        // Then
         assertThat(dto.getCampaignId()).isNull();
         assertThat(dto.getCampaignName()).isNull();
         assertThat(dto.getCampaignDeleted()).isFalse();

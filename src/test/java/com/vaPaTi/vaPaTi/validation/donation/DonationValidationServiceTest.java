@@ -88,8 +88,8 @@ class DonationValidationServiceTest {
             validDTO.setCampaignId(1L);
             validDTO.setAmount(new BigDecimal("100.0"));
 
-            // When & Then (should not throw exception)
-            donationValidationService.validateInput(validDTO);
+            // When & Then
+            assertThatCode(() -> donationValidationService.validateInput(validDTO)).doesNotThrowAnyException();
         }
 
         @Test

@@ -53,7 +53,7 @@ public class DonationController {
 
     @PostMapping("/{donationId}/thanks")
     @Operation(summary = "Reply to a donation with a thanks message",
-            description = "Only the campaign owner (not an ADMIN), once per COMPLETED donation. thanksPrivate defaults to false. "
+            description = "Only the recipient (the campaign owner for a campaign donation), not an ADMIN, once per COMPLETED donation. thanksPrivate defaults to false. "
                     + "409 if the donation already has a reply: it is not editable, delete it to reply again")
     public ResponseEntity<Map<String, Object>> thankDonation(@PathVariable Long donationId,
                                                              @Valid @RequestBody CreateDonationThanksDTO dto) {
@@ -67,7 +67,8 @@ public class DonationController {
 
     @DeleteMapping("/{donationId}/thanks")
     @Operation(summary = "Delete the thanks message of a donation",
-            description = "The campaign owner or an ADMIN. Afterwards the owner can reply again")
+            description = "The recipient (the campaign owner for a campaign donation) or an ADMIN. "
+                    + "Afterwards the recipient can reply again")
     public ResponseEntity<Map<String, Object>> deleteDonationThanks(@PathVariable Long donationId) {
         DonationResponseDTO donation = donationService.deleteDonationThanks(donationId);
 

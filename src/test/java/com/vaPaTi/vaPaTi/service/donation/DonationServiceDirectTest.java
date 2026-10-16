@@ -242,6 +242,7 @@ class DonationServiceDirectTest {
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot donate to an admin");
             verify(donationRepository, never()).save(any());
+            verifyNoInteractions(goalRepository, campaignStatusHistoryService);
         }
 
         @Test

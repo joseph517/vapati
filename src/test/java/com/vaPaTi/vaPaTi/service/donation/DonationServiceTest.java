@@ -238,7 +238,6 @@ class DonationServiceTest {
             verify(donationRepository).save(donationCaptor.capture());
             Donation savedDonation = donationCaptor.getValue();
             assertThat(savedDonation.getRecipient()).isSameAs(testCampaignOwner);
-            assertThat(savedDonation.getRecipient().getId()).isEqualTo(TEST_CAMPAIGN_OWNER_ID);
             assertThat(savedDonation.getCampaign()).isSameAs(testCampaign);
         }
 

@@ -130,7 +130,7 @@ public class DonationValidationService {
     // Only the recipient replies (the campaign owner in a campaign donation): an ADMIN can delete a reply but not write one
     public void validateIsRecipient(Donation donation, Long callerId) {
         if (!isRecipient(donation, callerId)) {
-            throw new ForbiddenActionException(donation.getCampaignId() != null
+            throw new ForbiddenActionException(isCampaignDonation(donation)
                     ? "Only the campaign owner can reply to this donation"
                     : "Only the recipient can reply to this donation");
         }
@@ -138,7 +138,7 @@ public class DonationValidationService {
 
     public void validateIsRecipientOrAdmin(Donation donation, Long callerId) {
         if (!isRecipient(donation, callerId) && !campaignAuthorizationService.isAdmin(callerId)) {
-            throw new ForbiddenActionException(donation.getCampaignId() != null
+            throw new ForbiddenActionException(isCampaignDonation(donation)
                     ? "Only the campaign owner or an admin can delete this reply"
                     : "Only the recipient or an admin can delete this reply");
         }
@@ -168,6 +168,10 @@ public class DonationValidationService {
         if ("lastDonationAt".equals(sortBy) && !fullView) {
             throw new MessageException("Only the creator or an admin can sort supporters by lastDonationAt");
         }
+    }
+
+    private boolean isCampaignDonation(Donation donation) {
+        return donation.getCampaignId() != null;
     }
 
     private boolean isRecipient(Donation donation, Long callerId) {

@@ -4,8 +4,6 @@ import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
-import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,12 +24,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DonationValidationService - Direct donation recipient")
 class DonationValidationServiceRecipientTest {
-
-    @Mock
-    private CampaignValidationService campaignValidationService;
-
-    @Mock
-    private UserRepository userRepository;
 
     @Mock
     private UserValidationService userValidationService;
@@ -112,6 +104,7 @@ class DonationValidationServiceRecipientTest {
             assertThatThrownBy(() -> donationValidationService.validateAndGetRecipient(RECIPIENT_ID))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot donate to an admin");
+            verify(userValidationService).validateProfileNotBlocked(recipient);
         }
     }
 

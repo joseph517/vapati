@@ -25,7 +25,8 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     List<Donation> findByCampaign(Campaign campaign);
 
     // Loads each donor with its inverse @OneToOne in the same SELECT. All joins are LEFT: a soft-deleted donor stays
-    // null (@NotFound) instead of removing the row. d.campaign comes from the persistence context
+    // null (@NotFound) instead of removing the row. d.campaign comes from the persistence context.
+    // d.recipient is not fetched on purpose: it is the campaign owner, already in the persistence context
     @Query("SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
             "LEFT JOIN FETCH du.verificationRequest WHERE d.campaign = :campaign ORDER BY d.createdAt DESC")
     List<Donation> findByCampaignOrderByCreatedAtDesc(@Param("campaign") Campaign campaign);

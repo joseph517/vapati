@@ -48,7 +48,7 @@ public class Donation {
     @JoinColumn(name = "recipient_user_id", updatable = false)
     private User recipient;
 
-    // Read-only copies of the FKs: they keep their value when donor or campaign is soft deleted
+    // Read-only copies of the FKs: they keep their value when donor, recipient or campaign is soft deleted
     // (the relation is then null) and let queries filter by FK without joining the soft-deleted table.
     @Column(name = "campaign_id", insertable = false, updatable = false)
     private Long campaignId;
