@@ -30,6 +30,21 @@ class DonationDtoValidationTest {
     }
 
     @Test
+    @DisplayName("campaignId is optional: a DTO without it and without recipientUserId has no violations")
+    void campaignIdIsOptional() {
+        dto.setCampaignId(null);
+        assertValid(dto);
+    }
+
+    @Test
+    @DisplayName("A direct donation DTO (recipientUserId, no campaignId) has no violations")
+    void directDonationDtoHasNoViolations() {
+        dto.setCampaignId(null);
+        dto.setRecipientUserId(5L);
+        assertValid(dto);
+    }
+
+    @Test
     @DisplayName("amount is required")
     void amountIsRequired() {
         dto.setAmount(null);

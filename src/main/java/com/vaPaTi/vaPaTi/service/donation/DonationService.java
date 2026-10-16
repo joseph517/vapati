@@ -163,7 +163,7 @@ public class DonationService {
      */
     private Map<Long, String> findDeletedCampaignNames(List<Donation> donations) {
         List<Long> deletedCampaignIds = donations.stream()
-                .filter(donation -> donation.getCampaign() == null)
+                .filter(donation -> donation.getCampaignId() != null && donation.getCampaign() == null)
                 .map(Donation::getCampaignId)
                 .distinct()
                 .toList();

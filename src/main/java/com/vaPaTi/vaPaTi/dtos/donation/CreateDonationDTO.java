@@ -11,8 +11,9 @@ import java.math.BigDecimal;
 @Data
 public class CreateDonationDTO {
 
-    @NotNull(message = "Campaign ID is required")
     private Long campaignId;
+
+    private Long recipientUserId;
 
     @NotNull(message = "Amount is required")
     @Positive(message = "Amount must be greater than zero")

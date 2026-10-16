@@ -519,6 +519,24 @@ class DonationServiceTest {
             verify(campaignRepository, times(1)).findNamesByIdsIncludingDeleted(List.of(20L));
             verify(donationMapper).toDTOList(donations, Map.of(20L, "Deleted campaign"));
         }
+
+        @Test
+        @DisplayName("Should not query deleted campaign names when there are only direct donations")
+        void getDonationsByAuthenticatedUser_WithOnlyDirectDonations_ShouldNotQueryDeletedNames() {
+            // Given
+            Donation direct = Donation.builder().id(12L).donor(testDonor).campaign(null).campaignId(null).build();
+            List<Donation> donations = List.of(direct);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations, Map.of())).thenReturn(List.of(donationResponseDTO));
+
+            // When
+            donationService.getDonationsByAuthenticatedUser();
+
+            // Then
+            verify(campaignRepository, never()).findNamesByIdsIncludingDeleted(any());
+            verify(donationMapper).toDTOList(donations, Map.of());
+        }
     }
 
     @Nested
