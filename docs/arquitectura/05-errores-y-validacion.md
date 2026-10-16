@@ -129,6 +129,8 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | `dtos/donation/CreateDonationDTO.java` | `campaignId` | `@NotNull(message = "Campaign ID is required")` |
 | | `amount` | `@NotNull(message = "Amount is required")`, `@Positive(message = "Amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
 | | `message` | `@Size(max = 280, message = "Message must be at most 280 characters")` (el blanco lo rechaza `DonationValidationService`) |
+| `dtos/donation/CreateDonationThanksDTO.java` | `thanksMessage` | `@Size(max = 280, message = "Thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `DonationValidationService`) |
+| `dtos/user/UpdateAutoThanksDTO.java` | `autoThanksMessage` | `@Size(max = 280, message = "Auto thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `UserValidationService`) |
 | `dtos/publication/CreatePublicationDTO.java` | `description` | `@NotBlank`, `@Size(max = 255)` |
 | `dtos/category/CreateCategoryDTO.java` | `name` | `@NotBlank`, `@Size(max = 255)` |
 | | `description` | `@Size(max = 255)` |
@@ -156,9 +158,9 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | `dtos/verification/ProcessVerificationRequestDTO.java` | `requestId` | `@NotNull`, `@Positive` |
 | | `status` | `@NotNull` |
 
-Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, que declara `length = 280` igual que su `@Size`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
+Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, `Donation.thanksMessage` y `UserInfo.autoThanksMessage`, que declaran `length = 280` igual que su `@Size`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
 
-La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
+La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `CreateDonationThanksDTO`, `UpdateAutoThanksDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
 
 `fields` es un mapa con una entrada por campo: si un mismo campo viola dos reglas a la vez (por ejemplo `categoryIds: []` viola `@NotEmpty` y `@Size(min = 1)`), solo se ve uno de los dos mensajes.
 
@@ -212,6 +214,23 @@ La lista blanca evita que un `sortBy` arbitrario llegue a la query y falle en la
 
 Si `page` o `size` no son números, el error lo produce Spring antes de llegar al servicio: `400 Invalid parameter`, `Invalid value 'abc' for parameter 'page'`.
 
+### `validation/common/TextValidationService.java`
+
+Regla de texto obligatorio que comparten dos dominios. Un solo método, `normalizeRequiredText(text, fieldLabel, maxLength)`, que lanza `MessageException` (`400 Business logic error`) o devuelve el texto con `trim`:
+
+| Regla | Mensaje |
+|---|---|
+| No `null`, ni vacío, ni solo espacios (incluidos saltos de línea y tabulaciones) | `<fieldLabel> cannot be blank` |
+| Hasta `maxLength` caracteres, medidos después del `trim` | `<fieldLabel> must be at most <maxLength> characters` |
+
+| Quién lo usa | `fieldLabel` | `maxLength` | Nota |
+|---|---|---|---|
+| `DonationValidationService.validateAndNormalizeMessage` | `Message` | 280 | El mensaje del donante es opcional: `null` devuelve `null` sin llamar al servicio. |
+| `DonationValidationService.validateAndNormalizeThanksMessage` | `Thanks message` | 280 | La respuesta del dueño a una donación. |
+| `UserValidationService.validateAndNormalizeAutoThanksMessage` | `Auto thanks message` | 280 | El mensaje predeterminado del usuario. |
+
+En los tres casos el DTO tiene además un `@Size(max = 280)` con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
+
 ## `404` en lugar de `403`: no revelar lo que no se puede ver
 
 El criterio del proyecto es que **un recurso que quien llama no puede ver responde igual que uno que no existe**. `403` se reserva para lo que quien llama sí puede ver pero no puede modificar.
@@ -224,10 +243,13 @@ El criterio del proyecto es que **un recurso que quien llama no puede ver respon
 | Perfil, seguidores o reporte de un usuario baneado o suspendido (para quien no es ADMIN) | 404 | `User not found` | `validation/user/UserValidationService.java` (`validateProfileNotBlocked`), `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java` |
 | Recurso borrado lógicamente | 404 | el de "no encontrado" del dominio | `@SQLRestriction` sobre `deleted_at` en `User`, `Campaign`, `Goal`, `Publication`, `BankAccount` y `VerificationRequest` (ver [Modelo de datos](04-modelo-de-datos.md)) |
 | Campaña visible pero ajena, al modificarla, cerrarla o ver su historial | 403 | `You are not authorized to perform this action` | `CampaignAuthorizationService.validateOwnershipOrAdmin` |
+| Responder o borrar la respuesta de una donación ajena, **sin importar si la campaña es visible** | 403 | `Only the campaign owner can reply to this donation` / `Only the campaign owner or an admin can delete this reply` | `DonationValidationService.validateIsCampaignOwner` / `validateIsCampaignOwnerOrAdmin` |
 | Endpoint de ADMIN llamado por un `USER` | 403 | `You don't have permission to access this resource` | `@PreAuthorize` + `GlobalExceptionHandler` |
 | Cuenta propia baneada o suspendida | 403 | `Your account has been banned. Reason: ...` / `Your account is suspended until ... Reason: ...` | `validation/auth/AccountStatusValidationService.java` |
 
 La consecuencia observable es que un tercero no puede usar la API para averiguar si una campaña existe pero está cerrada, ni si un usuario existe pero está sancionado: el `404` es idéntico, incluido el mensaje. Por eso `CampaignAuthorizationService` vuelve a comprobar si la campaña está `CLOSED` antes de decidir entre `404` y `403`: un `403` sobre una campaña cerrada revelaría que existe.
+
+**Excepción conocida: `/api/donations/{donationId}/thanks`.** Los dos endpoints buscan la donación por id y no aplican la visibilidad de la campaña. Un tercero recibe `404 Donation not found` si la donación no existe y `403` si existe, también cuando es de una campaña `CLOSED` ajena o de un dueño baneado o suspendido. El `400 Cannot reply to a donation of a deleted campaign` también confirma la existencia. Lo único que se revela es que hay una donación con ese id: ni el texto, ni el monto, ni la campaña. Ver [Donation](dominios/donation.md#visibilidad-y-permisos).
 
 El titular de una cuenta sancionada, en cambio, sí recibe `403` con el motivo: es el único que tiene que enterarse (ver `validateNotBlocked` frente a `isBlocked` en [Seguridad](03-seguridad.md)).
 
