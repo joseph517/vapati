@@ -61,24 +61,30 @@ public class DonationService {
         String message = donationValidationService.validateAndNormalizeMessage(dto.getMessage());
         boolean messagePrivate = message != null && Boolean.TRUE.equals(dto.getMessagePrivate());
 
-        // Validate campaign exists, is visible to the donor and is not deleted (before the status check)
-        Campaign campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId(), donorUserId);
-
-        // Validate goal is active
-        Goal goal = campaign.getGoal();
-        donationValidationService.validateGoalIsActive(goal);
-
-        // Validate donor user exists
-        User donor = donationValidationService.validateAndGetDonor(donorUserId);
-
-        // Validate not self-donation
-        donationValidationService.validateNotSelfDonation(donorUserId, campaign.getUser().getId());
+        // validateInput guarantees exactly one destination: a campaign or a user (direct donation)
+        Campaign campaign = null;
+        User recipient;
+        User donor;
+        if (dto.getCampaignId() != null) {
+            // Validate campaign exists, is visible to the donor and is not deleted (before the status check)
+            campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId(), donorUserId);
+            donationValidationService.validateGoalIsActive(campaign.getGoal());
+            donor = donationValidationService.validateAndGetDonor(donorUserId);
+            donationValidationService.validateNotSelfDonation(donorUserId, campaign.getUser().getId());
+            // Never null: campaigns of deleted owners are not visible
+            recipient = campaign.getUser();
+        } else {
+            // A direct donation: no campaign, no goal and no status history
+            recipient = donationValidationService.validateAndGetRecipient(dto.getRecipientUserId());
+            donor = donationValidationService.validateAndGetDonor(donorUserId);
+            donationValidationService.validateNotSelfDirectDonation(donorUserId, recipient.getId());
+        }
 
         // Auto-approve: System simulates validation
         // In production, this would integrate with payment gateway
         Donation donation = Donation.builder()
                 .donor(donor)
-                .recipient(campaign.getUser())
+                .recipient(recipient)
                 .campaign(campaign)
                 .amount(dto.getAmount())
                 .status(DonationStatus.COMPLETED)
@@ -89,10 +95,23 @@ public class DonationService {
 
         Donation savedDonation = donationRepository.save(donation);
 
-        // The sum and the auto-complete are atomic UPDATEs, the last writes on the goal: its row stays
-        // locked only from here to the commit. The goal in memory is stale after this and is not used again.
+        if (campaign != null) {
+            addToCampaignGoal(campaign, dto.getAmount());
+        }
+
+        // The recipient's current default thanks travels only in this response, it is not copied into the donation
+        return DonationCreatedResponseDTO.builder()
+                .donation(donationMapper.toDTO(savedDonation))
+                .autoThanksMessage(findAutoThanksMessage(recipient))
+                .build();
+    }
+
+    // The sum and the auto-complete are atomic UPDATEs, the last writes on the goal: its row stays
+    // locked only from here to the commit. The goal in memory is stale after this and is not used again.
+    private void addToCampaignGoal(Campaign campaign, BigDecimal amount) {
+        Goal goal = campaign.getGoal();
         LocalDateTime now = LocalDateTime.now();
-        if (goalRepository.addToAmountRaised(goal.getId(), dto.getAmount(), now) == 0) {
+        if (goalRepository.addToAmountRaised(goal.getId(), amount, now) == 0) {
             // The campaign was closed after the validation: the transaction rolls back the donation too
             throw new MessageException("Campaign goal is not active");
         }
@@ -100,17 +119,11 @@ public class DonationService {
         if (goalRepository.completeIfGoalReached(goal.getId(), now) == 1) {
             campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
         }
-
-        // The owner's current default thanks travels only in this response, it is not copied into the donation
-        return DonationCreatedResponseDTO.builder()
-                .donation(donationMapper.toDTO(savedDonation))
-                .autoThanksMessage(findAutoThanksMessage(campaign.getUser()))
-                .build();
     }
 
-    private String findAutoThanksMessage(User owner) {
-        UserInfo ownerInfo = owner != null ? owner.getUserInfo() : null;
-        return ownerInfo != null ? ownerInfo.getAutoThanksMessage() : null;
+    private String findAutoThanksMessage(User recipient) {
+        UserInfo recipientInfo = recipient != null ? recipient.getUserInfo() : null;
+        return recipientInfo != null ? recipientInfo.getAutoThanksMessage() : null;
     }
 
     // One reply per donation, only by the campaign owner. It is not editable: it has to be deleted to reply again
