@@ -4,6 +4,8 @@ import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,13 +35,25 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     @Query("SELECT d FROM Donation d WHERE d.campaignId = :campaignId ORDER BY d.createdAt DESC")
     List<Donation> findByCampaignIdOrderByCreatedAtDesc(@Param("campaignId") Long campaignId);
 
-    // Loads the donor and the campaign (with its goal and owner) in the same SELECT. All joins are LEFT: a
-    // soft-deleted donor or campaign stays null (@NotFound) instead of removing the row
+    // Loads the donor, the recipient and the campaign (with its goal and owner) in the same SELECT. All joins are
+    // LEFT: a soft-deleted donor, recipient or campaign stays null (@NotFound) instead of removing the row.
+    // @NotFound makes d.recipient EAGER: without the fetch every row would load its recipient on its own
     @Query("SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
-            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
+            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.recipient r LEFT JOIN FETCH r.userInfo " +
+            "LEFT JOIN FETCH r.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
             "LEFT JOIN FETCH c.user cu LEFT JOIN FETCH cu.userInfo LEFT JOIN FETCH cu.verificationRequest " +
             "WHERE d.donorUserId = :donorId ORDER BY d.createdAt DESC")
     List<Donation> findByDonorIdOrderByCreatedAtDesc(@Param("donorId") Long donorId);
+
+    // Every donation received by a user: direct ones and the ones to their campaigns. Filters by the read-only FK,
+    // not the relation. Only to-one fetches, so paging stays in SQL; the FETCH needs an explicit countQuery.
+    // The owner of each campaign is the recipient itself, already in the persistence context
+    @Query(value = "SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
+            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.recipient r LEFT JOIN FETCH r.userInfo " +
+            "LEFT JOIN FETCH r.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
+            "WHERE d.recipientUserId = :recipientId",
+            countQuery = "SELECT COUNT(d) FROM Donation d WHERE d.recipientUserId = :recipientId")
+    Page<Donation> findByRecipientId(@Param("recipientId") Long recipientId, Pageable pageable);
 
     @Query("SELECT COUNT(d) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countCompletedDonationsByCampaignId(@Param("campaignId") Long campaignId);

@@ -24,6 +24,10 @@ import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -168,6 +172,20 @@ public class DonationService {
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         List<Donation> donations = donationRepository.findByDonorIdOrderByCreatedAtDesc(userId);
         return donationMapper.toDTOList(donations, findDeletedCampaignNames(donations));
+    }
+
+    // Everything the authenticated user received, direct and to their campaigns, without hiding anything: the
+    // recipient sees transactionId, private messages and private replies. id desc is the fixed tie-breaker
+    @Transactional
+    public Page<DonationResponseDTO> getDonationsReceived(Pageable pageable) {
+        Long recipientId = authenticatedUserService.getAuthenticatedUserId();
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
+
+        Page<Donation> page = donationRepository.findByRecipientId(recipientId, sorted);
+        Map<Long, String> deletedCampaignNames = findDeletedCampaignNames(page.getContent());
+
+        return page.map(donation -> donationMapper.toDTO(donation, deletedCampaignNames));
     }
 
     /**
