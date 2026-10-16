@@ -6,7 +6,7 @@
 
 - El spec tiene que estar en `specs/` con **Estado: aprobado**. Si no, se detiene.
 - Conviene tener el working tree limpio. Si hay cambios sin commitear, te pregunta qué hacer.
-- Si te queda tiempo, corré `/architect review NN`: es más barato corregir el spec antes que el código.
+- `/spec` ya hace que el arquitecto revise el spec al guardarlo. Si lo editaste a mano después, corré `/architect check NN`: es más barato corregir el spec que el código.
 - No hace falta levantar Docker: QA levanta el stack dev si lo necesita, pero nunca hace `down` ni toca nada de prod.
 
 ## Qué hace
@@ -44,8 +44,8 @@ Si tu sesión tiene notificaciones, te avisa.
 
 | Comando | Para qué |
 |---|---|
-| `/spec` | Escribir el spec, con el arquitecto proponiendo el diseño |
-| `/architect <pregunta>` o `review NN` | Consultas de diseño o revisar un spec |
+| `/spec` | Escribir el spec: el arquitecto ayuda con las decisiones de arquitectura, diseña las secciones técnicas y revisa el spec al guardarlo |
+| `/architect <pregunta>`, `check NN` o `evalúa <área\|todo>` | Consultas de diseño, revisar un spec, o evaluar la arquitectura y recibir recomendaciones de mejora |
 | `/dev <tarea>` | Cambios chicos sin spec (no commitea salvo que se lo pidas) |
 | `/document [dominio\|todo]` | Sincronizar los docs con el código |
 | `/design-prompt` | Generar el prompt de Claude Design desde el último que se generó |
