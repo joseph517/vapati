@@ -28,9 +28,9 @@ public class Donation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // donor and campaign are optional in the mapping (the columns stay NOT NULL) so a soft-deleted
+    // donor and campaign are optional in the mapping (donor_user_id stays NOT NULL) so a soft-deleted
     // target is left null by @NotFound instead of inner-joining the row away. They are not updatable,
-    // so an UPDATE never overwrites the FK with that null.
+    // so an UPDATE never overwrites the FK with that null. In a direct donation campaign and campaignId are null.
     @ManyToOne
     @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "donor_user_id", updatable = false)
@@ -41,13 +41,23 @@ public class Donation {
     @JoinColumn(name = "campaign_id", updatable = false)
     private Campaign campaign;
 
-    // Read-only copies of the FKs: they keep their value when donor or campaign is soft deleted
+    // Who receives the money: the campaign owner for a campaign donation, the user for a direct one.
+    // Optional in the mapping like donor; the column is NOT NULL in the database (scripts/migrate-donation-recipient.sql)
+    @ManyToOne
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "recipient_user_id", updatable = false)
+    private User recipient;
+
+    // Read-only copies of the FKs: they keep their value when donor, recipient or campaign is soft deleted
     // (the relation is then null) and let queries filter by FK without joining the soft-deleted table.
     @Column(name = "campaign_id", insertable = false, updatable = false)
     private Long campaignId;
 
     @Column(name = "donor_user_id", insertable = false, updatable = false)
     private Long donorUserId;
+
+    @Column(name = "recipient_user_id", insertable = false, updatable = false)
+    private Long recipientUserId;
 
     @Column(name = "amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;

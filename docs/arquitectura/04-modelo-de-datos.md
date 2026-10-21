@@ -88,7 +88,8 @@ erDiagram
     Donation {
         bigint id PK
         bigint donor_user_id FK
-        bigint campaign_id FK
+        bigint recipient_user_id FK "quien recibe; NOT NULL por el script"
+        bigint campaign_id FK "null en una donación directa"
         decimal amount "15,2"
         string status "DonationStatus"
         string transaction_id UK
@@ -172,7 +173,8 @@ erDiagram
     Campaign ||--o{ CampaignStatusHistory : "campaign_id"
     User |o--o{ CampaignStatusHistory : "changed_by"
     User ||--o{ Donation : "donor_user_id"
-    Campaign ||--o{ Donation : "campaign_id"
+    User ||--o{ Donation : "recipient_user_id"
+    Campaign |o--o{ Donation : "campaign_id (opcional)"
     User ||--o{ Publication : "user_id"
     Campaign ||--o{ Publication : "campaign_id"
     User ||--o{ Follower : "user_id (seguido)"
@@ -219,7 +221,7 @@ erDiagram
 
 | Entidad | Archivo | Tabla | Campos relevantes | Relaciones |
 |---|---|---|---|---|
-| `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), la respuesta del dueño `thanksMessage` (opcional, hasta 280), `thanksPrivate` (`bit NOT NULL`, default `0`) y `thankedAt`, `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId` y `donorUserId` | `donor` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
+| `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), la respuesta del receptor `thanksMessage` (opcional, hasta 280), `thanksPrivate` (`bit NOT NULL`, default `0`) y `thankedAt`, `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId`, `donorUserId` y `recipientUserId` | `donor`, `recipient` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). `campaign` es opcional: una donación directa tiene `campaign_id` y `campaign` en `null`. `recipient` es el dueño de la campaña, o el usuario de una donación directa. |
 | `Publication` | `entity/publication/Publication.java` | `publication` | `description`, `createdAt`, `updatedAt`, `deletedAt`, y la copia de solo lectura `campaignId` | `user` (autor) y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
 | `Follower` | `entity/follower/Follower.java` | `followers` | `createdAt`, `updatedAt` | `user` (el seguido) y `follower` (quien sigue), ambos `@ManyToOne` a `User`. `UNIQUE (user_id, follower_id)`: no se puede seguir dos veces a la misma persona. |
 
@@ -257,7 +259,7 @@ JPA carga por defecto en forma **EAGER** las relaciones `@ManyToOne` y `@OneToOn
 | `CampaignCategory.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `CampaignCategory.category` | `@ManyToOne` | EAGER | — | `optional = false`. |
 | `CampaignStatusHistory.campaign`, `.changedBy` | `@ManyToOne` | EAGER | — | Sin `@NotFound`. |
-| `Donation.donor`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
+| `Donation.donor`, `.recipient`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Publication.user`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Follower.user`, `.follower` | `@ManyToOne` | EAGER | — | Sin `@NotFound`. |
 | `Report.reporter` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
@@ -269,7 +271,7 @@ Ejemplos de cómo se evitan los `SELECT` por fila:
 
 - `repository/user/UserRepository.java`: `findByIdForRequest` (lo usa el filtro JWT en cada request) trae `userInfo`, `role` y `verificationRequest` con `@EntityGraph`. El listado paginado de usuarios va en dos pasos (`findPageOfIds` pagina ids en SQL y `findAllWithDetailsByIdIn` carga esos usuarios con sus colecciones), porque traer colecciones en la query paginada haría que Hibernate pagine en memoria.
 - `repository/campaign/CampaignRepository.java`: la constante `LISTING_FETCH` reúne los `JOIN FETCH` del dueño, su `userInfo`, su `verificationRequest` y la meta. Las categorías de un listado se cargan aparte con `CampaignCategoryRepository.findByCampaignIdIn`, en bloques para no pasar el límite de 2100 parámetros de SQL Server.
-- `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java` y `repository/report/ReportRepository.java` siguen el mismo patrón. En `findAllWithUsers` de reportes solo se traen relaciones a uno, para que la paginación siga siendo SQL, y el `countQuery` es explícito porque no se puede derivar de una query con `FETCH`.
+- `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java` y `repository/report/ReportRepository.java` siguen el mismo patrón. En `findAllWithUsers` de reportes y en `findByRecipientId` de donaciones solo se traen relaciones a uno, para que la paginación siga siendo SQL, y el `countQuery` es explícito porque no se puede derivar de una query con `FETCH`. `findByDonorIdOrderByCreatedAtDesc` y `findByRecipientId` traen también el receptor (`d.recipient`): al ser `@NotFound` la relación es EAGER y, sin el fetch, cada fila la cargaría con su propia consulta. `findByCampaignOrderByCreatedAtDesc` no lo trae a propósito: el receptor es el dueño de la campaña, que ya está en el contexto de persistencia.
 
 Las cascadas de `User` sirven para el alta: `UserService.createUser` guarda el `User` y, por `cascade = ALL`, se insertan su `UserInfo` y sus `UserCategory`. Al actualizar, `orphanRemoval` borra las `UserCategory` que se sacaron del set. La cascada de borrado no se usa: ningún código llama a `delete` sobre un usuario (ver la sección siguiente).
 
@@ -314,10 +316,10 @@ Algunos casos necesitan ver filas borradas. Como `@SQLRestriction` se aplica a t
 | `UserRepository.findByIdIncludingDeleted` | Moderación: banear o suspender también una cuenta borrada, para que restaurarla con el login no esquive la sanción. |
 | `CampaignRepository.findNamesByIdsIncludingDeleted` | Historial de donaciones: mostrar el nombre de una campaña ya borrada. |
 | `BankAccountRepository.findByAccountNumberIgnoreDeleted`, `findByUserIdAndAccountNumberAndDeletedAtIsNotNull` | Alta de cuenta bancaria: decidir si un número está libre, es de otro usuario o se puede restaurar. |
-| `DonationRepository.findSupportersByCreatorId` | Supporters de un creador: una fila por donante con `SUM(amount)`, `COUNT_BIG(*)` y `MAX(created_at)` de sus donaciones `COMPLETED` a campañas con `user_id = :creatorId`, paginada. Cuenta campañas borradas y donantes borrados. |
+| `DonationRepository.findSupportersByCreatorId` | Supporters de un creador: una fila por donante con `SUM(amount)`, `COUNT_BIG(*)` y `MAX(created_at)` de sus donaciones `COMPLETED` con `recipient_user_id = :creatorId` (directas y a sus campañas), paginada. Cuenta campañas borradas y donantes borrados. |
 | `DonationRepository.countSupportersByCreatorId` | El total de esa página: `COUNT_BIG(DISTINCT donor_user_id)` con el mismo `WHERE`. |
 
-Las dos queries de supporters hacen `JOIN` de `donation` con `campaign` sin mirar `campaign.deleted_at`, y no tocan `[user]`: por eso suman las donaciones a campañas borradas y las de donantes borrados (el dinero se recibió igual). Qué se muestra de un donante borrado lo decide el servicio, que carga los donantes por JPA y no los encuentra (ver [Donation](dominios/donation.md#supporters-de-un-creador)).
+Las dos queries de supporters filtran `donation` por `recipient_user_id`, sin `JOIN` con `campaign` ni con `[user]`: por eso suman las donaciones directas, las de campañas borradas y las de donantes borrados (el dinero se recibió igual). Antes hacían `JOIN` con `campaign` por `user_id`; el filtro por `recipient_user_id` da las mismas filas para las donaciones a campaña porque el script rellenó el receptor de las existentes con el dueño de su campaña. Qué se muestra de un donante borrado lo decide el servicio, que carga los donantes por JPA y no los encuentra (ver [Donation](dominios/donation.md#supporters-de-un-creador)).
 
 `findSupportersByCreatorId` lleva el `ORDER BY` y el `OFFSET ... FETCH NEXT` escritos en la query, en lugar de recibir un `Pageable`, para que el desempate (`donor_user_id ASC`) sea fijo y no dependa de cómo Spring Data ordena una query nativa. Su forma sale de reglas de SQL Server:
 
@@ -333,12 +335,12 @@ Las queries nativas no se validan al arrancar: un error de SQL aparece recién a
 
 El problema: una donación apunta a una campaña con `deleted_at` puesto. Para Hibernate esa campaña "no existe" (la oculta `@SQLRestriction`), pero la FK sigue teniendo valor. Sin ningún cuidado pasan dos cosas: si la relación es obligatoria, Hibernate resuelve la carga con un `INNER JOIN` y la donación misma desaparece del resultado; y si la relación es opcional, Hibernate no encuentra la fila referenciada y lanza una excepción.
 
-El proyecto resuelve esto con el mismo patrón en `Campaign.user`, `CampaignCategory.campaign`, `Donation.donor`, `Donation.campaign`, `Publication.user`, `Publication.campaign`, `Report.reporter` y `Report.reviewedBy`:
+El proyecto resuelve esto con el mismo patrón en `Campaign.user`, `CampaignCategory.campaign`, `Donation.donor`, `Donation.recipient`, `Donation.campaign`, `Publication.user`, `Publication.campaign`, `Report.reporter` y `Report.reviewedBy`:
 
 1. **Relación opcional en el mapeo** (sin `nullable = false` ni `optional = false`), así Hibernate usa `LEFT JOIN` y no descarta la fila que apunta a algo borrado.
 2. **`@NotFound(action = NotFoundAction.IGNORE)`**: si la fila apuntada no aparece, la relación queda en `null` en lugar de fallar. Como efecto, la relación es siempre EAGER: Hibernate tiene que cargarla para saber si existe (lo dice el comentario de `Report.reporter`).
 3. **`updatable = false` en la `@JoinColumn`**: al guardar la entidad, el `UPDATE` no incluye la FK. Si no, el `null` cargado para el destino borrado se escribiría en la columna y se perdería la referencia.
-4. **Copia de la FK como columna de solo lectura** (`insertable = false, updatable = false`) en `Donation.campaignId`, `Donation.donorUserId` y `Publication.campaignId`. Conservan el valor aunque la relación esté en `null`, y permiten filtrar por FK sin hacer `JOIN` con la tabla borrada: `DonationRepository.countUniqueDonorsByCampaignId` y `findByDonorIdOrderByCreatedAtDesc`, o `PublicationRepository.findAllByCampaignId`.
+4. **Copia de la FK como columna de solo lectura** (`insertable = false, updatable = false`) en `Donation.campaignId`, `Donation.donorUserId`, `Donation.recipientUserId` y `Publication.campaignId`. Conservan el valor aunque la relación esté en `null`, y permiten filtrar por FK sin hacer `JOIN` con la tabla borrada: `DonationRepository.countUniqueDonorsByCampaignId`, `findByDonorIdOrderByCreatedAtDesc` y `findByRecipientId`, o `PublicationRepository.findAllByCampaignId`.
 
 Consecuencias que se ven en el código:
 
@@ -401,6 +403,25 @@ El perfil `docker` (el que activan `docker-compose.dev.yml` y `docker-compose.pr
 
 `spring.jpa.open-in-view` no está configurado, así que queda en el valor por defecto de Spring Boot (activado): la sesión de Hibernate vive durante todo el request y una relación LAZY se puede cargar incluso fuera de un método `@Transactional`.
 
+### Migración manual de `donation`
+
+`scripts/migrate-donation-recipient.sql` es la única migración de datos commiteada. Existe porque `ddl-auto=update` puede agregar la columna `recipient_user_id` pero no puede volver nullable a `campaign_id` ni rellenar ni exigir `NOT NULL` en una tabla con filas. Sin el script, `campaign_id` sigue `NOT NULL` y una donación directa responde `409`. Hace, en este orden (cada paso es idempotente):
+
+1. Agrega `donation.recipient_user_id BIGINT NULL`, si no existe.
+2. Rellena las filas existentes con el `user_id` de su campaña (`UPDATE ... JOIN campaign`). Es SQL nativo, así que no aplica `@SQLRestriction`: cubre también campañas y dueños borrados.
+3. Falla con `RAISERROR` si queda alguna fila sin receptor.
+4. Pasa la columna a `NOT NULL` y crea la FK `FK_donation_recipient_user` (a `[user](id)`) y el índice `idx_donation_recipient`.
+5. (Reservado: borrar la FK o el índice de `campaign_id` si el paso 6 fallara. En dev no hizo falta.)
+6. Pasa `campaign_id` a `NULL`.
+
+Se corre **a mano, con la app detenida y antes de levantar la imagen nueva**, en cada entorno, con `sqlcmd -I -b`. El `-I` (`QUOTED_IDENTIFIER ON`) hace falta por el índice filtrado de `transaction_id`: sin él aparece el Msg 1934. El `-b` corta en el primer error. Con la app parada no hay ventana de error: el código viejo no escribe `recipient_user_id`, y con la columna ya `NOT NULL` sus donaciones darían `409`. Los comandos de dev y de producción están en [Infraestructura](06-infraestructura.md#inicialización-de-la-base) y [`DOCKER-HUB-DEPLOY.md`](../../DOCKER-HUB-DEPLOY.md) §§ 7.2 y 7.4. Una segunda corrida no cambia nada.
+
+Antes de correrlo en cada entorno conviene mirar `EXEC sp_fkeys @fktable_name = 'donation'`, `EXEC sp_helpindex 'donation'` y que `SELECT COUNT(*) FROM donation d LEFT JOIN campaign c ON c.id = d.campaign_id WHERE c.id IS NULL` dé `0`. SQL Server no admite `ALTER COLUMN` sobre una columna usada en una FK o en un índice; en dev el `ALTER` de `campaign_id` funcionó con la FK en su lugar (Hibernate la había creado con un nombre generado, y no hay `idx_donation_campaign` en dev), pero en producción hay que repetir la comprobación y, si el paso 6 falla, borrar y recrear la FK o el índice alrededor del `ALTER` con sus nombres reales.
+
+**Base nueva.** Una base creada desde cero por Hibernate deja `recipient_user_id` nullable y sin la FK ni el índice con nombre, porque `@NotFound` impide que Hibernate exporte la FK (le pasa lo mismo a `donor_user_id`). La garantía real es que `DonationService.createDonation` siempre asigna `recipient`. Para que coincida con dev y producción, el script se corre también ahí, una vez que arrancó la aplicación (el paso 1 no hace nada porque la columna ya existe, y el resto rellena, exige `NOT NULL` y crea la FK y el índice). Los tests usan su propio `src/test/resources/schema.sql`, que ya declara `recipient_user_id NOT NULL`, `campaign_id NULL` y `idx_donation_recipient`.
+
+Los scripts de migración de los specs 23 y 42 nunca se commitearon y no están en el repo: este es el único.
+
 ### `src/main/resources/data.sql`
 
 Siembra los datos que la aplicación necesita para funcionar:
@@ -422,4 +443,4 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 
 - Entidades: todo `entity/` (16 entidades y 7 enums).
 - Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
-- Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`.
+- Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`.

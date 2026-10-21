@@ -6,10 +6,13 @@ import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationThanksDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationCreatedResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.service.donation.DonationService;
+import com.vaPaTi.vaPaTi.validation.common.SortValidationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,11 +27,17 @@ import java.util.Map;
 @Tag(name = "Donations", description = "Donation management endpoints")
 public class DonationController {
 
+    private static final List<String> RECEIVED_SORT_FIELDS = List.of("createdAt", "amount");
+
     private final DonationService donationService;
+    private final SortValidationService sortValidationService;
 
     @PostMapping
-    @Operation(summary = "Create a donation to a campaign",
-            description = "autoThanksMessage is the campaign owner's current default thanks, or null if not set. It is not stored in the donation")
+    @Operation(summary = "Create a donation to a campaign or directly to a user",
+            description = "The body carries exactly one of campaignId (donation to a campaign) or recipientUserId (direct donation "
+                    + "to a user, which touches no campaign); neither or both is a 400. autoThanksMessage is the recipient's "
+                    + "current default thanks (the campaign owner for a campaign donation), or null if not set. "
+                    + "It is not stored in the donation")
     public ResponseEntity<Map<String, Object>> createDonation(@Valid @RequestBody CreateDonationDTO dto) {
         DonationCreatedResponseDTO created = donationService.createDonation(dto);
 
@@ -44,7 +53,7 @@ public class DonationController {
 
     @PostMapping("/{donationId}/thanks")
     @Operation(summary = "Reply to a donation with a thanks message",
-            description = "Only the campaign owner (not an ADMIN), once per COMPLETED donation. thanksPrivate defaults to false. "
+            description = "Only the recipient (the campaign owner for a campaign donation), not an ADMIN, once per COMPLETED donation. thanksPrivate defaults to false. "
                     + "409 if the donation already has a reply: it is not editable, delete it to reply again")
     public ResponseEntity<Map<String, Object>> thankDonation(@PathVariable Long donationId,
                                                              @Valid @RequestBody CreateDonationThanksDTO dto) {
@@ -58,7 +67,8 @@ public class DonationController {
 
     @DeleteMapping("/{donationId}/thanks")
     @Operation(summary = "Delete the thanks message of a donation",
-            description = "The campaign owner or an ADMIN. Afterwards the owner can reply again")
+            description = "The recipient (the campaign owner for a campaign donation) or an ADMIN. "
+                    + "Afterwards the recipient can reply again")
     public ResponseEntity<Map<String, Object>> deleteDonationThanks(@PathVariable Long donationId) {
         DonationResponseDTO donation = donationService.deleteDonationThanks(donationId);
 
@@ -78,6 +88,22 @@ public class DonationController {
                 "donations", donations,
                 "total", donations.size()
         ));
+    }
+
+    @GetMapping("/received")
+    @Operation(summary = "Get the donations received by the authenticated user",
+            description = "Paginated. Direct donations and donations to the user's campaigns (deleted ones included, with their name), "
+                    + "in every status. Nothing is hidden: transactionId, private messages and private replies are included. "
+                    + "sortBy: createdAt or amount. Ties are broken by id descending")
+    public ResponseEntity<Page<DonationResponseDTO>> getReceivedDonations(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDirection) {
+
+        Pageable pageable = sortValidationService.validateAndGetPageable(
+                page, size, sortBy, sortDirection, RECEIVED_SORT_FIELDS);
+        return ResponseEntity.ok(donationService.getDonationsReceived(pageable));
     }
 
     @GetMapping("/campaign/{campaignId}")

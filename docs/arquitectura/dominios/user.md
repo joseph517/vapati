@@ -4,7 +4,7 @@
 
 El dominio `user` maneja las cuentas de la plataforma: el registro público, la edición del propio perfil (datos personales, credenciales y categorías de interés), el mensaje de agradecimiento predeterminado, el borrado lógico de la propia cuenta, la consulta del perfil de cualquier usuario y los listados de usuarios para el `ADMIN`.
 
-El **mensaje predeterminado** (`autoThanksMessage`) es un texto por usuario, el mismo para todas sus campañas, que recibe cada donante en la respuesta de `POST /api/donations`. Se administra acá y lo lee [Donation](donation.md).
+El **mensaje predeterminado** (`autoThanksMessage`) es un texto por usuario, el mismo para todas sus campañas y para las donaciones directas que reciba, que recibe cada donante en la respuesta de `POST /api/donations`. Se administra acá y lo lee [Donation](donation.md).
 
 Es el dominio del que dependen casi todos los demás: el usuario autenticado sale siempre del token (ver [Seguridad](../03-seguridad.md)), y las sanciones (ban y suspensión) que aplica la moderación de reportes se guardan en la entidad `User` (ver [Reportes](report.md)). Las cuentas bancarias del usuario se gestionan en [Cuentas bancarias](bankaccount.md), pero se devuelven dentro del perfil completo. El flag `verified` lo activa el flujo de [Verificación](verification.md).
 
@@ -96,7 +96,8 @@ stateDiagram-v2
 - **Modificar.** `PUT /update`, `DELETE /delete` y los tres verbos de `/me/auto-thanks` no reciben id: actúan siempre sobre el usuario del token (`AuthenticatedUserService.getAuthenticatedUserId`). Cada usuario solo ve y cambia su propio mensaje predeterminado; no aparece en `UserDTO`, `UserInfoDTO` ni `PublicUserProfileDTO`. No existe forma de editar ni borrar a otro usuario desde este dominio; un `ADMIN` sanciona por medio de [Reportes](report.md).
 - **Listados para `ADMIN`.** Incluyen a los usuarios sancionados (el `ADMIN` los ve) pero no a los borrados (por `@SQLRestriction`). El `UserDTO` no expone las columnas de sanción.
 - **Acceso por ruta.** En `security/SecurityConfig.java`, `/api/users/create` está en `PUBLIC_URLS` y `/api/users/*/supporters` en `PUBLIC_GET_URLS` (solo `GET`); el resto de `/api/users/**` cae en `anyRequest().authenticated()`. El patrón termina en el literal `/supporters`, así que `GET /api/users/{id}` no coincide y sigue pidiendo token; el `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`. No hay reglas por verbo para `/api/users/**`: la restricción a `ADMIN` está en el `@PreAuthorize` de cada método del controller.
-- **Supporters de un usuario.** `GET /api/users/{userId}/supporters` cuelga de la ruta del usuario, pero es del dominio donation (`controller/donation/SupporterController.java`); ver [Donation](donation.md#get-apiusersuseridsupporters). Aplica las mismas reglas de visibilidad que `GET /api/users/{id}` sobre el creador: `ID must be a positive number` para `id <= 0`, y `404 User not found` si no existe, está borrado o, para quien no es él mismo ni `ADMIN`, está sancionado.
+- **Supporters de un usuario.** `GET /api/users/{userId}/supporters` cuelga de la ruta del usuario, pero es del dominio donation (`controller/donation/SupporterController.java`); ver [Donation](donation.md#get-apiusersuseridsupporters). Aplica las mismas reglas de visibilidad que `GET /api/users/{id}` sobre el creador: `ID must be a positive number` para `id <= 0`, y `404 User not found` si no existe, está borrado o, para quien no es él mismo ni `ADMIN`, está sancionado. Los supporters suman también las donaciones directas que recibió el creador, además de las de sus campañas.
+- **Donaciones directas.** Un usuario puede recibir donaciones sin campaña (`POST /api/donations` con `recipientUserId`, ver [Donation](donation.md)). El receptor tiene que existir, no estar borrado ni sancionado (si no, `404 User not found`, el mismo literal que el perfil, para no revelar sanciones) y tener rol `USER`: un `ADMIN` no puede recibir una donación directa (`400 Cannot donate to an admin`). Lo que ve de ellas el receptor está en `GET /api/donations/received`.
 - **La primera ruta anónima que distingue ids de usuario.** Como `GET /api/users/{userId}/supporters` es pública, sin token responde `200` para un id de usuario existente y `404` para uno inexistente: ninguna ruta anónima lo hacía antes (`GET /api/users/{id}` sin token da `401` en los dos casos). No revela sanciones, porque un usuario sancionado da el mismo `404` que uno inexistente, y los ids de los dueños de campañas ya eran públicos (`userId` en `/api/campaigns/list`).
 
 ## Endpoints
@@ -352,7 +353,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 |---|---|---|
 | 401 / 403 | (comunes, ver arriba) | Sin token válido o usuario sancionado. |
 
-- **Qué hace** (`UserService.deleteAutoThanksMessage`, transaccional): carga el usuario del token, actualiza `userInfo.updatedAt`, pone `autoThanksMessage = null` y guarda. Desde ahí, `POST /api/donations` a sus campañas devuelve `autoThanksMessage: null`.
+- **Qué hace** (`UserService.deleteAutoThanksMessage`, transaccional): carga el usuario del token, actualiza `userInfo.updatedAt`, pone `autoThanksMessage = null` y guarda. Desde ahí, `POST /api/donations` a sus campañas o directo a él devuelve `autoThanksMessage: null`.
 
 ### `GET /api/users/list/paginated`
 

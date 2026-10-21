@@ -62,6 +62,68 @@ class DonationMapperTest {
     }
 
     @Test
+    @DisplayName("Should copy the recipient id and user name")
+    void toDTO_WithRecipient_ShouldCopyRecipientFields() {
+        // Given
+        Donation donation = Donation.builder().id(10L).donor(donor).recipient(recipientWithName("owner_user", 7L))
+                .campaign(campaign).amount(new BigDecimal("50.0")).build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getRecipientUserId()).isEqualTo(7L);
+        assertThat(dto.getRecipientUserName()).isEqualTo("owner_user");
+    }
+
+    @Test
+    @DisplayName("Should map recipient id and name to null when the recipient is deleted (null)")
+    void toDTO_WithNullRecipient_ShouldReturnNullRecipientFields() {
+        // Given
+        Donation donation = Donation.builder().id(10L).donor(donor).recipient(null).campaign(campaign).build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getRecipientUserId()).isNull();
+        assertThat(dto.getRecipientUserName()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should map recipientUserName to null when the recipient has no userInfo")
+    void toDTO_WithRecipientWithoutUserInfo_ShouldReturnNullRecipientName() {
+        // Given
+        User recipient = new User();
+        recipient.setId(8L);
+        Donation donation = Donation.builder().id(10L).donor(donor).recipient(recipient).campaign(campaign).build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation);
+
+        // Then
+        assertThat(dto.getRecipientUserId()).isEqualTo(8L);
+        assertThat(dto.getRecipientUserName()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should map a direct donation to null campaign fields and campaignDeleted false without throwing")
+    void toDTO_WithDirectDonation_ShouldReturnNullCampaignFieldsAndNotDeleted() {
+        // Given
+        Donation donation = Donation.builder().id(10L).donor(donor).recipient(recipientWithName("owner_user", 7L))
+                .campaign(null).campaignId(null).amount(new BigDecimal("5.0")).build();
+
+        // When
+        DonationResponseDTO dto = donationMapper.toDTO(donation, Map.of());
+
+        // Then
+        assertThat(dto.getCampaignId()).isNull();
+        assertThat(dto.getCampaignName()).isNull();
+        assertThat(dto.getCampaignDeleted()).isFalse();
+        assertThat(dto.getRecipientUserId()).isEqualTo(7L);
+    }
+
+    @Test
     @DisplayName("Should keep the donation anonymous when the donor is deleted (relation null)")
     void toDTO_WithDeletedDonor_ShouldReturnNullDonorFields() {
         // Given
@@ -248,6 +310,15 @@ class DonationMapperTest {
         // Then
         assertThat(dto.getDonorUserId()).isEqualTo(5L);
         assertThat(dto.getDonorUserName()).isNull();
+    }
+
+    private User recipientWithName(String userName, Long id) {
+        UserInfo info = new UserInfo();
+        info.setUserName(userName);
+        User recipient = new User();
+        recipient.setId(id);
+        recipient.setUserInfo(info);
+        return recipient;
     }
 
     private DonationRepository.SupporterProjection supporterRow(Long donorUserId, BigDecimal totalAmount,

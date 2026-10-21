@@ -4,6 +4,8 @@ import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,7 +25,8 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     List<Donation> findByCampaign(Campaign campaign);
 
     // Loads each donor with its inverse @OneToOne in the same SELECT. All joins are LEFT: a soft-deleted donor stays
-    // null (@NotFound) instead of removing the row. d.campaign comes from the persistence context
+    // null (@NotFound) instead of removing the row. d.campaign comes from the persistence context.
+    // d.recipient is not fetched on purpose: it is the campaign owner, already in the persistence context
     @Query("SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
             "LEFT JOIN FETCH du.verificationRequest WHERE d.campaign = :campaign ORDER BY d.createdAt DESC")
     List<Donation> findByCampaignOrderByCreatedAtDesc(@Param("campaign") Campaign campaign);
@@ -33,13 +36,25 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     @Query("SELECT d FROM Donation d WHERE d.campaignId = :campaignId ORDER BY d.createdAt DESC")
     List<Donation> findByCampaignIdOrderByCreatedAtDesc(@Param("campaignId") Long campaignId);
 
-    // Loads the donor and the campaign (with its goal and owner) in the same SELECT. All joins are LEFT: a
-    // soft-deleted donor or campaign stays null (@NotFound) instead of removing the row
+    // Loads the donor, the recipient and the campaign (with its goal and owner) in the same SELECT. All joins are
+    // LEFT: a soft-deleted donor, recipient or campaign stays null (@NotFound) instead of removing the row.
+    // @NotFound makes d.recipient EAGER: without the fetch every row would load its recipient on its own
     @Query("SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
-            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
+            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.recipient r LEFT JOIN FETCH r.userInfo " +
+            "LEFT JOIN FETCH r.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
             "LEFT JOIN FETCH c.user cu LEFT JOIN FETCH cu.userInfo LEFT JOIN FETCH cu.verificationRequest " +
             "WHERE d.donorUserId = :donorId ORDER BY d.createdAt DESC")
     List<Donation> findByDonorIdOrderByCreatedAtDesc(@Param("donorId") Long donorId);
+
+    // Every donation received by a user: direct ones and the ones to their campaigns. Filters by the read-only FK,
+    // not the relation. Only to-one fetches, so paging stays in SQL; the FETCH needs an explicit countQuery.
+    // The owner of each campaign is the recipient itself, already in the persistence context
+    @Query(value = "SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
+            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.recipient r LEFT JOIN FETCH r.userInfo " +
+            "LEFT JOIN FETCH r.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
+            "WHERE d.recipientUserId = :recipientId",
+            countQuery = "SELECT COUNT(d) FROM Donation d WHERE d.recipientUserId = :recipientId")
+    Page<Donation> findByRecipientId(@Param("recipientId") Long recipientId, Pageable pageable);
 
     @Query("SELECT COUNT(d) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countCompletedDonationsByCampaignId(@Param("campaignId") Long campaignId);
@@ -47,14 +62,15 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
     @Query("SELECT COUNT(DISTINCT d.donorUserId) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countUniqueDonorsByCampaignId(@Param("campaignId") Long campaignId);
 
-    // Native: the @SQLRestriction of campaign and [user] does not apply, so deleted campaigns and donors are counted.
+    // Native: filters by recipient_user_id, so direct donations and donations to the creator's campaigns both count,
+    // and the @SQLRestriction of campaign and [user] does not apply: deleted campaigns and donors are counted.
     // SQL Server can't use an alias inside an ORDER BY expression nor parametrize ASC/DESC: one CASE per field and
     // direction, the ones that don't apply are NULL on every row. donor_user_id ASC is the fixed tie-breaker
     @Query(nativeQuery = true, value = """
             SELECT d.donor_user_id AS donorUserId, SUM(d.amount) AS totalAmount,
                    COUNT_BIG(*) AS donationsCount, MAX(d.created_at) AS lastDonationAt
-            FROM donation d JOIN campaign c ON c.id = d.campaign_id
-            WHERE c.user_id = :creatorId AND d.status = 'COMPLETED'
+            FROM donation d
+            WHERE d.recipient_user_id = :creatorId AND d.status = 'COMPLETED'
             GROUP BY d.donor_user_id
             ORDER BY
               CASE WHEN :sortBy = 'totalAmount'    AND :descending = 1 THEN SUM(d.amount) END DESC,
@@ -70,8 +86,8 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
 
     @Query(nativeQuery = true, value = """
             SELECT COUNT_BIG(DISTINCT d.donor_user_id)
-            FROM donation d JOIN campaign c ON c.id = d.campaign_id
-            WHERE c.user_id = :creatorId AND d.status = 'COMPLETED'
+            FROM donation d
+            WHERE d.recipient_user_id = :creatorId AND d.status = 'COMPLETED'
             """)
     long countSupportersByCreatorId(@Param("creatorId") Long creatorId);
 
