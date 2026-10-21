@@ -26,7 +26,7 @@
    3. QA corre la **suite completa una sola vez** y los criterios de aceptación que falten.
 4. **Docs:** `doc-writer` actualiza `docs/arquitectura/` en una sola pasada (commit `docs: …`). Ahí también anota las recomendaciones de mejora del arquitecto en `docs/arquitectura/recomendaciones-de-arquitectura.md`.
 5. **Criterios de aceptación:** si todos pasan, marca `[x]`, pone **Estado:** `implementado` y mueve el spec a `specs/implementados/`.
-6. **Informe final:** commits, revisión, arquitectura, recomendaciones, criterios, docs actualizados y la recomendación sobre generar el prompt de Claude Design.
+6. **Informe final:** commits, revisión, arquitectura, recomendaciones, criterios, docs actualizados y una línea que dice si la rama cambió la API (si la cambió, conviene correr `/design-prompt`).
 
 ## Cuándo se detiene a preguntarte
 
@@ -44,7 +44,7 @@ Si tu sesión tiene notificaciones, te avisa.
 - **QA reutiliza los usuarios** de "Datos de prueba" en `specs/issues-endpoint.md` (`Passw0rd!`, `qa18adm` como ADMIN). No crea usuarios, puede borrar o banear usuarios porque es una base de prueba, y al final anota los cambios en ese registro.
 - **Modelos:** los agentes corren con `sonnet`/`medium` u `opus`/`medium`, según el paso; el orquestador corre con esfuerzo medio.
 - **Retomar:** si se corta la sesión, volvé a correr `/spec-team NN`. Lee `specs/.progress/NN-slug.md` (se actualiza al final de cada paso) y te propone desde qué paso seguir. Un paso que quedó a medias se rehace desde el principio.
-- **Prompt de Claude Design:** nunca lo genera solo. Te recomienda generarlo ahora, esperar o que no hace falta. Para generarlo, pedíselo o corré `/design-prompt`.
+- **Prompt de Claude Design:** no es parte de `/spec-team`. Se genera aparte con `/design-prompt`, que antes te avisa si conviene esperar a un spec pendiente que vuelve a cambiar la misma API.
 
 ## Comandos relacionados
 
