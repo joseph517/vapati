@@ -64,6 +64,7 @@ CREATE TABLE user_info (
     phone VARCHAR(20) NOT NULL UNIQUE,
     description TEXT NOT NULL,
     profile_picture VARCHAR(500) NULL,
+    auto_thanks_message VARCHAR(280) NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
