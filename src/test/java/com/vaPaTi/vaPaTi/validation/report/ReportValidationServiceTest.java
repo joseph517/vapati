@@ -15,6 +15,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -56,6 +58,8 @@ class ReportValidationServiceTest {
     private PublicationRepository publicationRepository;
     @Mock
     private CampaignValidationService campaignValidationService;
+    @Spy
+    private AccountStatusValidationService accountStatusValidationService;
 
     @InjectMocks
     private ReportValidationService reportValidationService;
@@ -374,6 +378,52 @@ class ReportValidationServiceTest {
             // Then
             verify(userRepository).findById(2L);
             assertThat(testUser.getDeletedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException (404) when a USER reports a blocked user")
+        void validateEntityExists_WithBlockedUserAndUserReporter_ShouldThrowNotFound() {
+            // Given
+            testUser.setBanned(true);
+            when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
+            when(userRepository.existsByIdAndRole_Name(REPORTER_ID, "ADMIN")).thenReturn(false);
+
+            // When & Then
+            assertThatThrownBy(() -> reportValidationService.validateEntityExists(
+                    ReportedEntityType.USER, 2L, REPORTER_ID
+            ))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("User not found");
+        }
+
+        @Test
+        @DisplayName("Should return the user id when an ADMIN reports a blocked user")
+        void validateEntityExists_WithBlockedUserAndAdminReporter_ShouldReturnUserId() {
+            // Given
+            testUser.setSuspendedUntil(LocalDateTime.now().plusDays(1));
+            when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
+            when(userRepository.existsByIdAndRole_Name(REPORTER_ID, "ADMIN")).thenReturn(true);
+
+            // When
+            Long ownerId = reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, REPORTER_ID);
+
+            // Then
+            assertThat(ownerId).isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("Should return the user id without checking the reporter's role when the user is not blocked")
+        void validateEntityExists_WithNotBlockedUser_ShouldNotCheckRole() {
+            // Given
+            testUser.setSuspendedUntil(LocalDateTime.now().minusDays(1));
+            when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
+
+            // When
+            Long ownerId = reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, REPORTER_ID);
+
+            // Then
+            assertThat(ownerId).isEqualTo(2L);
+            verify(userRepository, never()).existsByIdAndRole_Name(any(), any());
         }
     }
 

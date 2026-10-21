@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
@@ -35,6 +37,9 @@ class DonationValidationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private UserValidationService userValidationService;
 
     @InjectMocks
     private DonationValidationService donationValidationService;
@@ -83,22 +88,60 @@ class DonationValidationServiceTest {
             validDTO.setCampaignId(1L);
             validDTO.setAmount(new BigDecimal("100.0"));
 
-            // When & Then (should not throw exception)
-            donationValidationService.validateInput(validDTO);
+            // When & Then
+            assertThatCode(() -> donationValidationService.validateInput(validDTO)).doesNotThrowAnyException();
         }
 
         @Test
-        @DisplayName("Should throw MessageException when campaign ID is null")
-        void validateInput_WhenCampaignIdIsNull_ShouldThrowMessageException() {
+        @DisplayName("Should validate successfully with only a recipient user ID")
+        void validateInput_WhenOnlyRecipientUserId_ShouldNotThrowException() {
             // Given
-            CreateDonationDTO dtoWithNullCampaignId = new CreateDonationDTO();
-            dtoWithNullCampaignId.setCampaignId(null);
-            dtoWithNullCampaignId.setAmount(new BigDecimal("100.0"));
+            CreateDonationDTO directDTO = new CreateDonationDTO();
+            directDTO.setRecipientUserId(5L);
+            directDTO.setAmount(new BigDecimal("100.0"));
 
             // When & Then
-            assertThatThrownBy(() -> donationValidationService.validateInput(dtoWithNullCampaignId))
+            assertThatCode(() -> donationValidationService.validateInput(directDTO)).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when neither campaign ID nor recipient user ID is set")
+        void validateInput_WhenNoDestination_ShouldThrowMessageException() {
+            // Given
+            CreateDonationDTO dtoWithoutDestination = new CreateDonationDTO();
+            dtoWithoutDestination.setAmount(new BigDecimal("100.0"));
+
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateInput(dtoWithoutDestination))
                     .isInstanceOf(MessageException.class)
-                    .hasMessage("Campaign ID is required");
+                    .hasMessage("Campaign ID or recipient user ID is required");
+        }
+
+        @Test
+        @DisplayName("Should throw MessageException when both campaign ID and recipient user ID are set")
+        void validateInput_WhenBothDestinations_ShouldThrowMessageException() {
+            // Given
+            CreateDonationDTO dtoWithBoth = new CreateDonationDTO();
+            dtoWithBoth.setCampaignId(1L);
+            dtoWithBoth.setRecipientUserId(5L);
+            dtoWithBoth.setAmount(new BigDecimal("100.0"));
+
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateInput(dtoWithBoth))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Only one of campaignId or recipientUserId can be set");
+        }
+
+        @Test
+        @DisplayName("Should check the destination before the amount")
+        void validateInput_WhenNoDestinationAndNoAmount_ShouldReportDestinationFirst() {
+            // Given
+            CreateDonationDTO emptyDTO = new CreateDonationDTO();
+
+            // When & Then
+            assertThatThrownBy(() -> donationValidationService.validateInput(emptyDTO))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Campaign ID or recipient user ID is required");
         }
 
         @Test

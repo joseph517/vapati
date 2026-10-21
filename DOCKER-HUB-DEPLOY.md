@@ -283,6 +283,23 @@ Con esto, un `git push origin main` directo es rechazado, y el botón de merge d
 4. Con el check en verde → **Merge pull request** (merge commit).
 5. El merge dispara el workflow en `main`: tests → build → push de `latest`. Lo seguís en la pestaña **Actions**. Tarda unos minutos, más la primera vez porque no hay caché.
 6. Verificás el tag nuevo en Docker Hub.
+7. **Si la versión trae un script de migración, corrélo antes de actualizar el servidor.** Hoy es `scripts/migrate-donation-recipient.sql` (la donación directa: agrega `donation.recipient_user_id` y deja `donation.campaign_id` nullable). `ddl-auto=update` no puede hacer ese cambio, y el código nuevo da `409` en una donación directa sin él. Se corre con la app **detenida** y **antes** del `pull` y el `up`: con la app parada no queda ninguna ventana de error, porque el código viejo no escribe `recipient_user_id` y con la columna ya `NOT NULL` sus donaciones darían `409`. El servidor no tiene el código fuente, así que copiá el script como en la sección 4.2:
+
+   ```bash
+   # En tu máquina
+   scp scripts/migrate-donation-recipient.sql usuario@servidor:/ruta/de/despliegue/
+
+   # En el servidor, dentro de esa carpeta
+   docker compose -f docker-compose.prod.yml stop app
+   docker cp migrate-donation-recipient.sql db_vapati_prod:/tmp/migrate-donation-recipient.sql
+   docker exec db_vapati_prod /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD>' -C -I -b -d ApiVaPaTiJava -i /tmp/migrate-donation-recipient.sql
+   docker compose -f docker-compose.prod.yml pull
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+
+   - `-I` es obligatorio (sin él aparece el Msg 1934 por el índice filtrado de `transaction_id`) y `-b` corta en el primer error: si falla, no levantes la imagen nueva.
+   - El script es idempotente: una segunda corrida no cambia nada.
+   - Antes, en producción, comprobá que no haya una FK ni un índice sobre `donation.campaign_id` que impidan el `ALTER COLUMN` (`EXEC sp_fkeys @fktable_name = 'donation'; EXEC sp_helpindex 'donation';`) y que `SELECT COUNT(*) FROM donation d LEFT JOIN campaign c ON c.id = d.campaign_id WHERE c.id IS NULL` dé `0`. Si el `ALTER` falla por una FK o un índice, el paso 5 reservado del script es el lugar para borrarlos y recrearlos con sus nombres reales.
 
 > Un **Rerun** de un workflow viejo en `main` vuelve a publicar ese código viejo como `latest`. Si necesitás volver atrás, preferí el rollback por tag (sección 7.4).
 
@@ -381,6 +398,14 @@ docker compose -f docker-compose.prod.yml up -d app
 Solo se puede volver a imágenes que tienen versión. Un merge sin tag `vX.Y.Z` queda publicado únicamente como `latest`, y el siguiente merge lo reemplaza. Para poder volver a cualquier merge, activá el tag `sha-<commit>` (nota de la sección 7).
 
 > ⚠️ El rollback de la imagen **no revierte cambios en la base de datos**. Si la versión nueva modificó el esquema (`schema.sql`/`data.sql`), revisá que la versión anterior siga siendo compatible.
+
+> ⚠️ **Rollback a una imagen anterior a la donación directa.** `scripts/migrate-donation-recipient.sql` dejó `donation.recipient_user_id` en `NOT NULL`, y el código viejo no escribe esa columna: con ella así, **toda donación** (también a una campaña) respondería `409`. Antes de volver a esa imagen, hacela nullable:
+>
+> ```bash
+> docker exec db_vapati_prod /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD>' -C -I -b -d ApiVaPaTiJava -Q "ALTER TABLE donation ALTER COLUMN recipient_user_id BIGINT NULL"
+> ```
+>
+> `campaign_id` puede quedar nullable. Las donaciones directas que ya existan tienen `campaign_id` en `NULL`, algo que el código viejo no contemplaba: no las borres, pero no esperes que esa imagen las lea bien.
 
 ### 7.5. Troubleshooting
 

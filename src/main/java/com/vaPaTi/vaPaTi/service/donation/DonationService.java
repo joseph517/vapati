@@ -2,6 +2,8 @@ package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.CampaignStatisticsDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.CreateDonationThanksDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.DonationCreatedResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
@@ -9,6 +11,7 @@ import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
@@ -21,6 +24,10 @@ import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -47,42 +54,68 @@ public class DonationService {
     private final CampaignAuthorizationService campaignAuthorizationService;
 
     @Transactional
-    public DonationResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
+    public DonationCreatedResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
         // Get authenticated user
         Long donorUserId = authenticatedUserService.getAuthenticatedUserId();
 
         // Validate input
         donationValidationService.validateInput(dto);
 
-        // Validate campaign exists, is visible to the donor and is not deleted (before the status check)
-        Campaign campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId(), donorUserId);
+        // Normalize the optional message. A private flag without a message has nothing to hide
+        String message = donationValidationService.validateAndNormalizeMessage(dto.getMessage());
+        boolean messagePrivate = message != null && Boolean.TRUE.equals(dto.getMessagePrivate());
 
-        // Validate goal is active
-        Goal goal = campaign.getGoal();
-        donationValidationService.validateGoalIsActive(goal);
-
-        // Validate donor user exists
-        User donor = donationValidationService.validateAndGetDonor(donorUserId);
-
-        // Validate not self-donation
-        donationValidationService.validateNotSelfDonation(donorUserId, campaign.getUser().getId());
+        // validateInput guarantees exactly one destination: a campaign or a user (direct donation)
+        Campaign campaign = null;
+        User recipient;
+        User donor;
+        if (dto.getCampaignId() != null) {
+            // Validate campaign exists, is visible to the donor and is not deleted (before the status check)
+            campaign = donationValidationService.validateAndGetCampaign(dto.getCampaignId(), donorUserId);
+            donationValidationService.validateGoalIsActive(campaign.getGoal());
+            donor = donationValidationService.validateAndGetDonor(donorUserId);
+            donationValidationService.validateNotSelfDonation(donorUserId, campaign.getUser().getId());
+            // Never null: campaigns of deleted owners are not visible
+            recipient = campaign.getUser();
+        } else {
+            // A direct donation: no campaign, no goal and no status history
+            recipient = donationValidationService.validateAndGetRecipient(dto.getRecipientUserId());
+            donor = donationValidationService.validateAndGetDonor(donorUserId);
+            donationValidationService.validateNotSelfDirectDonation(donorUserId, recipient.getId());
+        }
 
         // Auto-approve: System simulates validation
         // In production, this would integrate with payment gateway
         Donation donation = Donation.builder()
                 .donor(donor)
+                .recipient(recipient)
                 .campaign(campaign)
                 .amount(dto.getAmount())
                 .status(DonationStatus.COMPLETED)
                 .transactionId(generateTransactionId())
+                .message(message)
+                .messagePrivate(messagePrivate)
                 .build();
 
         Donation savedDonation = donationRepository.save(donation);
 
-        // The sum and the auto-complete are atomic UPDATEs, the last writes on the goal: its row stays
-        // locked only from here to the commit. The goal in memory is stale after this and is not used again.
+        if (campaign != null) {
+            addToCampaignGoal(campaign, dto.getAmount());
+        }
+
+        // The recipient's current default thanks travels only in this response, it is not copied into the donation
+        return DonationCreatedResponseDTO.builder()
+                .donation(donationMapper.toDTO(savedDonation))
+                .autoThanksMessage(findAutoThanksMessage(recipient))
+                .build();
+    }
+
+    // The sum and the auto-complete are atomic UPDATEs, the last writes on the goal: its row stays
+    // locked only from here to the commit. The goal in memory is stale after this and is not used again.
+    private void addToCampaignGoal(Campaign campaign, BigDecimal amount) {
+        Goal goal = campaign.getGoal();
         LocalDateTime now = LocalDateTime.now();
-        if (goalRepository.addToAmountRaised(goal.getId(), dto.getAmount(), now) == 0) {
+        if (goalRepository.addToAmountRaised(goal.getId(), amount, now) == 0) {
             // The campaign was closed after the validation: the transaction rolls back the donation too
             throw new MessageException("Campaign goal is not active");
         }
@@ -90,8 +123,48 @@ public class DonationService {
         if (goalRepository.completeIfGoalReached(goal.getId(), now) == 1) {
             campaignStatusHistoryService.recordTransition(campaign, CampaignStatus.ACTIVE, CampaignStatus.COMPLETED, null);
         }
+    }
 
-        return donationMapper.toDTO(savedDonation);
+    private String findAutoThanksMessage(User recipient) {
+        UserInfo recipientInfo = recipient != null ? recipient.getUserInfo() : null;
+        return recipientInfo != null ? recipientInfo.getAutoThanksMessage() : null;
+    }
+
+    // One reply per donation, only by the recipient. It is not editable: it has to be deleted to reply again
+    @Transactional
+    public DonationResponseDTO thankDonation(Long donationId, @NotNull CreateDonationThanksDTO dto) {
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+
+        String thanksMessage = donationValidationService.validateAndNormalizeThanksMessage(dto.getThanksMessage());
+
+        Donation donation = donationValidationService.validateAndGetDonation(donationId);
+        donationValidationService.validateDonationCampaignNotDeleted(donation);
+        donationValidationService.validateIsRecipient(donation, callerId);
+        donationValidationService.validateDonationCompleted(donation);
+        donationValidationService.validateHasNoThanks(donation);
+
+        donation.setThanksMessage(thanksMessage);
+        donation.setThanksPrivate(Boolean.TRUE.equals(dto.getThanksPrivate()));
+        donation.setThankedAt(LocalDateTime.now());
+
+        return donationMapper.toDTO(donationRepository.save(donation));
+    }
+
+    // The recipient or an ADMIN. Clears the three fields together, so the recipient can reply again
+    @Transactional
+    public DonationResponseDTO deleteDonationThanks(Long donationId) {
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+
+        Donation donation = donationValidationService.validateAndGetDonation(donationId);
+        donationValidationService.validateDonationCampaignNotDeleted(donation);
+        donationValidationService.validateIsRecipientOrAdmin(donation, callerId);
+        donationValidationService.validateHasThanks(donation);
+
+        donation.setThanksMessage(null);
+        donation.setThanksPrivate(false);
+        donation.setThankedAt(null);
+
+        return donationMapper.toDTO(donationRepository.save(donation));
     }
 
     @Transactional
@@ -101,13 +174,27 @@ public class DonationService {
         return donationMapper.toDTOList(donations, findDeletedCampaignNames(donations));
     }
 
+    // Everything the authenticated user received, direct and to their campaigns, without hiding anything: the
+    // recipient sees transactionId, private messages and private replies. id desc is the fixed tie-breaker
+    @Transactional
+    public Page<DonationResponseDTO> getDonationsReceived(Pageable pageable) {
+        Long recipientId = authenticatedUserService.getAuthenticatedUserId();
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
+
+        Page<Donation> page = donationRepository.findByRecipientId(recipientId, sorted);
+        Map<Long, String> deletedCampaignNames = findDeletedCampaignNames(page.getContent());
+
+        return page.map(donation -> donationMapper.toDTO(donation, deletedCampaignNames));
+    }
+
     /**
      * Donations to a soft-deleted campaign have a null campaign relation. Their names are
      * fetched in a single native query that bypasses the soft-delete restriction.
      */
     private Map<Long, String> findDeletedCampaignNames(List<Donation> donations) {
         List<Long> deletedCampaignIds = donations.stream()
-                .filter(donation -> donation.getCampaign() == null)
+                .filter(donation -> donation.getCampaignId() != null && donation.getCampaign() == null)
                 .map(Donation::getCampaignId)
                 .distinct()
                 .toList();
@@ -129,17 +216,30 @@ public class DonationService {
         List<Donation> donations = donationRepository.findByCampaignOrderByCreatedAtDesc(campaign);
         List<DonationResponseDTO> dtos = donationMapper.toDTOList(donations);
 
-        // The transaction id is the payment reference: the campaign owner and admins see all of them,
-        // a donor only their own, and anyone else (anonymous included) none. The donor stays public.
-        if (!canSeeAllTransactionIds(campaign, callerId)) {
+        // The transaction id (the payment reference), a private message and a private reply are seen by the
+        // campaign owner and admins on every donation, by a donor on their own, and by anyone else (anonymous
+        // included) on none. A hidden private message or reply looks like no message or reply at all, without
+        // thankedAt either. The donor stays public.
+        if (!canSeePrivateDonationData(campaign, callerId)) {
             dtos.stream()
                     .filter(dto -> callerId == null || !callerId.equals(dto.getDonorUserId()))
-                    .forEach(dto -> dto.setTransactionId(null));
+                    .forEach(dto -> {
+                        dto.setTransactionId(null);
+                        if (Boolean.TRUE.equals(dto.getMessagePrivate())) {
+                            dto.setMessage(null);
+                            dto.setMessagePrivate(false);
+                        }
+                        if (Boolean.TRUE.equals(dto.getThanksPrivate())) {
+                            dto.setThanksMessage(null);
+                            dto.setThanksPrivate(false);
+                            dto.setThankedAt(null);
+                        }
+                    });
         }
         return dtos;
     }
 
-    private boolean canSeeAllTransactionIds(Campaign campaign, Long callerId) {
+    private boolean canSeePrivateDonationData(Campaign campaign, Long callerId) {
         if (callerId == null) {
             return false;
         }

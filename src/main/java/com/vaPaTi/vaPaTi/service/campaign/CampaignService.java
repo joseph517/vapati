@@ -28,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,7 +56,7 @@ public class CampaignService {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findAllWithActiveOwner()
-                : campaignRepository.findAllVisibleTo(callerId);
+                : campaignRepository.findAllVisibleTo(callerId, LocalDateTime.now());
 
         return toResponseDTOsWithCategories(campaigns);
     }
@@ -113,7 +114,7 @@ public class CampaignService {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus)
-                : campaignRepository.findByGoalStatusVisibleTo(campaignStatus, callerId);
+                : campaignRepository.findByGoalStatusVisibleTo(campaignStatus, callerId, LocalDateTime.now());
 
         return toResponseDTOsWithCategories(campaigns);
     }
@@ -123,7 +124,7 @@ public class CampaignService {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findByCategoryIdWithActiveOwner(categoryId)
-                : campaignRepository.findByCategoryIdVisibleTo(categoryId, callerId);
+                : campaignRepository.findByCategoryIdVisibleTo(categoryId, callerId, LocalDateTime.now());
 
         return toResponseDTOsWithCategories(campaigns);
     }

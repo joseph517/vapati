@@ -2,11 +2,13 @@ package com.vaPaTi.vaPaTi.repository.follower;
 
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,5 +39,23 @@ public interface FollowerRepository extends JpaRepository<Follower, Long> {
     // Count following, excluding deleted users (same rule as findFollowingsByFollower)
     @Query("SELECT COUNT(f) FROM Follower f JOIN f.user u WHERE f.follower = :follower AND u.deletedAt IS NULL")
     long countByFollower(@Param("follower") User follower);
+
+    // *Visible* queries are for non-admins: same as the ones above, without banned or currently suspended users
+
+    @Query("SELECT f FROM Follower f JOIN FETCH f.follower u JOIN FETCH u.userInfo " +
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.user = :user AND " + UserRepository.NOT_BLOCKED)
+    List<Follower> findVisibleFollowersByUser(@Param("user") User user, @Param("now") LocalDateTime now);
+
+    @Query("SELECT f FROM Follower f JOIN FETCH f.user u JOIN FETCH u.userInfo " +
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.follower = :follower AND " + UserRepository.NOT_BLOCKED)
+    List<Follower> findVisibleFollowingsByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
+
+    @Query("SELECT COUNT(f) FROM Follower f JOIN f.follower u WHERE f.user = :user AND u.deletedAt IS NULL AND " +
+            UserRepository.NOT_BLOCKED)
+    long countVisibleByUser(@Param("user") User user, @Param("now") LocalDateTime now);
+
+    @Query("SELECT COUNT(f) FROM Follower f JOIN f.user u WHERE f.follower = :follower AND u.deletedAt IS NULL AND " +
+            UserRepository.NOT_BLOCKED)
+    long countVisibleByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
 
 }

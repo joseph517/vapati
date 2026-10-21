@@ -14,6 +14,8 @@ import com.vaPaTi.vaPaTi.mapper.user.UserInfoMapper;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserInfoRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +35,7 @@ public class UserValidationService {
     private static final String DTO_NULL_ERROR = "DTO must not be null";
     private static final String USER_NULL_ERROR = "User must not be null";
     private static final String ADMIN_ROLE = "ADMIN";
+    private static final int MAX_AUTO_THANKS_LENGTH = 280;
     private static final Set<Character> SPECIAL_CHARS = Set.of(
             '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
             ',', '.', '?', '"', ':', '{', '}', '|', '<', '>'
@@ -42,6 +45,8 @@ public class UserValidationService {
     private final UserInfoRepository userInfoRepository;
     private final UserRepository userRepository;
     private final UserInfoMapper userInfoMapper;
+    private final AccountStatusValidationService accountStatusValidationService;
+    private final TextValidationService textValidationService;
 
     public void validateCategoryLimit( List<Long> categoryIds) {
         if (categoryIds.isEmpty()) {
@@ -240,6 +245,13 @@ public class UserValidationService {
                 .orElse(false);
     }
 
+    // A banned or currently suspended user is hidden like a missing one: 404 without revealing the sanction
+    public void validateProfileNotBlocked(User user) {
+        if (accountStatusValidationService.isBlocked(user)) {
+            throw new ResourceNotFoundException(USER_NOT_FOUND);
+        }
+    }
+
     public boolean existsById(Long id) {
         return userRepository.existsById(id);
     }
@@ -250,6 +262,11 @@ public class UserValidationService {
         }
 
         user.setUpdatedAt(LocalDateTime.now());
+    }
+
+    // The length check repeats the DTO's @Size, as validateAndNormalizeMessage does for donations
+    public String validateAndNormalizeAutoThanksMessage(String autoThanksMessage) {
+        return textValidationService.normalizeRequiredText(autoThanksMessage, "Auto thanks message", MAX_AUTO_THANKS_LENGTH);
     }
 
     public void updateUserInfoTimestamp(UserInfo userInfo) {

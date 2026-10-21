@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.entity.user.Role;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
+import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
@@ -417,6 +418,36 @@ class UserServiceGetUserByIdTest {
             assertInstanceOf(PublicUserProfileDTO.class, result);
             assertSame(publicProfile, result);
             verify(userMapper, never()).toUserDTO(any());
+        }
+
+        @Test
+        @DisplayName("A third party asking for a blocked user gets 404, without mapping the public profile")
+        void thirdPartyCaller_BlockedUser_ShouldThrowNotFound() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
+            when(userValidationService.isAdmin(otherUserId)).thenReturn(false);
+            doThrow(new ResourceNotFoundException("User not found"))
+                    .when(userValidationService).validateProfileNotBlocked(existingUser);
+
+            ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
+                    () -> userService.getUserById(validUserId));
+
+            assertEquals("User not found", exception.getMessage());
+            verify(userMapper, never()).toPublicUserProfileDTO(any());
+            verify(userMapper, never()).toUserDTO(any());
+        }
+
+        @Test
+        @DisplayName("An ADMIN asking for a blocked user gets the UserDTO, without the blocked check")
+        void adminCaller_BlockedUser_ShouldReturnUserDTO() {
+            existingUser.setBanned(true);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
+            when(userValidationService.isAdmin(otherUserId)).thenReturn(true);
+            when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+
+            Object result = userService.getUserById(validUserId);
+
+            assertSame(expectedUserDTO, result);
+            verify(userValidationService, never()).validateProfileNotBlocked(any());
         }
     }
 }

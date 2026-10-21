@@ -18,12 +18,19 @@ public class DonationResponseDTO {
     private Long id;
     private Long donorUserId;
     private String donorUserName;
+    private Long recipientUserId;
+    private String recipientUserName;
     private Long campaignId;
     private String campaignName;
     private Boolean campaignDeleted;
     private BigDecimal amount;
     private DonationStatus status;
     private String transactionId;
+    private String message;
+    private Boolean messagePrivate;
+    private String thanksMessage;
+    private Boolean thanksPrivate;
+    private LocalDateTime thankedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

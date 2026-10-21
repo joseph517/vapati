@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -32,11 +33,11 @@ public class CampaignValidationService {
     }
 
     // callerId may be null (anonymous). An admin sees every campaign of an active owner; the rest don't see
-    // a CLOSED campaign of someone else
+    // a CLOSED campaign of someone else, nor any campaign of a banned or currently suspended owner
     public Optional<Campaign> findVisibleCampaignById(Long campaignId, Long callerId) {
         return campaignAuthorizationService.isAdmin(callerId)
                 ? campaignRepository.findByIdWithActiveOwner(campaignId)
-                : campaignRepository.findByIdVisibleTo(campaignId, callerId);
+                : campaignRepository.findByIdVisibleTo(campaignId, callerId, LocalDateTime.now());
     }
 
     // callerId may be null (anonymous). A CLOSED campaign of someone else gets the same 404 as a missing one

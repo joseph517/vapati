@@ -150,7 +150,7 @@ class DonationServiceTest {
             when(donationMapper.toDTO(testDonation)).thenReturn(donationResponseDTO);
 
             // When
-            DonationResponseDTO result = donationService.createDonation(createDonationDTO);
+            DonationResponseDTO result = donationService.createDonation(createDonationDTO).getDonation();
 
             // Then
             assertThat(result).isNotNull().isEqualTo(donationResponseDTO);
@@ -213,6 +213,32 @@ class DonationServiceTest {
             Donation savedDonation = donationCaptor.getValue();
             assertThat(savedDonation.getTransactionId()).isNotNull();
             assertThat(savedDonation.getTransactionId()).startsWith("TXN-");
+        }
+
+        @Test
+        @DisplayName("Should save the campaign owner as the recipient of a campaign donation")
+        void createDonation_ShouldSetCampaignOwnerAsRecipient() {
+            // Given
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            doNothing().when(donationValidationService).validateInput(createDonationDTO);
+            when(donationValidationService.validateAndGetCampaign(TEST_CAMPAIGN_ID, TEST_DONOR_ID)).thenReturn(testCampaign);
+            doNothing().when(donationValidationService).validateGoalIsActive(testGoal);
+            when(donationValidationService.validateAndGetDonor(TEST_DONOR_ID)).thenReturn(testDonor);
+            doNothing().when(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            when(donationRepository.save(any(Donation.class))).thenReturn(testDonation);
+            givenAmountAdded();
+            when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
+
+            ArgumentCaptor<Donation> donationCaptor = ArgumentCaptor.forClass(Donation.class);
+
+            // When
+            donationService.createDonation(createDonationDTO);
+
+            // Then
+            verify(donationRepository).save(donationCaptor.capture());
+            Donation savedDonation = donationCaptor.getValue();
+            assertThat(savedDonation.getRecipient()).isSameAs(testCampaignOwner);
+            assertThat(savedDonation.getCampaign()).isSameAs(testCampaign);
         }
 
         @Test
@@ -348,7 +374,7 @@ class DonationServiceTest {
             when(donationMapper.toDTO(any(Donation.class))).thenReturn(donationResponseDTO);
 
             // When
-            DonationResponseDTO result = donationService.createDonation(createDonationDTO);
+            DonationResponseDTO result = donationService.createDonation(createDonationDTO).getDonation();
 
             // Then
             assertThat(result).isNotNull();
@@ -491,6 +517,24 @@ class DonationServiceTest {
             // Then
             verify(campaignRepository, times(1)).findNamesByIdsIncludingDeleted(List.of(20L));
             verify(donationMapper).toDTOList(donations, Map.of(20L, "Deleted campaign"));
+        }
+
+        @Test
+        @DisplayName("Should not query deleted campaign names when there are only direct donations")
+        void getDonationsByAuthenticatedUser_WithOnlyDirectDonations_ShouldNotQueryDeletedNames() {
+            // Given
+            Donation direct = Donation.builder().id(12L).donor(testDonor).campaign(null).campaignId(null).build();
+            List<Donation> donations = List.of(direct);
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(TEST_DONOR_ID);
+            when(donationRepository.findByDonorIdOrderByCreatedAtDesc(TEST_DONOR_ID)).thenReturn(donations);
+            when(donationMapper.toDTOList(donations, Map.of())).thenReturn(List.of(donationResponseDTO));
+
+            // When
+            donationService.getDonationsByAuthenticatedUser();
+
+            // Then
+            verify(campaignRepository, never()).findNamesByIdsIncludingDeleted(any());
+            verify(donationMapper).toDTOList(donations, Map.of());
         }
     }
 

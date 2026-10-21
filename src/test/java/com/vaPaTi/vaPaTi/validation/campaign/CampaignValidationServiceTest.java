@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -485,7 +486,7 @@ class CampaignValidationServiceTest {
         void findVisibleCampaignById_WhenVisible_ShouldReturnCampaign() {
             // Given
             when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
-            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.of(testCampaign));
 
             // When
             Optional<Campaign> result = campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
@@ -499,7 +500,7 @@ class CampaignValidationServiceTest {
         void findVisibleCampaignById_WhenNotVisible_ShouldReturnEmpty() {
             // Given: a CLOSED campaign of someone else is filtered out by the query
             when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
-            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.empty());
+            when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.empty());
 
             // When
             Optional<Campaign> result = campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
@@ -520,7 +521,48 @@ class CampaignValidationServiceTest {
 
             // Then
             assertThat(result).isEmpty();
-            verify(campaignRepository, never()).findByIdVisibleTo(any(), any());
+            verify(campaignRepository, never()).findByIdVisibleTo(any(), any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("findVisibleCampaignById hides campaigns of blocked owners (spec 45)")
+    class BlockedOwnerVisibilityTests {
+
+        private static final Long CAMPAIGN_ID = 1L;
+        private static final Long CALLER_ID = 3L;
+
+        @Test
+        @DisplayName("A non-admin passes now from the JVM clock to findByIdVisibleTo")
+        void findVisibleCampaignById_WhenNotAdmin_ShouldPassNowToFindByIdVisibleTo() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+            when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), nowCaptor.capture()))
+                    .thenReturn(Optional.empty());
+            LocalDateTime before = LocalDateTime.now();
+
+            // When
+            campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
+
+            // Then: the blocked-owner filter itself is JPQL, checked with curl
+            assertThat(nowCaptor.getValue()).isBetween(before, LocalDateTime.now());
+            verify(campaignRepository, never()).findByIdWithActiveOwner(any());
+        }
+
+        @Test
+        @DisplayName("An admin still uses findByIdWithActiveOwner, which doesn't hide blocked owners")
+        void findVisibleCampaignById_WhenAdmin_ShouldUseFindByIdWithActiveOwner() {
+            // Given
+            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
+
+            // When
+            Optional<Campaign> result = campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
+
+            // Then
+            assertThat(result).containsSame(testCampaign);
+            verify(campaignRepository, never()).findByIdVisibleTo(any(), any(), any());
         }
     }
 
@@ -543,7 +585,7 @@ class CampaignValidationServiceTest {
 
             // Then
             assertThat(result).isSameAs(testCampaign);
-            verify(campaignRepository, never()).findByIdVisibleTo(any(), any());
+            verify(campaignRepository, never()).findByIdVisibleTo(any(), any(), any());
         }
 
         @Test
@@ -551,7 +593,7 @@ class CampaignValidationServiceTest {
         void findVisibleCampaignByIdOrThrow_WhenNotAdmin_ShouldUseFindByIdVisibleTo() {
             // Given
             when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
-            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.of(testCampaign));
 
             // When
             Campaign result = campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID);
@@ -566,7 +608,7 @@ class CampaignValidationServiceTest {
         void findVisibleCampaignByIdOrThrow_WhenAnonymous_ShouldUseFindByIdVisibleToWithNull() {
             // Given
             when(campaignAuthorizationService.isAdmin(null)).thenReturn(false);
-            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, null)).thenReturn(Optional.of(testCampaign));
+            when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), isNull(), any(LocalDateTime.class))).thenReturn(Optional.of(testCampaign));
 
             // When
             Campaign result = campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, null);
@@ -581,7 +623,7 @@ class CampaignValidationServiceTest {
         void findVisibleCampaignByIdOrThrow_WhenNotVisible_ShouldThrowResourceNotFoundException() {
             // Given: a CLOSED campaign of someone else is filtered out by the query
             when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
-            when(campaignRepository.findByIdVisibleTo(CAMPAIGN_ID, CALLER_ID)).thenReturn(Optional.empty());
+            when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.empty());
 
             // When & Then: same message as findCampaignByIdOrThrow for a missing id
             assertThatThrownBy(() -> campaignValidationService.findVisibleCampaignByIdOrThrow(CAMPAIGN_ID, CALLER_ID))
