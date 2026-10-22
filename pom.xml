@@ -30,6 +30,10 @@
     <properties>
         <java.version>21</java.version>
         <testcontainers.version>1.21.2</testcontainers.version>
+        <!-- Overrides of Boot-managed versions to fix HIGH/CRITICAL CVEs in the 3.5.16 BOM
+             (Tomcat 10.1.55, Jackson 2.21.4). Remove each one when Boot ships >= that version. -->
+        <tomcat.version>10.1.61</tomcat.version>
+        <jackson-bom.version>2.21.8</jackson-bom.version>
         <docker.remote.api.version>1.56</docker.remote.api.version>
 		<!-- 
 		 Debe coincidir con el ApiVersion real del daemon usado para correr los
