@@ -48,7 +48,7 @@ start_app() {
     # target/classes goes first and as a directory, so DevTools restarts on .reloadtrigger.
     # JAVA_OPTS (Dockerfile.dev) is split into words on purpose.
     # shellcheck disable=SC2086
-    setsid java $JAVA_OPTS $DEBUG_JVM_ARGS -cp "$CLASSES_DIR:$(<"$CLASSPATH_FILE")" "$MAIN_CLASS" &
+    setsid java ${JAVA_OPTS:-} $DEBUG_JVM_ARGS -cp "$CLASSES_DIR:$(<"$CLASSPATH_FILE")" "$MAIN_CLASS" &
     APP_PID=$!
 }
 

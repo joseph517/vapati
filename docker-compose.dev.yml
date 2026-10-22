@@ -29,7 +29,7 @@ services:
       - |
         /opt/mssql/bin/sqlservr &
         sqlcmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b"
-        until $$sqlcmd -P "$$DB_PASSWORD" -Q "SELECT 1" >/dev/null 2>&1; do sleep 2; done
+        until $$sqlcmd -P "$$DB_PASSWORD" -Q "SELECT 1" >/dev/null 2>&1; do echo "waiting for SQL Server..."; sleep 2; done
         $$sqlcmd -P "$$DB_PASSWORD" -Q "EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'max server memory (MB)', 512; RECONFIGURE; IF DB_ID('ApiVaPaTiJava') IS NULL CREATE DATABASE ApiVaPaTiJava;"
         $$sqlcmd -P "$$DB_PASSWORD" -Q "IF SUSER_ID('vapati_app') IS NULL CREATE LOGIN vapati_app WITH PASSWORD = '$$DB_APP_PASSWORD', DEFAULT_DATABASE = ApiVaPaTiJava; ELSE ALTER LOGIN vapati_app WITH PASSWORD = '$$DB_APP_PASSWORD';"
         $$sqlcmd -P "$$DB_PASSWORD" -d ApiVaPaTiJava -Q "IF USER_ID('vapati_app') IS NULL CREATE USER vapati_app FOR LOGIN vapati_app WITH DEFAULT_SCHEMA = dbo; ALTER ROLE db_owner ADD MEMBER vapati_app;"
@@ -61,6 +61,9 @@ services:
       - ./src:/app/src:ro
       # pom.xml is read through its directory: a single-file bind mount misses editors' atomic saves
       - ./:/workspace:ro
+      # Hides the secrets in .env from the container (the script only reads /workspace/pom.xml).
+      # The file must exist on the host: masking a missing file fails the container start.
+      - /dev/null:/workspace/.env:ro
       - maven-cache-dev:/root/.m2
     # tini as PID 1: forwards SIGTERM to the watcher script and reaps child processes
     init: true
