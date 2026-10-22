@@ -1,39 +1,21 @@
-# Multi-stage build for VaPaTi Spring Boot Application
-# Stage 1: Build stage
-FROM maven:3.9-eclipse-temurin-21 AS build
+# Java version (same value as Dockerfile.dev). How to update it: docs/arquitectura/06-infraestructura.md
+ARG JAVA_VERSION=21.0.12.1_1
 
+# build: dependencies in a cached layer, then the JAR. Never reaches the final image.
+FROM eclipse-temurin:${JAVA_VERSION}-jdk-alpine AS build
 WORKDIR /app
-
-# Copy pom.xml and download dependencies (cached layer)
-COPY pom.xml .
 COPY .mvn .mvn
-COPY mvnw .
-COPY mvnw.cmd .
-
-RUN chmod +x mvnw mvnw.cmd
-
-# Download dependencies
-RUN ./mvnw dependency:go-offline -B
-
-# Copy source code
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
 COPY src ./src
+RUN ./mvnw -B package -DskipTests
 
-# Build the application (skip tests for faster builds)
-RUN ./mvnw clean package -DskipTests
-
-# Stage 2: Runtime stage
-FROM eclipse-temurin:21-jre
-
+# runtime: the image CI publishes
+FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine AS runtime
+RUN addgroup -S app && adduser -S -D -H -G app app
 WORKDIR /app
-
-# Copy the JAR from build stage
 COPY --from=build /app/target/*.jar app.jar
-
-# Expose port 8080
+USER app
 EXPOSE 8080
-
-# Set JVM options for optimal performance in containers
-ENV JAVA_OPTS="-Xmx512m -Xms256m"
-
-# Run the application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+ENV JAVA_OPTS="-XX:+UseSerialGC -XX:MaxRAMPercentage=75 -Xss512k -XX:ReservedCodeCacheSize=64m -XX:MaxMetaspaceSize=192m"
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
