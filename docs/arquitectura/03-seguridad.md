@@ -269,6 +269,22 @@ Como el origen por defecto es solo `http://localhost:3000`, en cualquier otro de
 
 Swagger UI y `/v3/api-docs` son públicos en todos los perfiles.
 
+## Contenedores y base de datos
+
+Lo que sigue describe los stacks de Compose (`docker-compose.dev.yml` y `docker-compose.prod.yml`) y las imágenes que construyen `Dockerfile` y `Dockerfile.dev`. El detalle operativo está en [Infraestructura](06-infraestructura.md).
+
+| Medida | Qué hace | Dónde |
+|---|---|---|
+| Login de aplicación con mínimo privilegio | La aplicación conecta como `vapati_app`, no como `sa`. Ese login es `db_owner` **solo** de `ApiVaPaTiJava` y no tiene roles de servidor, así que no puede crear bases ni tocar otras (un `CREATE DATABASE` falla por permisos). Necesita `db_owner` porque `ddl-auto=update` crea y altera tablas al arrancar. | `command` y healthcheck de `sqlserver` en los dos compose, `application-docker.properties` |
+| `sa` solo para administrar | `DB_PASSWORD` solo llega al servicio `sqlserver`: inicializa la base y el login, y se usa en los scripts manuales (`sqlcmd -U sa`). Los servicios de la aplicación no la reciben. | los dos compose |
+| Password sin valor por defecto | `spring.datasource.password=${DB_APP_PASSWORD}` en el perfil `docker`, y `${DB_APP_PASSWORD:?...}` en los compose: sin ella no arranca nada, igual que con `JWT_SECRET`. El perfil sin nombre (`application.properties`, fuera de Docker) sigue con `sa` y un valor por defecto de desarrollo. | `application-docker.properties`, los dos compose |
+| Imagen de producción no root | La etapa `runtime` corre como `app`. El JAR es de `root`, de solo lectura para `app`. | `Dockerfile` |
+| Contenedor de producción endurecido | `read_only: true` con `tmpfs` en `/tmp`, `no-new-privileges:true` y `cap_drop: [ALL]`; límite de memoria de 512M. | `docker-compose.prod.yml` |
+| Contenedor de desarrollo sin privilegios extra | `no-new-privileges:true` y `cap_drop: [ALL]`. Sigue como root (es dueño del volumen `maven-cache-dev`). No monta el socket de Docker. | `docker-compose.dev.yml` |
+| Secretos fuera del contexto de build | `.dockerignore` excluye `.env` y `.env.*`. | `.dockerignore` |
+| `.env` oculto al contenedor de desarrollo | `app-dev` monta la raíz del repo en `/workspace` y encima `/dev/null` sobre `/workspace/.env`. Un `.env.production` en la raíz sigue visible dentro del contenedor. | `docker-compose.dev.yml` |
+| Tags fijados y escaneo | Las imágenes base van por tag exacto y se escanean con Trivy a mano. | [Infraestructura](06-infraestructura.md#tags-fijados-vulnerabilidades-y-restauración) |
+
 ## Configuración
 
 | Propiedad | Variable de entorno | Valor |
@@ -277,5 +293,6 @@ Swagger UI y `/v3/api-docs` son públicos en todos los perfiles.
 | `jwt.expiration` | — | `3600000` (1 hora) |
 | `jwt.refresh-expiration` | — | `604800000` (7 días) |
 | `cors.allowed-origins` | `CORS_ALLOWED_ORIGINS` | Por defecto `http://localhost:3000` |
+| `spring.datasource.password` (perfil `docker`) | `DB_APP_PASSWORD` | Obligatoria, sin valor por defecto. Password del login `vapati_app`. |
 
 Los perfiles y cómo se pasan estas variables en Docker están en [Infraestructura](06-infraestructura.md).

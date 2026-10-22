@@ -4,16 +4,16 @@ Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué c
 
 ## Estado de la suite
 
-En el commit que describe esta documentación, `mvn -B test` corre **1248 tests en 63 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
+En el commit que describe esta documentación, `mvn -B test` corre **1415 tests en 76 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
 
 | Capa probada | Tests | Tipo |
 |---|---|---|
-| `service/` | 554 | unitarios con Mockito |
-| `validation/` | 467 | unitarios con Mockito |
-| `dtos/` | 132 | Bean Validation sin Spring |
+| `service/` | 640 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
+| `validation/` | 535 | unitarios con Mockito |
+| `dtos/` | 134 | Bean Validation sin Spring |
 | `repository/` | 39 | integración con SQL Server real (Testcontainers) |
 | `security/` | 22 | unitarios con Mockito |
-| `mapper/` | 19 | unitarios puros |
+| `mapper/` | 30 | unitarios puros |
 | `exception/` | 14 | unitarios del handler |
 | contexto de Spring | 1 | integración con SQL Server real (Testcontainers) |
 
@@ -42,16 +42,17 @@ Como la capa `validation/` concentra las reglas de negocio (ver [Arquitectura](0
 
 ### Tests de integración con Testcontainers
 
-Dos clases heredan de `AbstractIntegrationTest.java`, que declara un contenedor `mcr.microsoft.com/mssql/server:2022-latest` con `@Testcontainers` + `@Container` y lo conecta a Spring con `@ServiceConnection` (Spring Boot reemplaza la URL, el usuario y la password del datasource por los del contenedor). Activa el perfil `integration`.
+Tres clases heredan de `AbstractIntegrationTest.java`, que declara un contenedor `mcr.microsoft.com/mssql/server:2022-CU27-GDR1-ubuntu-22.04` (el mismo tag que los dos compose; se actualizan juntos, ver [Infraestructura](06-infraestructura.md#actualizar-los-tags-fijados)) con `@Testcontainers` + `@Container` y lo conecta a Spring con `@ServiceConnection` (Spring Boot reemplaza la URL, el usuario y la password del datasource por los del contenedor). Activa el perfil `integration`.
 
 | Clase | Qué levanta | Qué prueba |
 |---|---|---|
 | `VaPaTiApplicationTests.java` | `@SpringBootTest`, el contexto completo | que la aplicación arranca contra SQL Server |
 | `repository/bankaccount/BankAccountRepositoryTest.java` | `@DataJpaTest` con `@AutoConfigureTestDatabase(replace = NONE)` | las queries de `repository/bankaccount/BankAccountRepository.java` contra SQL Server real |
+| `service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` | `@DataJpaTest` con `CampaignService` y `CampaignStatusHistoryService` importados | que `closeAndSoftDelete` cierra, registra la transición y borra la campaña sin que falle el flush (2 tests); un test con mocks no lo detecta, ver [Modelo de datos](04-modelo-de-datos.md#borrado-lógico-soft-delete) |
 
 Con el perfil `integration` (`src/test/resources/application-integration.properties`) Hibernate no genera el esquema (`ddl-auto=none`): lo crea `src/test/resources/schema.sql`, un script escrito a mano que borra y recrea todas las tablas, siembra roles y categorías y crea índices. Después corre también el `data.sql` de `src/main/resources/`. Como `schema.sql` no se deriva de las entidades, una columna nueva en `entity/` hay que agregarla también ahí para que estos tests la vean.
 
-El contenedor es un campo `static` de la clase base, así que cada clase de integración arranca y destruye su propio SQL Server (unos 8 segundos cada uno). Testcontainers usa el contenedor `Ryuk` para limpiar los contenedores si la JVM muere. Estos tests necesitan acceso a un daemon de Docker; el resto de la suite no.
+El contenedor es un campo `static` de la clase base, así que cada clase de integración arranca y destruye su propio SQL Server (unos 8 segundos cada uno). Estos contenedores son independientes del stack de Compose: el login `vapati_app` y el `max server memory` de los compose no se aplican en los tests. Testcontainers usa el contenedor `Ryuk` para limpiar los contenedores si la JVM muere. Estos tests necesitan acceso a un daemon de Docker; el resto de la suite no.
 
 ### Lo que no tiene tests
 
@@ -88,7 +89,7 @@ Los dominios con más lógica **dividen los tests por operación** en varios arc
 | `service/user/UserService.java` | `service/user/UserServiceCreateUserTest.java`<br>`service/user/UserServiceDeleteUserTest.java`<br>`service/user/UserServiceGetUserByIdTest.java`<br>`service/user/UserServiceListUsersTest.java`<br>`service/user/UserServiceUpdateUserTest.java` |
 | `service/bankaccount/BankAccountService.java` | `service/bankaccount/BankAccountServiceTest.java` (alta)<br>`service/bankaccount/BankAccountServiceDeleteTest.java`<br>`service/bankaccount/BankAccountServiceListTest.java`<br>`service/bankaccount/BankAccountServiceUpdateTest.java` |
 | `service/publication/PublicationService.java` | `service/publication/PublicationServiceCreateTest.java`<br>`service/publication/PublicationServiceDeleteTest.java`<br>`service/publication/PublicationServiceGetByCampaignTest.java` |
-| `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java` |
+| `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java`<br>`service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` (integración) |
 | `service/auth/AuthenticationService.java` | `service/auth/AuthenticationServiceTest.java` (login y logout)<br>`service/auth/RefreshTokenServiceTest.java` (refresh) |
 | `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceCategoryTest.java`<br>`validation/user/UserValidationServiceUserCreationTest.java`<br>`validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceUserUpdateTest.java` |
 | `validation/bankaccount/BankAccountValidationService.java` | `validation/bankaccount/BankAccountValidationServiceAccountValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceEntityBuildingTest.java`<br>`validation/bankaccount/BankAccountValidationServiceInputValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceUserVerificationTest.java` |
@@ -109,7 +110,7 @@ En `pom.xml`, `maven-surefire-plugin` 3.1.2:
 | `argLine` | `@{argLine} -Xmx2048m -XX:MaxMetaspaceSize=512m` | `@{argLine}` conserva el agente de JaCoCo que agrega `prepare-agent`. |
 | `systemPropertyVariables.api.version` | `${docker.remote.api.version}` (`1.56` en `pom.xml`) | Versión de la API de Docker que usa el cliente de Testcontainers. Tiene que ser una que soporte el daemon; en CI se pisa con la del runner (`-Ddocker.remote.api.version=...`). |
 
-Testcontainers está fijado en la versión `1.21.2` (propiedad `testcontainers.version` y BOM en `dependencyManagement`), más nueva que la que trae Spring Boot 3.2.5.
+Testcontainers está fijado en la versión `1.21.2` (propiedad `testcontainers.version` y BOM en `dependencyManagement`), fijada a mano en `pom.xml` en lugar de la que gestiona Spring Boot (3.5.16).
 
 ### Cobertura (JaCoCo)
 
@@ -128,14 +129,14 @@ Testcontainers está fijado en la versión `1.21.2` (propiedad `testcontainers.v
 
 ### Con `./mvnw` (JDK 21 instalado)
 
-El wrapper descarga Maven solo; hace falta un JDK 21. Los dos tests de integración necesitan además un daemon de Docker accesible.
+El wrapper descarga Maven solo; hace falta un JDK 21. Los tests de integración (las tres clases de arriba) necesitan además un daemon de Docker accesible.
 
 ```bash
 # Toda la suite (incluye Testcontainers)
 ./mvnw test
 
 # Solo los unitarios, sin Docker
-./mvnw test -Dtest='!BankAccountRepositoryTest,!VaPaTiApplicationTests,!*$*'
+./mvnw test -Dtest='!BankAccountRepositoryTest,!VaPaTiApplicationTests,!CampaignServiceCloseAndSoftDeleteIntegrationTest,!*$*'
 
 # Una clase (incluye sus clases @Nested)
 ./mvnw test -Dtest=CategoryServiceTest
@@ -177,7 +178,7 @@ docker --context default run --rm \
 - Testcontainers crea y destruye sus propios contenedores: no toca el stack de desarrollo (`db_vapati_dev`, `app_vapati_dev`) ni el volumen `sql_data_apivapati_java`.
 - Escribe en el `target/` del repo como lo haría `./mvnw`.
 
-El contenedor `app_vapati_dev` del stack de desarrollo **no** corre tests: arranca la aplicación con `-Dmaven.test.skip=true`.
+El contenedor `app_vapati_dev` del stack de desarrollo **no** corre tests: compila con `-Dmaven.test.skip=true` y arranca la aplicación con `java -cp`. Tampoco monta el socket de Docker.
 
 ### En CI
 

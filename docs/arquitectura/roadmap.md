@@ -18,7 +18,7 @@ flowchart LR
 
 ## 1. Infraestructura de envío de correos
 
-- Sumar `spring-boot-starter-mail`. Las plantillas HTML de los correos usarían Thymeleaf, que ya está en `pom.xml` (`src/main/resources/templates/email/*.html`).
+- Sumar `spring-boot-starter-mail`. Las plantillas HTML de los correos usarían Thymeleaf (`src/main/resources/templates/email/*.html`), que hay que volver a agregar a `pom.xml`: `spring-boot-starter-thymeleaf` se quitó porque nada lo usaba.
 - Configuración SMTP por variables de entorno (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_STARTTLS`, `MAIL_FROM`) y la URL del frontend (`FRONTEND_URL`) para armar los links.
 - **Desarrollo:** Mailpit en `docker-compose.dev.yml` (SMTP en 1025, web en 8025). Captura los correos sin enviarlos.
 - **Producción:** un proveedor SMTP, todavía sin elegir.

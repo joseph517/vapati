@@ -29,14 +29,15 @@ Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectur
 |---|---|
 | [01-vision-general.md](01-vision-general.md) | Qué problema resuelve, actores, mapa de funcionalidades, stack, glosario. |
 | [02-arquitectura.md](02-arquitectura.md) | Capas, organización por dominio, convenciones de nombres, recorrido de un request. |
-| [03-seguridad.md](03-seguridad.md) | Autenticación JWT, refresh y logout, roles, sanciones, CORS, OpenAPI. |
+| [03-seguridad.md](03-seguridad.md) | Autenticación JWT, refresh y logout, roles, sanciones, CORS, OpenAPI, contenedores y base de datos. |
 | [04-modelo-de-datos.md](04-modelo-de-datos.md) | Entidades, relaciones, enums, borrado lógico, datos iniciales. |
 | [05-errores-y-validacion.md](05-errores-y-validacion.md) | Excepciones, forma de las respuestas de error, validación de entrada, `404` vs `403`. |
-| [06-infraestructura.md](06-infraestructura.md) | Perfiles, variables de entorno, Docker, hot reload, CI y publicación de imágenes. |
+| [06-infraestructura.md](06-infraestructura.md) | Perfiles, variables de entorno, Docker, hot reload, tags fijados y escaneo de vulnerabilidades, CI y publicación de imágenes. |
 | [07-testing.md](07-testing.md) | Estrategia de tests, organización y cómo correrlos. |
 | [08-decisiones-de-diseno.md](08-decisiones-de-diseno.md) | Decisiones transversales: qué, por qué y dónde. |
 | [deuda-tecnica.md](deuda-tecnica.md) | Inconsistencias encontradas al recorrer el código. |
 | [roadmap.md](roadmap.md) | Lo planeado y todavía no implementado. |
+| [recomendaciones-de-arquitectura.md](recomendaciones-de-arquitectura.md) | Propuestas de mejora del architect, por prioridad. No describen el código. |
 
 ### Dominios
 

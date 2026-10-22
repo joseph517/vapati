@@ -324,7 +324,7 @@ El motivo es `bannedReason` o `Violation of terms` si no tiene.
 - **Qué hace:**
   1. Obtiene el id del usuario desde el token.
   2. `validateOwnershipOrAdmin` y `findCampaignByIdOrThrow`.
-  3. `closeAndSoftDelete`: si la meta no está `CLOSED`, la bloquea, la cierra, registra la transición y hace `saveAndFlush`.
+  3. `closeAndSoftDelete`: si la meta no está `CLOSED`, la bloquea, la cierra, registra la transición, hace `saveAndFlush` y desacopla (`entityManager.detach`) la fila de historial recién escrita: con Hibernate 6.6, una entidad administrada que apunta a la campaña que se va a borrar hace fallar el flush del commit (ver [Modelo de datos](../04-modelo-de-datos.md#borrado-lógico-soft-delete)).
   4. `campaignRepository.delete`: borrado lógico de la campaña y, por cascada, de la meta. Las donaciones, publicaciones y filas de `campaign_category` quedan en la base apuntando a la campaña borrada.
 
 ### `PUT /api/campaigns/{campaignId}/close`

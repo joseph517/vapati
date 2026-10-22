@@ -40,17 +40,19 @@ Leído de `pom.xml`:
 | Pieza | Versión | Para qué |
 |---|---|---|
 | Java | 21 | Lenguaje. |
-| Spring Boot | 3.2.5 | Base de la aplicación (starters `web`, `validation`, `data-jpa`, `security`, `thymeleaf`, `devtools`). |
+| Spring Boot | 3.5.16 | Base de la aplicación (starters `web`, `validation`, `data-jpa`, `security`, `devtools`). |
 | Spring Security | la de Spring Boot | Autenticación stateless con JWT y autorización por rol (`@PreAuthorize`). |
 | Spring Data JPA / Hibernate | la de Spring Boot | Persistencia y repositorios. |
-| Microsoft SQL Server (`mssql-jdbc`) | 12.4.1 | Base de datos. |
+| Microsoft SQL Server (`mssql-jdbc`) | la de Spring Boot (variante `.jre11`) | Base de datos. |
 | JJWT (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) | 0.11.5 | Emisión y validación de JWT. |
-| springdoc-openapi | 2.5.0 | Swagger UI y especificación OpenAPI. |
-| Lombok | 1.18.30 | Getters, builders y constructores en entidades y DTOs. |
+| springdoc-openapi | 2.8.17 | Swagger UI y especificación OpenAPI (OpenAPI 3.1.0, el valor por defecto de springdoc 2.8). |
+| Lombok | la de Spring Boot | Getters, builders y constructores en entidades y DTOs. |
 | JetBrains annotations | 26.0.2 | `@NotNull` de documentación en firmas de métodos. |
 | JUnit 5, Mockito, AssertJ, `spring-security-test` | las de Spring Boot | Tests unitarios. |
-| Testcontainers (`mssqlserver`) | BOM de Testcontainers | Disponible para tests de integración. |
+| Testcontainers (`mssqlserver`) | BOM de Testcontainers | Tests de integración contra SQL Server real. |
 | Maven Surefire, JaCoCo, Sonar | 3.1.2, 0.8.10, 4.0.0.4121 | Ejecución de tests en paralelo, cobertura y análisis estático. |
+
+`pom.xml` pisa dos versiones que gestiona el BOM de Spring Boot 3.5.16, por vulnerabilidades: Tomcat (`tomcat.version`, 10.1.61) y Jackson (`jackson-bom.version`, 2.21.8). Ver [Infraestructura](06-infraestructura.md#escanear-con-trivy).
 
 El proyecto se construye con el Maven wrapper (`./mvnw`), así que no hace falta Maven instalado. Cómo se levanta y se despliega está en [Infraestructura](06-infraestructura.md).
 
