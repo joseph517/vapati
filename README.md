@@ -16,9 +16,8 @@
 
 ## 🛠️ Tecnologías Usadas
 - Java 21
-- Spring Boot 3.2.5
+- Spring Boot 3.5.16
 - Spring Boot Web
-- Spring Boot Thymeleaf
 - Spring Boot Data JPA
 - Spring Boot Security
 - Spring Boot DevTools
@@ -46,6 +45,8 @@ cd vaPaTi
 
 ### 3. Levanta la app y la base de datos (SQL Server) con Docker Compose
 
+Antes de levantar, copia `.env.example` a `.env` y completa `DB_PASSWORD` (contraseña de `sa`), `DB_APP_PASSWORD` (contraseña del login `vapati_app`, sin comillas simples ni `$`) y `JWT_SECRET`. El archivo tiene que existir: el contenedor de desarrollo lo enmascara.
+
 La forma recomendada para desarrollo (hot reload incluido) es:
 
 ```bash
@@ -59,7 +60,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 ```
 
 Esto levanta dos contenedores:
-- `db_vapati_dev` — SQL Server 2022, expuesto en `localhost:1433` (usuario `sa`, password `<DB_PASSWORD del .env>`, base de datos `ApiVaPaTiJava` — ver `src/main/resources/application-docker.properties`).
+- `db_vapati_dev` — SQL Server 2022, expuesto en `localhost:1433`. La app conecta como `vapati_app` (password `<DB_APP_PASSWORD del .env>`, base `ApiVaPaTiJava`, ver `src/main/resources/application-docker.properties`); `sa` (password `<DB_PASSWORD del .env>`) queda para administración y los scripts manuales.
 - `app_vapati_dev` — la app Spring Boot, expuesta en `localhost:8080`, con hot reload.
 
 Cómo funciona el hot reload:
@@ -69,7 +70,7 @@ Cómo funciona el hot reload:
 - Si la compilación falla, la versión anterior sigue corriendo. El error se ve en `docker compose -f docker-compose.dev.yml logs -f app-dev` (banner `COMPILATION FAILED`), y el contenedor aparece `unhealthy` en `docker ps` hasta que lo corriges y guardas.
 - `--build` solo hace falta si cambia `Dockerfile.dev` o `scripts/dev-hot-reload.sh`.
 
-> Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<tu-password>" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-latest` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos (con `DB_PASSWORD=<tu-password>` en el entorno). `./mvnw spring-boot:run` también necesita `JWT_SECRET` exportado en el entorno, con al menos 32 bytes: por ejemplo `export JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')`. Sin él, la app no arranca.
+> Alternativa sin Docker Compose: puedes levantar solo SQL Server con `docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<tu-password>" -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2022-CU27-GDR1-ubuntu-22.04` y correr la app localmente con `./mvnw spring-boot:run`, siempre que `src/main/resources/application.properties` apunte a esa misma base de datos (con `DB_PASSWORD=<tu-password>` en el entorno). `./mvnw spring-boot:run` también necesita `JWT_SECRET` exportado en el entorno, con al menos 32 bytes: por ejemplo `export JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')`. Sin él, la app no arranca.
 
 ### 4. Datos iniciales (roles y categorías)
 
@@ -119,14 +120,14 @@ Configuración inicial (credenciales de Docker Hub en GitHub, creación de `main
 
 ### 7. Desplegar en un servidor
 
-El servidor **solo necesita** `docker-compose.prod.yml` y un `.env` con los valores reales de producción (`DB_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `IMAGE_NAME`, `IMAGE_TAG` y puertos) — no el resto del repositorio:
+El servidor **solo necesita** `docker-compose.prod.yml` y un `.env` con los valores reales de producción (`DB_PASSWORD`, `DB_APP_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `IMAGE_NAME`, `IMAGE_TAG` y puertos) — no el resto del repositorio:
 
 ```bash
 docker-compose -f docker-compose.prod.yml pull
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-Esto levanta `db_vapati_prod` y `app_vapati_prod` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `JWT_SECRET` es obligatorio y necesita al menos 32 bytes: sin él, con el placeholder de ejemplo o con uno más corto, la app no arranca (generalo con `openssl rand -base64 64 | tr -d '\n'`). `DB_PASSWORD` también es obligatorio: sin él, la app cae en la password de desarrollo por defecto, insegura para producción.
+Esto levanta `db_vapati_prod` y `app_vapati_prod` (la imagen publicada), accesible en el puerto configurado (`APP_PORT`). `JWT_SECRET` es obligatorio y necesita al menos 32 bytes: sin él, con el placeholder de ejemplo o con uno más corto, la app no arranca (generalo con `openssl rand -base64 64 | tr -d '\n'`). `DB_APP_PASSWORD` también es obligatorio (la app conecta como `vapati_app`; no tiene valor por defecto y sin ella Compose no levanta). `DB_PASSWORD` es la de `sa` y solo la usa el contenedor de SQL Server y los scripts manuales. Si actualizas un servidor existente, sigue los pasos de la sección 7.2 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
 Detalle completo (preparación del `.env`, copiar los archivos al servidor, verificación de que levantó bien): ver sección 4 de [`DOCKER-HUB-DEPLOY.md`](DOCKER-HUB-DEPLOY.md).
 
