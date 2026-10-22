@@ -102,4 +102,19 @@ class CampaignStatusHistoryServiceTest {
         verify(campaignStatusHistoryRepository).save(captor.capture());
         assertThat(captor.getValue().getChangedBy()).isNull();
     }
+
+    @Test
+    @DisplayName("Should return the saved entry")
+    void recordTransition_ShouldReturnSavedEntry() {
+        // Given
+        CampaignStatusHistory persisted = CampaignStatusHistory.builder().id(10L).build();
+        when(campaignStatusHistoryRepository.save(any(CampaignStatusHistory.class))).thenReturn(persisted);
+
+        // When
+        CampaignStatusHistory result = campaignStatusHistoryService
+                .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, null);
+
+        // Then
+        assertThat(result).isSameAs(persisted);
+    }
 }

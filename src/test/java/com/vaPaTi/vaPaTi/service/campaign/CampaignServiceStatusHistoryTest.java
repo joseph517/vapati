@@ -195,16 +195,20 @@ class CampaignServiceStatusHistoryTest {
         void closeAndSoftDelete_WithActiveGoal_ShouldCloseRecordAndDelete() {
             // Given
             Goal goal = goalWithStatus(CampaignStatus.ACTIVE);
+            CampaignStatusHistory history = new CampaignStatusHistory();
+            when(campaignStatusHistoryService
+                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, CHANGED_BY_USER_ID))
+                    .thenReturn(history);
 
             // When
             campaignService.closeAndSoftDelete(testCampaign, CHANGED_BY_USER_ID);
 
             // Then
             assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
-            verify(campaignStatusHistoryService)
-                    .recordTransition(testCampaign, CampaignStatus.ACTIVE, CampaignStatus.CLOSED, CHANGED_BY_USER_ID);
-            InOrder inOrder = inOrder(campaignRepository);
+            // The history entry is detached after the flush and before the delete
+            InOrder inOrder = inOrder(campaignRepository, entityManager);
             inOrder.verify(campaignRepository).saveAndFlush(testCampaign);
+            inOrder.verify(entityManager).detach(history);
             inOrder.verify(campaignRepository).delete(testCampaign);
         }
 
@@ -213,16 +217,20 @@ class CampaignServiceStatusHistoryTest {
         void closeAndSoftDelete_WithCompletedGoal_ShouldCloseRecordAndDelete() {
             // Given
             Goal goal = goalWithStatus(CampaignStatus.COMPLETED);
+            CampaignStatusHistory history = new CampaignStatusHistory();
+            when(campaignStatusHistoryService
+                    .recordTransition(testCampaign, CampaignStatus.COMPLETED, CampaignStatus.CLOSED, CHANGED_BY_USER_ID))
+                    .thenReturn(history);
 
             // When
             campaignService.closeAndSoftDelete(testCampaign, CHANGED_BY_USER_ID);
 
             // Then
             assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
-            verify(campaignStatusHistoryService)
-                    .recordTransition(testCampaign, CampaignStatus.COMPLETED, CampaignStatus.CLOSED, CHANGED_BY_USER_ID);
-            InOrder inOrder = inOrder(campaignRepository);
+            // The history entry is detached after the flush and before the delete
+            InOrder inOrder = inOrder(campaignRepository, entityManager);
             inOrder.verify(campaignRepository).saveAndFlush(testCampaign);
+            inOrder.verify(entityManager).detach(history);
             inOrder.verify(campaignRepository).delete(testCampaign);
         }
 
@@ -239,6 +247,7 @@ class CampaignServiceStatusHistoryTest {
             assertThat(goal.getStatus()).isEqualTo(CampaignStatus.CLOSED);
             verify(campaignStatusHistoryService, never()).recordTransition(any(), any(), any(), any());
             verify(campaignRepository, never()).saveAndFlush(any());
+            verify(entityManager, never()).detach(any());
             verify(campaignRepository).delete(testCampaign);
         }
 
