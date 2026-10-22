@@ -298,11 +298,13 @@ Seis entidades no se borran físicamente: tienen una columna `deleted_at` y `@SQ
 | Entidad | `@SQLDelete` | Cómo se borra en la práctica | Se puede restaurar |
 |---|---|---|---|
 | `User` | `UPDATE [user] SET deleted_at = GETDATE()` | `UserService.deleteUser` pone `deletedAt` a mano y guarda; antes cierra todas sus campañas (`CampaignService.closeAllByOwner`). El `@SQLDelete` no se usa. | Sí: el login con la contraseña correcta pone `deletedAt = null` (ver [Auth](dominios/auth.md)). |
-| `Campaign` | `UPDATE campaign SET deleted_at = GETDATE()` | `CampaignService.closeAndSoftDelete` cierra la meta, registra la transición y llama a `campaignRepository.delete`, que ejecuta el `@SQLDelete`. | No. |
+| `Campaign` | `UPDATE campaign SET deleted_at = GETDATE()` | `CampaignService.closeAndSoftDelete` cierra la meta, registra la transición y llama a `campaignRepository.delete`, que ejecuta el `@SQLDelete`. Ver la nota de abajo sobre el borrado y las entidades que la referencian. | No. |
 | `Goal` | `UPDATE goal SET deleted_at = GETDATE()` | Por la cascada de `Campaign.goal` al borrar la campaña. | No. |
 | `Publication` | `UPDATE publication SET deleted_at = GETDATE()` | `publicationRepository.delete`, cuando la borra su autor (`PublicationService.deletePublication`) o por moderación (`CONTENT_REMOVED` en `ReportActionService`). | No. |
 | `BankAccount` | `UPDATE bank_accounts SET deleted_at = now()` | `BankAccountService` pone `deletedAt` a mano y guarda. El `@SQLDelete` no se usa. | Sí: dar de alta otra vez el mismo número para el mismo usuario (ver [Bank account](dominios/bankaccount.md)). |
 | `VerificationRequest` | `UPDATE verification_request SET deleted_at = CURRENT_TIMESTAMP` | Ningún flujo la borra hoy. | — |
+
+**Borrar una entidad con `@SQLDelete` la deja "removida" para Hibernate.** Desde Hibernate 6.6 (Spring Boot 3.5), si en la misma transacción hay otra entidad administrada que la referencia, el flush del commit falla por referencia a una entidad transitoria (y el request termina en `500`). Es lo que pasa en `CampaignService.closeAndSoftDelete`: la fila de `CampaignStatusHistory` que acaba de registrar apunta a la campaña que se va a borrar. El método hace `saveAndFlush` para escribir esa fila y después `entityManager.detach` sobre ella, para que el flush final no la vea. `CampaignStatusHistoryService.recordTransition` devuelve la fila guardada justamente para poder desacoplarla. Cualquier flujo nuevo que escriba una fila relacionada y después borre con `repository.delete` tiene el mismo riesgo, y solo un test contra SQL Server real lo detecta (`CampaignServiceCloseAndSoftDeleteIntegrationTest`); ver [Recomendaciones de arquitectura](recomendaciones-de-arquitectura.md).
 
 Lo que **no** tiene soft delete se borra con `DELETE`: dejar de seguir (`Follower`), las categorías de una campaña (se reemplazan completas al editarla, con un `DELETE` JPQL masivo), una categoría (`Category`, solo si nadie la usa), las `UserCategory` sacadas del set y los tokens revocados vencidos. `Donation`, `Report`, `CampaignStatusHistory`, `UserInfo` y `Role` no se borran nunca.
 
@@ -391,15 +393,19 @@ No hay herramienta de migraciones (ni Flyway ni Liquibase en `pom.xml`). El esqu
 
 | Propiedad | `src/main/resources/application.properties` | `src/main/resources/application-docker.properties` |
 |---|---|---|
+| `spring.datasource.username` | `sa` | `${DB_USERNAME:vapati_app}` |
+| `spring.datasource.password` | `${DB_PASSWORD:...}`, con un valor por defecto | `${DB_APP_PASSWORD}`, sin valor por defecto |
+| `spring.datasource.hikari.maximum-pool-size` / `minimum-idle` | por defecto | `5` / `1` |
 | `spring.jpa.hibernate.ddl-auto` | `update` | `update` |
-| `spring.jpa.properties.hibernate.dialect` | `org.hibernate.dialect.SQLServerDialect` | `org.hibernate.dialect.SQLServerDialect` |
-| `spring.jpa.show-sql` | `true` | `true` (y `format_sql=true`) |
+| `spring.jpa.show-sql` | `true` | no se fija (lo activa el perfil `dev`, junto con `format_sql=true`) |
 | `spring.sql.init.mode` | `always` | `always` |
 | `spring.jpa.defer-datasource-initialization` | `true` | `true` |
 
+Ningún archivo fija `hibernate.dialect`: Hibernate lo resuelve desde la conexión.
+
 Con `update`, Hibernate crea en cada arranque las tablas y columnas que falten, pero nunca borra ni modifica columnas existentes. Por eso el esquema real de una base depende de su historia: un cambio en una anotación (`nullable`, `length`, `unique`) se aplica solo en una base nueva, no en una que ya tenía la columna. Los comentarios de varias entidades hablan de columnas que "siguen siendo `NOT NULL`" aunque el mapeo ya no lo declare; eso vale para una base creada antes de ese cambio, no para una base nueva.
 
-El perfil `docker` (el que activan `docker-compose.dev.yml` y `docker-compose.prod.yml` con `SPRING_PROFILES_ACTIVE`) usa la misma estrategia. Los perfiles de test tienen la suya; ver [Testing](07-testing.md).
+El perfil `docker` (el que activan `docker-compose.dev.yml`, junto con `dev`, y `docker-compose.prod.yml` con `SPRING_PROFILES_ACTIVE`) usa la misma estrategia, pero conecta como el login `vapati_app`, que es `db_owner` de la base y por eso puede crear y alterar tablas. Los perfiles y el login están en [Infraestructura](06-infraestructura.md#perfiles-de-spring). Los perfiles de test tienen la suya; ver [Testing](07-testing.md).
 
 `spring.jpa.open-in-view` no está configurado, así que queda en el valor por defecto de Spring Boot (activado): la sesión de Hibernate vive durante todo el request y una relación LAZY se puede cargar incluso fuera de un método `@Transactional`.
 
@@ -443,4 +449,4 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 
 - Entidades: todo `entity/` (16 entidades y 7 enums).
 - Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
-- Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`.
+- Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`.

@@ -1,8 +1,9 @@
-# Maven build output
-# For production build (Dockerfile), exclude target but keep JARs
-# For development build (Dockerfile.dev), target/ is not needed: the dev container compiles into its own /app/target
+# Maven build output: no Dockerfile copies target/ (Dockerfile builds the JAR, the dev container compiles into its own /app/target)
 target/
-!target/*.jar
+
+# Secrets never travel in the build context
+.env
+.env.*
 
 # IDE files
 .idea/
@@ -23,6 +24,7 @@ target/
 Dockerfile
 Dockerfile.dev
 docker-compose.dev.yml
+docker-compose.prod.yml
 .dockerignore
 
 # Logs

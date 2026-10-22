@@ -84,6 +84,7 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** `User`, `Campaign`, `Publication` y `VerificationRequest` se borran con `@SQLDelete` + `@SQLRestriction("deleted_at IS NULL")`. Las relaciones que apuntan a ellas desde registros históricos (donaciones, reportes, publicaciones) usan `@ManyToOne` opcional + `@NotFound(IGNORE)` + `updatable = false`, y una copia de solo lectura de la FK (`campaignId`, `donorUserId`, `recipientUserId`).
 - **Por qué:** lo borrado desaparece de toda consulta, pero una donación o un reporte no desaparecen porque se borró su campaña o su autor: la relación queda en `null` y la FK no se pisa en un `UPDATE`. La FK de solo lectura permite filtrar sin hacer join a una tabla con restricción.
 - **Dónde:** `entity/donation/Donation.java`, `entity/publication/Publication.java`, `entity/report/Report.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md).
+- **Costo:** con Hibernate 6.6, borrar con `repository.delete` una entidad con `@SQLDelete` la deja removida para el contexto de persistencia, y cualquier entidad administrada de la misma transacción que la referencie hace fallar el flush. `CampaignService.closeAndSoftDelete` lo resuelve desacoplando (`detach`) la fila de historial que acaba de escribir. Detalle en [Modelo de datos](04-modelo-de-datos.md#borrado-lógico-soft-delete) y [Recomendaciones de arquitectura](recomendaciones-de-arquitectura.md).
 
 ### Agregados que atraviesan el borrado: SQL nativo con el orden escrito
 
@@ -124,6 +125,44 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 - **Qué:** las reglas lanzan excepciones de `exception/`, todas subclases de `MessageException`, y `GlobalExceptionHandler` decide el status y arma `{error, message, timestamp}`.
 - **Dónde:** detalle en [Errores y validación](05-errores-y-validacion.md).
+
+## Infraestructura
+
+### Dos Dockerfiles, con el mismo `JAVA_VERSION`
+
+- **Qué:** `Dockerfile` construye la imagen de producción (lo publica CI) y `Dockerfile.dev` la del stack de desarrollo con hot reload. Los dos declaran `ARG JAVA_VERSION` con el mismo valor.
+- **Por qué:** los dos están en uso y tienen responsabilidades distintas: uno compila el JAR y lo copia a una imagen mínima; el otro solo trae JDK y herramientas, porque el código se monta. Unificarlos en un multi-etapa con `target` se descartó. El mismo `JAVA_VERSION` hace que lo que se desarrolla compile y corra con el mismo update de Java que producción. El costo es repetir el valor, que cubre el procedimiento de actualización.
+- **Dónde:** `Dockerfile`, `Dockerfile.dev`. Procedimiento en [Infraestructura](06-infraestructura.md#actualizar-los-tags-fijados). Spec: `specs/59-optimizacion-y-seguridad-docker.md`.
+
+### El perfil `dev` separado de `docker`
+
+- **Qué:** `docker` es la base de los dos stacks (datasource, Hikari, Tomcat, JWT, CORS). Lo propio del desarrollo (SQL formateado, DevTools, logs en `DEBUG`) está en el perfil `dev`, que solo activa el stack de desarrollo (`docker,dev`).
+- **Por qué:** antes los dos stacks compartían un perfil con SQL y `DEBUG` encendidos, y producción los heredaba. Las alternativas descartadas fueron pasar esos ajustes por variables de entorno del compose o dejarlo como estaba.
+- **Dónde:** `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`.
+
+### La aplicación conecta con un login de mínimo privilegio
+
+- **Qué:** `vapati_app`, con `db_owner` solo sobre `ApiVaPaTiJava`, en lugar de `sa`. Lo crea el propio `command` del servicio `sqlserver` en cada arranque (si existe, solo actualiza la password), y el healthcheck de la base entra con ese login. `sa` queda para inicializar y para los scripts manuales.
+- **Por qué:** una inyección o un fallo de la aplicación ya no llega a otras bases ni a la configuración del servidor. Es automático e idempotente porque el servidor de producción solo tiene el compose y el `.env`: no hay dónde montar un script. `db_owner` y no menos, porque `ddl-auto=update` crea y altera tablas. `application.properties` (corrida local fuera de Docker) sigue con `sa`, porque fuera de Compose nadie crea el login.
+- **Dónde:** `docker-compose.dev.yml`, `docker-compose.prod.yml`, `application-docker.properties`. Detalle en [Seguridad](03-seguridad.md#contenedores-y-base-de-datos).
+
+### Alpine, usuario no root y tags exactos
+
+- **Qué:** todas las etapas sobre `eclipse-temurin:<versión>-{jdk,jre}-alpine`, con Maven a través del wrapper (sin la imagen `maven:`). La imagen de producción corre como `app`, con sistema de archivos de solo lectura, `no-new-privileges` y sin capacidades. Las imágenes base van por tag exacto, sin digest.
+- **Por qué:** la base Ubuntu y la imagen `maven:` aportaban casi todas las vulnerabilidades del sistema operativo (el escaneo de `runtime` pasó de 56 a 3 excepciones, ver [Infraestructura](06-infraestructura.md#escanear-con-trivy)), y la versión de Maven queda definida en un solo lugar. Un digest exige editarlo a mano en cada actualización y no tiene Dependabot en este repo; un tag flotante cambia la imagen sin que nadie lo decida. El desarrollo sigue como root, con `no-new-privileges` y sin capacidades, porque el volumen `maven-cache-dev` es de root.
+- **Dónde:** `Dockerfile`, `Dockerfile.dev`, los dos compose.
+
+### SQL Server con `max server memory`
+
+- **Qué:** `sp_configure 'max server memory (MB)', 512` en el `command` de `sqlserver`, más `MSSQL_MEMORY_LIMIT_MB=1024`, en los dos compose.
+- **Por qué:** sin tope, el buffer pool crece hasta ocupar la memoria disponible. Cada palanca acota una parte distinta del proceso, así que van las dos. No se usa `mem_limit` en el contenedor de la base ni `MSSQL_PID=Express`: SQL Server en Linux no arranca con un límite menor a 2 GB.
+- **Dónde:** `docker-compose.dev.yml`, `docker-compose.prod.yml`.
+
+### El hot reload lanza `java -cp`, no `spring-boot:run`
+
+- **Qué:** `scripts/dev-hot-reload.sh` calcula el classpath con Maven (`dependency:build-classpath`, en la misma invocación que compila) y arranca la JVM directo con `java -cp`.
+- **Por qué:** `spring-boot:run` dejaba una JVM de Maven viva además de la de la aplicación (unos 185 MB de RSS). Con `java -cp` hay una sola JVM, con el debug JDWP y DevTools igual que antes, porque `target/classes` sigue en el classpath como directorio.
+- **Dónde:** `scripts/dev-hot-reload.sh`. Detalle en [Infraestructura](06-infraestructura.md#hot-reload-en-desarrollo).
 
 ## Producto
 

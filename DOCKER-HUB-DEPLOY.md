@@ -2,6 +2,8 @@
 
 Esta guía es el detalle operativo completo (con troubleshooting) del flujo resumido en las secciones "Publicar la imagen en Docker Hub" y "Desplegar en un servidor" del [`README.md`](README.md). Las secciones 1-6 son el flujo manual, comando por comando. La sección 7 automatiza el build y push (secciones 2-3) con GitHub Actions: cada merge a `main` publica la imagen sola. La sección 8 describe cómo automatizar también el despliegue en el servidor (pendiente).
 
+> **Producción actual.** El despliegue en producción corre en Azure Container Apps (`vapati-api`, imagen `docker.io/joseph517/vapati:latest`) y no usa `docker-compose.prod.yml` ni el `.env` de esta guía. Los pasos de `DB_APP_PASSWORD` de las secciones 4.1 y 7.2 y el rollback de 7.4 aplican solo a un servidor con Docker Compose.
+
 ## 0. Requisitos previos
 
 - Docker instalado y en ejecución.
@@ -59,7 +61,7 @@ Después de esto, repetí `docker login -u <tu-usuario-dockerhub>` — debería 
 
 ## 2. Build de la imagen
 
-Desde la raíz del repo (usa el `Dockerfile` multi-stage: compila con Maven en un stage y copia solo el JAR final a la imagen runtime `eclipse-temurin:21-jre`):
+Desde la raíz del repo (usa el `Dockerfile` multi-stage: compila con `./mvnw` sobre `eclipse-temurin:<JAVA_VERSION>-jdk-alpine` y copia solo el JAR a `eclipse-temurin:<JAVA_VERSION>-jre-alpine`, que corre como el usuario no root `app`):
 
 ```bash
 docker build -t <tu-usuario-dockerhub>/vapati:<tag> .
@@ -96,6 +98,7 @@ Copiá `.env.example` como base y completá, como mínimo:
 
 ```bash
 DB_PASSWORD=<password fuerte, cumple la política de complejidad de SQL Server>
+DB_APP_PASSWORD=<password fuerte, política de SQL Server; sin comillas simples ni $>
 JWT_SECRET=<secreto largo y aleatorio>
 CORS_ALLOWED_ORIGINS=http://localhost:3000   # o los orígenes reales cuando exista frontend desplegado
 IMAGE_NAME=<tu-usuario-dockerhub>/vapati
@@ -107,7 +110,7 @@ DB_PORT=
 
 > ⚠️ `JWT_SECRET` es obligatorio y necesita al menos 32 bytes. Si falta, Compose no levanta el contenedor (`JWT_SECRET is required`); si está vacío, es el placeholder de ejemplo (`your-512-bit-secret-key-should-be-long-and-random`) o tiene menos de 32 bytes, la app no arranca. Generalo con `openssl rand -base64 64 | tr -d '\n'`.
 >
-> `DB_PASSWORD` también es obligatorio: sin él, la app arranca igual usando la password de desarrollo por defecto, que **no es segura para producción**.
+> `DB_APP_PASSWORD` también es obligatorio: es la password del login `vapati_app` con el que conecta la app. No tiene valor por defecto y sin ella Compose no levanta (`DB_APP_PASSWORD is required`). El servicio de SQL Server crea el login o actualiza su password en cada arranque. `DB_PASSWORD` es la de `sa` y solo la usa el contenedor de SQL Server y los scripts manuales (secciones 5 y 7.2).
 
 ### 4.2. Copiar los archivos al servidor
 
@@ -137,6 +140,8 @@ docker compose -f docker-compose.prod.yml up -d
 Esto levanta `db_vapati_prod` (SQL Server) y `app_vapati_prod` (la imagen publicada), sin necesidad de tener el código fuente en el servidor. La app queda accesible en el puerto configurado (`APP_PORT`).
 
 ### 4.5. Verificar que levantó bien
+
+`docker compose -f docker-compose.prod.yml ps` debe mostrar los dos servicios `healthy`. El healthcheck de la app solo la marca `unhealthy`; Compose no la reinicia por eso.
 
 ```bash
 docker compose -f docker-compose.prod.yml logs -f app
@@ -300,6 +305,7 @@ Con esto, un `git push origin main` directo es rechazado, y el botón de merge d
    - `-I` es obligatorio (sin él aparece el Msg 1934 por el índice filtrado de `transaction_id`) y `-b` corta en el primer error: si falla, no levantes la imagen nueva.
    - El script es idempotente: una segunda corrida no cambia nada.
    - Antes, en producción, comprobá que no haya una FK ni un índice sobre `donation.campaign_id` que impidan el `ALTER COLUMN` (`EXEC sp_fkeys @fktable_name = 'donation'; EXEC sp_helpindex 'donation';`) y que `SELECT COUNT(*) FROM donation d LEFT JOIN campaign c ON c.id = d.campaign_id WHERE c.id IS NULL` dé `0`. Si el `ALTER` falla por una FK o un índice, el paso 5 reservado del script es el lugar para borrarlos y recrearlos con sus nombres reales.
+8. **Actualizar un servidor con Compose a la versión con `vapati_app` (Alpine, SQL Server fijado).** (1) Agregá `DB_APP_PASSWORD` al `.env` del servidor **antes** de `pull` y `up -d`; sin ella `up` falla enseguida. (2) Copiá al servidor el `docker-compose.prod.yml` nuevo junto con el `.env` (sección 4.2): la imagen nueva no arranca con el compose viejo (no le pasa `DB_APP_PASSWORD`) y la imagen vieja no conecta con el compose nuevo (ya no le pasa `DB_PASSWORD`). (3) `up -d` recrea `db_vapati_prod` con la imagen de SQL Server fijada (`2022-CU27-GDR1-ubuntu-22.04`), con un corte breve; al arrancar crea el login `vapati_app`, y SQL Server migra en el lugar las bases de sistema del volumen, así que haz un respaldo del volumen antes. (4) Los scripts manuales siguen usando `sa` con `DB_PASSWORD`.
 
 > Un **Rerun** de un workflow viejo en `main` vuelve a publicar ese código viejo como `latest`. Si necesitás volver atrás, preferí el rollback por tag (sección 7.4).
 
@@ -407,6 +413,8 @@ Solo se puede volver a imágenes que tienen versión. Un merge sin tag `vX.Y.Z` 
 >
 > `campaign_id` puede quedar nullable. Las donaciones directas que ya existan tienen `campaign_id` en `NULL`, algo que el código viejo no contemplaba: no las borres, pero no esperes que esa imagen las lea bien.
 
+> ⚠️ **Rollback a una imagen anterior a `vapati_app`.** Esas imágenes conectan como `sa` y leen `DB_PASSWORD`. Restaurá también el `docker-compose.prod.yml` anterior (o agregá temporalmente `DB_PASSWORD` al servicio `app`). Además, el volumen de SQL Server ya fue migrado por el tag fijado: una imagen de SQL Server más vieja no lo abre; hay que restaurar el respaldo del volumen.
+
 ### 7.5. Troubleshooting
 
 - **El workflow falla en "Login to Docker Hub" con `unauthorized`**: el token es incorrecto, expiró o es de solo lectura, o `DOCKERHUB_USERNAME` no coincide con el dueño del token. Regenerá el token (Read & Write) y actualizá el secret.
@@ -414,6 +422,8 @@ Solo se puede volver a imágenes que tienen versión. Un merge sin tag `vX.Y.Z` 
 - **El push de un tag no dispara nada**: el tag no cumple el formato `vX.Y.Z`.
 - **Los tests fallan con `Could not find a valid Docker environment`** (en `VaPaTiApplicationTests` y `BankAccountRepositoryTest`): Testcontainers está pidiendo una versión de la API de Docker que el daemon del runner no soporta. Verificá que el paso `Run tests` del workflow siga pasando `-Ddocker.remote.api.version="$(docker version --format '{{.Server.APIVersion}}')"`.
 - **No puedo mergear el PR y dice que falta el check `Tests`**: el ruleset exige un check que todavía no corrió en ese PR. Pusheá un commit a `dev` o usá **Re-run jobs** en la pestaña Checks del PR.
+- **`DB_APP_PASSWORD is required`** al hacer `up`: falta la variable en el `.env`.
+- **La app queda `unhealthy`**: mirá `docker compose -f docker-compose.prod.yml logs app`; el healthcheck no la reinicia.
 
 ---
 
