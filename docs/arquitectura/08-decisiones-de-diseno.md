@@ -83,6 +83,12 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** lo privado y el detalle completo ya están en `GET /api/donations/received`, que ve el receptor. Una sola vista pública hace que el contenido no dependa de quien llama. Un DTO propio (`SupportFeedItemDTO`) impide que un campo nuevo de `DonationResponseDTO` se filtre a una ruta pública. La campaña se oculta con la misma regla de `CLOSED` que `findByIdVisibleTo` aplica a quien no es dueño ni ADMIN, así el feed no muestra una campaña que el público no puede abrir.
 - **Dónde:** `service/donation/SupporterService.java` (`getSupportFeed`, `hideNonPublicData`), `validation/campaign/CampaignValidationService.java` (`isPublicCampaign`), `validation/donation/DonationValidationService.java` (`isCampaignPublic`). Detalle en [Donation](dominios/donation.md#feed-de-apoyos-de-un-creador). Spec: `harness/specs/52-feed-de-apoyos-en-el-perfil.md`.
 
+### Likes: contador sin vista de ADMIN
+
+- **Qué:** `likesCount` deja afuera los likes de usuarios borrados, baneados o con suspensión vigente, para todos, también para el ADMIN. Las filas se conservan y vuelven a contar si la cuenta se restaura o la sanción termina.
+- **Por qué:** no hay par de queries completa/`*VisibleTo` como pide [Queries en pares](#queries-en-pares-la-del-admin-y-la-del-resto): no hay una lista de quién dio like, solo un número, y una vista de ADMIN no agregaría nada. Es la regla de lectura de los usuarios bloqueados (`UserRepository.NOT_BLOCKED` junto con `u.deletedAt IS NULL`).
+- **Dónde:** `repository/publication/PublicationLikeRepository.java`. Detalle en [Publication](dominios/publication.md).
+
 ## Datos
 
 ### Borrado lógico, con relaciones tolerantes
@@ -116,14 +122,15 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### La base como red contra carreras
 
-- **Qué:** restricciones únicas (seguidor+seguido, `jti` revocado, reportante+entidad, número de cuenta, `transactionId`). `DataIntegrityViolationException` se traduce a `409`.
-- **Por qué:** la validación previa en Java no alcanza con requests simultáneos, y la restricción da la última palabra.
-- **Dónde:** las entidades, `exception/GlobalExceptionHandler.java`.
+- **Qué:** restricciones únicas (seguidor+seguido, `jti` revocado, reportante+entidad, número de cuenta, `transactionId`, publicación+usuario en `publication_like`). Por defecto, `DataIntegrityViolationException` se traduce a `409`. Hay dos excepciones idempotentes que absorben la violación y siguen: el logout (`AuthenticationService.revokeIgnoringDuplicates`: si otro logout revocó el mismo `jti`, ya está revocado) y el like (`PublicationLikeService.likePublication`: si otro request dio el mismo like, el estado final es el mismo y responde `200`).
+- **Por qué:** la validación previa en Java no alcanza con requests simultáneos, y la restricción da la última palabra. Los dos métodos idempotentes no son `@Transactional` a propósito: el rollback de la violación queda confinado al `save` o al insert que falla (y, con open-in-view activo, el contexto de persistencia del request se limpia), así el método puede seguir y responder `200`. Dentro de una transacción externa esa violación la marcaría rollback-only y terminaría en `409`. Quien copie el patrón dentro de un método `@Transactional` obtiene el `409` sin aviso.
+- **Dónde:** las entidades, `exception/GlobalExceptionHandler.java`, `service/auth/AuthenticationService.java`, `service/publication/PublicationLikeService.java`.
 
 ### Consultas sin N+1
 
 - **Qué:** los listados traen las relaciones con `JOIN FETCH`, incluido el `@OneToOne` inverso `User.verificationRequest`, que Hibernate cargaría aparte aunque fuera `LAZY`. Las categorías de un listado de campañas se cargan en bloques de 1000 ids, porque SQL Server acepta hasta 2100 parámetros.
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`.
+- **El listado de publicaciones:** suma dos consultas fijas por `campaignId` (una sola para un anónimo): el conteo de likes agrupado por publicación y los ids que quien llama marcó. Ninguna usa `IN :ids`, así que no crecen con el listado ni tocan el límite de parámetros.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`.
 
 ## Errores
 

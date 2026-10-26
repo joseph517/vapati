@@ -110,6 +110,12 @@ erDiagram
         datetime updated_at
         datetime deleted_at "soft delete"
     }
+    PublicationLike {
+        bigint id PK
+        bigint publication_id FK
+        bigint user_id FK
+        datetime created_at
+    }
     Follower {
         bigint id PK
         bigint user_id FK "seguido"
@@ -177,6 +183,8 @@ erDiagram
     Campaign |o--o{ Donation : "campaign_id (opcional)"
     User ||--o{ Publication : "user_id"
     Campaign ||--o{ Publication : "campaign_id"
+    User ||--o{ PublicationLike : "user_id"
+    Publication ||--o{ PublicationLike : "publication_id"
     User ||--o{ Follower : "user_id (seguido)"
     User ||--o{ Follower : "follower_id (seguidor)"
     User ||--o{ Report : "reporter_id"
@@ -223,6 +231,7 @@ erDiagram
 |---|---|---|---|---|
 | `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), la respuesta del receptor `thanksMessage` (opcional, hasta 280), `thanksPrivate` (`bit NOT NULL`, default `0`) y `thankedAt`, `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId`, `donorUserId` y `recipientUserId` | `donor`, `recipient` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). `campaign` es opcional: una donación directa tiene `campaign_id` y `campaign` en `null`. `recipient` es el dueño de la campaña, o el usuario de una donación directa. |
 | `Publication` | `entity/publication/Publication.java` | `publication` | `description`, `createdAt`, `updatedAt`, `deletedAt`, y la copia de solo lectura `campaignId` | `user` (autor) y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
+| `PublicationLike` | `entity/publication/PublicationLike.java` | `publication_like` | `createdAt` | `publication` y `user` (`@ManyToOne` LAZY, `optional = false`, sin `@NotFound`). `UNIQUE (publication_id, user_id)` (`uk_publication_like_publication_user`): un like por usuario y publicación. Sin borrado lógico ni cascada. |
 | `Follower` | `entity/follower/Follower.java` | `followers` | `createdAt`, `updatedAt` | `user` (el seguido) y `follower` (quien sigue), ambos `@ManyToOne` a `User`. `UNIQUE (user_id, follower_id)`: no se puede seguir dos veces a la misma persona. |
 
 Los montos son `BigDecimal` con `precision = 15, scale = 2` (`DECIMAL(15,2)`), y los DTOs de entrada los limitan con `@Digits(integer = 13, fraction = 2)`, que coincide con la columna. No hay `double` ni `float` para dinero.
@@ -261,6 +270,7 @@ JPA carga por defecto en forma **EAGER** las relaciones `@ManyToOne` y `@OneToOn
 | `CampaignStatusHistory.campaign`, `.changedBy` | `@ManyToOne` | EAGER | — | Sin `@NotFound`. |
 | `Donation.donor`, `.recipient`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Publication.user`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
+| `PublicationLike.publication`, `.user` | `@ManyToOne` | LAZY | — | `optional = false`, sin `@NotFound`. |
 | `Follower.user`, `.follower` | `@ManyToOne` | EAGER | — | Sin `@NotFound`. |
 | `Report.reporter` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Report.reviewedBy` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`. |
@@ -306,7 +316,7 @@ Seis entidades no se borran físicamente: tienen una columna `deleted_at` y `@SQ
 
 **Borrar una entidad con `@SQLDelete` la deja "removida" para Hibernate.** Desde Hibernate 6.6 (Spring Boot 3.5), si en la misma transacción hay otra entidad administrada que la referencia, el flush del commit falla por referencia a una entidad transitoria (y el request termina en `500`). Es lo que pasa en `CampaignService.closeAndSoftDelete`: la fila de `CampaignStatusHistory` que acaba de registrar apunta a la campaña que se va a borrar. El método hace `saveAndFlush` para escribir esa fila y después `entityManager.detach` sobre ella, para que el flush final no la vea. `CampaignStatusHistoryService.recordTransition` devuelve la fila guardada justamente para poder desacoplarla. Cualquier flujo nuevo que escriba una fila relacionada y después borre con `repository.delete` tiene el mismo riesgo, y solo un test contra SQL Server real lo detecta (`CampaignServiceCloseAndSoftDeleteIntegrationTest`); ver [Recomendaciones de arquitectura](recomendaciones-de-arquitectura.md).
 
-Lo que **no** tiene soft delete se borra con `DELETE`: dejar de seguir (`Follower`), las categorías de una campaña (se reemplazan completas al editarla, con un `DELETE` JPQL masivo), una categoría (`Category`, solo si nadie la usa), las `UserCategory` sacadas del set y los tokens revocados vencidos. `Donation`, `Report`, `CampaignStatusHistory`, `UserInfo` y `Role` no se borran nunca.
+Lo que **no** tiene soft delete se borra con `DELETE`: dejar de seguir (`Follower`), las categorías de una campaña (se reemplazan completas al editarla, con un `DELETE` JPQL masivo), una categoría (`Category`, solo si nadie la usa), las `UserCategory` sacadas del set, los tokens revocados vencidos y los likes de una publicación (`PublicationLike`: quitar el like es un `DELETE` JPQL masivo, `PublicationLikeRepository.deleteByPublicationIdAndUserId`, que no carga la fila). `Donation`, `Report`, `CampaignStatusHistory`, `UserInfo` y `Role` no se borran nunca.
 
 ### Leer a través del borrado
 
@@ -351,7 +361,7 @@ Consecuencias que se ven en el código:
 - Las reglas de visibilidad usan ese `null`: una publicación cuyo autor fue borrado responde `404` como si no existiera (ver [Publication](dominios/publication.md)).
 - `Report.reviewedBy` es la única de la lista sin `updatable = false`; no pierde la referencia porque `ReportService.reviewReport` la vuelve a asignar en cada revisión.
 
-Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados). Ver [Deuda técnica](deuda-tecnica.md) para los casos en que eso no alcanza.
+Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `PublicationLike.user`, `PublicationLike.publication`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados, y las queries de conteo de likes hacen `JOIN` con `user` y con `publication` y filtran `u.deletedAt IS NULL`). Ver [Deuda técnica](deuda-tecnica.md) para los casos en que eso no alcanza.
 
 ### Usuarios borrados frente a usuarios bloqueados
 
@@ -361,7 +371,7 @@ Borrado y bloqueo son cosas distintas en el modelo. Un usuario **borrado** tiene
 (u.banned IS NULL OR u.banned = false) AND (u.suspendedUntil IS NULL OR u.suspendedUntil <= :now)
 ```
 
-El `:now` lo pasa el service desde la JVM, no lo calcula la base. `banned` es un `Boolean` y la condición acepta `NULL` porque los usuarios creados con `User.builder()` no toman el valor inicial del campo y quedan con `banned` en `NULL`. Las queries `*VisibleTo` y `*Visible*` de campañas y seguidores la combinan con `u.deletedAt IS NULL`. La regla es la misma que aplica `validation/auth/AccountStatusValidationService.java` en Java; ver [Seguridad](03-seguridad.md).
+El `:now` lo pasa el service desde la JVM, no lo calcula la base. `banned` es un `Boolean` y la condición acepta `NULL` porque los usuarios creados con `User.builder()` no toman el valor inicial del campo y quedan con `banned` en `NULL`. Las queries `*VisibleTo` y `*Visible*` de campañas y seguidores la combinan con `u.deletedAt IS NULL`, igual que las de conteo de likes de `PublicationLikeRepository` (`countVisibleByPublicationId` y `countVisibleByCampaignIdGroupedByPublication`). La regla es la misma que aplica `validation/auth/AccountStatusValidationService.java` en Java; ver [Seguridad](03-seguridad.md).
 
 ## Fechas de auditoría
 
@@ -371,6 +381,7 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 |---|---|
 | `@CreationTimestamp` / `@UpdateTimestamp` de Hibernate y además `@PrePersist` / `@PreUpdate` | `Campaign`, `Goal`, `Donation` |
 | Solo `@PrePersist` / `@PreUpdate` | `User`, `BankAccount`, `Report`, `Publication` (en `Publication` el mapper también las asigna) |
+| Solo `@PrePersist` (sin `updatedAt`) | `PublicationLike` |
 | `@CreationTimestamp` solo | `CampaignStatusHistory.changedAt` |
 | Asignadas a mano en service, validation o mapper | `UserInfo`, `VerificationRequest`, `Follower.createdAt` |
 | En el constructor | `RevokedToken.createdAt` |
@@ -379,7 +390,7 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 
 ## Lombok en las entidades
 
-Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, y `User` excluye sus colecciones y relaciones inversas.
+Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `PublicationLike` excluye sus dos relaciones (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas.
 
 Dos detalles a tener en cuenta al tocar entidades:
 
@@ -448,6 +459,6 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 
 ## Clases involucradas
 
-- Entidades: todo `entity/` (16 entidades y 7 enums).
-- Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
+- Entidades: todo `entity/` (17 entidades y 7 enums).
+- Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
 - Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`.

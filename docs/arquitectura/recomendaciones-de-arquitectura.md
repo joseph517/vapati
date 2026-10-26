@@ -71,3 +71,13 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Por qué acá:** todos los controllers paginados pasan por esa clase.
 - **Costo y riesgo:** chico. Hay que elegir el mensaje del `400` y revisar los tests de `SortValidationService`.
 - **Migración:** (1) agregar la regla y su mensaje con tests; (2) comprobar a mano `/received` y `/support-feed` con el valor extremo; (3) documentar el mensaje en [Errores y validación](05-errores-y-validacion.md).
+
+### Helper compartido para "insertar ignorando el duplicado"
+
+- **Origen:** revisión final del spec 53 (`harness/specs/53-likes-en-publicaciones.md`), 2026-10-26.
+- **Evidencia:** `service/auth/AuthenticationService.java` (`revokeIgnoringDuplicates`) y `service/publication/PublicationLikeService.java` (`likePublication`) repiten el mismo patrón: capturar `DataIntegrityViolationException` al insertar, fuera de una transacción externa (`likePublication` comprueba antes con `existsByPublication_IdAndUser_Id`; el logout comprueba dentro de `TokenBlackListService.revokeToken`). El spec 54 o futuros likes (S7) podrían sumar un tercero.
+- **Problema:** la regla "no ser `@Transactional` para que el rollback quede en el `save`" vive en comentarios repetidos. Quien copie el patrón dentro de un método `@Transactional` obtiene un `409` sin aviso.
+- **Propuesta:** cuando aparezca el tercer uso, un método utilitario `saveIgnoringDuplicate(Runnable/Supplier)` en un componente común, con el comentario del límite transaccional en un solo lugar.
+- **Por qué acá:** el proyecto documenta en [Decisiones de diseño](08-decisiones-de-diseno.md#la-base-como-red-contra-carreras) que la restricción única es la red, y ya hay dos excepciones idempotentes. Con dos usos todavía no paga.
+- **Costo y riesgo:** chico. El riesgo es meterlo en un bean con proxy transaccional y cambiar el comportamiento.
+- **Migración:** (1) extraer el helper con su test unitario; (2) migrar `likePublication`; (3) migrar `revokeIgnoringDuplicates`; cada paso con su clase de test.

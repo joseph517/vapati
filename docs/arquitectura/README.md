@@ -2,7 +2,7 @@
 
 Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectura, cada funcionalidad y por qué funciona como funciona. Todo lo que dice sale del código.
 
-**Describe:** la rama `spec-52-feed-de-apoyos-en-el-perfil` en el commit `3b31190`, al 2026-10-26. Es una foto: los cambios posteriores al código no se reflejan acá.
+**Describe:** la rama `spec-53-likes-en-publicaciones` en el commit `36e2b28`, al 2026-10-26. Es una foto: los cambios posteriores al código no se reflejan acá.
 
 **Para quién es:** un dev backend que entra al proyecto, que sabe Java y lo básico de Spring. No se explica Spring desde cero, sino cómo lo usa este proyecto.
 
@@ -49,7 +49,7 @@ Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectur
 | [dominios/campaign.md](dominios/campaign.md) | Campañas, metas y estados. |
 | [dominios/donation.md](dominios/donation.md) | Donaciones a campañas y directas, donaciones recibidas, estadísticas, supporters y feed de apoyos de un creador. |
 | [dominios/follower.md](dominios/follower.md) | Seguir a otros usuarios. |
-| [dominios/publication.md](dominios/publication.md) | Publicaciones dentro de una campaña. |
+| [dominios/publication.md](dominios/publication.md) | Publicaciones dentro de una campaña, y los likes que reciben. |
 | [dominios/bankaccount.md](dominios/bankaccount.md) | Cuentas bancarias de los usuarios. |
 | [dominios/verification.md](dominios/verification.md) | Solicitudes de verificación de cuenta. |
 | [dominios/report.md](dominios/report.md) | Reportes de contenido y moderación. |
