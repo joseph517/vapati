@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.repository.publication.PublicationLikeRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,17 @@ public class PublicationLikeService {
         }
 
         return buildResponse(publicationId, true);
+    }
+
+    // The @Modifying delete needs a transaction. Its result is ignored: 0 rows (no like) also answers 200
+    @Transactional
+    public PublicationLikeResponseDTO unlikePublication(Long publicationId) {
+        Long callerId = authenticatedUserService.getAuthenticatedUserId();
+        publicationValidationService.validateAndGetVisiblePublication(publicationId, callerId);
+
+        publicationLikeRepository.deleteByPublicationIdAndUserId(publicationId, callerId);
+
+        return buildResponse(publicationId, false);
     }
 
     // Only ids: after a rollback the loaded publication is no longer in the persistence context
