@@ -131,7 +131,8 @@ class PublicationLikeServiceLikeTest {
         // When
         PublicationLikeResponseDTO result = publicationLikeService.likePublication(PUBLICATION_ID);
 
-        // Then
+        // Then: the save was attempted once and its violation absorbed
+        verify(publicationLikeRepository).save(any(PublicationLike.class));
         verify(publicationLikeRepository).countVisibleByPublicationId(eq(PUBLICATION_ID), any(LocalDateTime.class));
         assertThat(result.getPublicationId()).isEqualTo(PUBLICATION_ID);
         assertThat(result.getLikesCount()).isEqualTo(4L);

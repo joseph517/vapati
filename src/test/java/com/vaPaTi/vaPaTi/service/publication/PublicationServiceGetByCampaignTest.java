@@ -106,6 +106,7 @@ class PublicationServiceGetByCampaignTest {
         inOrder.verify(publicationRepository).findAllByCampaignId(CAMPAIGN_ID);
         inOrder.verify(publicationLikeRepository)
                 .countVisibleByCampaignIdGroupedByPublication(eq(CAMPAIGN_ID), any(LocalDateTime.class));
+        inOrder.verify(publicationLikeRepository).findLikedPublicationIdsByCampaignIdAndUserId(CAMPAIGN_ID, CALLER_ID);
     }
 
     @Test
