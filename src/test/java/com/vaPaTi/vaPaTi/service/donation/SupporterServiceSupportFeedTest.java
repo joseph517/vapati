@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.SupportFeedItemDTO;
+import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
@@ -39,7 +40,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -70,6 +70,7 @@ class SupporterServiceSupportFeedTest {
     private static final Long CREATOR_ID = 1L;
     private static final Long ADMIN_ID = 2L;
     private static final Long THIRD_PARTY_ID = 3L;
+    private static final LocalDateTime CREATED_AT = LocalDateTime.of(2026, 10, 20, 10, 0);
 
     private User creator;
     private Pageable defaultPageable;
@@ -247,12 +248,228 @@ class SupporterServiceSupportFeedTest {
             assertThat(result.getContent()).isEmpty();
             assertThat(result.getTotalElements()).isZero();
         }
+    }
 
-        private void givenVisibleCreator() {
+    @Nested
+    @DisplayName("Public view")
+    class PublicViewTests {
+
+        private static final LocalDateTime THANKED_AT = LocalDateTime.of(2026, 10, 21, 9, 30);
+
+        @Test
+        @DisplayName("Anonymous, another USER, the creator and an ADMIN should get identical items")
+        void getSupportFeed_AnyCaller_ShouldReturnSameContent() {
+            // Given
             givenCreatorExists();
-            givenCaller(THIRD_PARTY_ID);
+            when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(
+                    Optional.empty(), Optional.of(THIRD_PARTY_ID), Optional.of(CREATOR_ID), Optional.of(ADMIN_ID));
+            when(userValidationService.isAdmin(null)).thenReturn(false);
             when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            Donation publicCampaign = campaignDonation(100L, 10L, "Visible campaign");
+            publicCampaign.setMessage("Public message");
+            publicCampaign.setThanksMessage("Private reply");
+            publicCampaign.setThanksPrivate(true);
+            publicCampaign.setThankedAt(THANKED_AT);
+            Donation hiddenCampaign = campaignDonation(99L, 11L, "Closed campaign");
+            hiddenCampaign.setMessage("Private message");
+            hiddenCampaign.setMessagePrivate(true);
+            Donation direct = donation(98L);
+            direct.setThanksMessage("Public reply");
+            direct.setThankedAt(THANKED_AT);
+            when(donationValidationService.isCampaignPublic(publicCampaign)).thenReturn(true);
+            when(donationValidationService.isCampaignPublic(hiddenCampaign)).thenReturn(false);
+            givenFeed(List.of(publicCampaign, hiddenCampaign, direct), 3L);
+
+            // When
+            List<SupportFeedItemDTO> asAnonymous = supporterService.getSupportFeed(CREATOR_ID, defaultPageable).getContent();
+            List<SupportFeedItemDTO> asThirdParty = supporterService.getSupportFeed(CREATOR_ID, defaultPageable).getContent();
+            List<SupportFeedItemDTO> asCreator = supporterService.getSupportFeed(CREATOR_ID, defaultPageable).getContent();
+            List<SupportFeedItemDTO> asAdmin = supporterService.getSupportFeed(CREATOR_ID, defaultPageable).getContent();
+
+            // Then
+            assertThat(asAnonymous).containsExactly(
+                    SupportFeedItemDTO.builder().donationId(100L).campaignId(10L).campaignName("Visible campaign")
+                            .campaignHidden(false).message("Public message").createdAt(CREATED_AT).build(),
+                    SupportFeedItemDTO.builder().donationId(99L).campaignHidden(true).createdAt(CREATED_AT).build(),
+                    SupportFeedItemDTO.builder().donationId(98L).campaignHidden(false).thanksMessage("Public reply")
+                            .thankedAt(THANKED_AT).createdAt(CREATED_AT).build());
+            assertThat(asThirdParty).isEqualTo(asAnonymous);
+            assertThat(asCreator).isEqualTo(asAnonymous);
+            assertThat(asAdmin).isEqualTo(asAnonymous);
+            verify(userValidationService, times(2)).validateProfileNotBlocked(creator);
         }
+
+        @Test
+        @DisplayName("A private message should come as null")
+        void getSupportFeed_PrivateMessage_ShouldHideMessage() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = donation(100L);
+            donation.setMessage("Private message");
+            donation.setMessagePrivate(true);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getMessage()).isNull();
+            assertThat(donation.getMessage()).isEqualTo("Private message");
+        }
+
+        @Test
+        @DisplayName("A private reply should come with thanksMessage and thankedAt null")
+        void getSupportFeed_PrivateReply_ShouldHideReplyAndDate() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = donation(100L);
+            donation.setMessage("Public message");
+            donation.setThanksMessage("Private reply");
+            donation.setThanksPrivate(true);
+            donation.setThankedAt(THANKED_AT);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getThanksMessage()).isNull();
+            assertThat(item.getThankedAt()).isNull();
+            assertThat(item.getMessage()).isEqualTo("Public message");
+        }
+
+        @Test
+        @DisplayName("A public message and a public reply should be kept")
+        void getSupportFeed_PublicMessageAndReply_ShouldKeepBoth() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = donation(100L);
+            donation.setMessage("Public message");
+            donation.setThanksMessage("Public reply");
+            donation.setThankedAt(THANKED_AT);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getMessage()).isEqualTo("Public message");
+            assertThat(item.getThanksMessage()).isEqualTo("Public reply");
+            assertThat(item.getThankedAt()).isEqualTo(THANKED_AT);
+        }
+
+        @Test
+        @DisplayName("A private message with a public reply should keep the reply")
+        void getSupportFeed_PrivateMessagePublicReply_ShouldKeepReply() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = donation(100L);
+            donation.setMessage("Private message");
+            donation.setMessagePrivate(true);
+            donation.setThanksMessage("Public reply");
+            donation.setThankedAt(THANKED_AT);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getMessage()).isNull();
+            assertThat(item.getThanksMessage()).isEqualTo("Public reply");
+            assertThat(item.getThankedAt()).isEqualTo(THANKED_AT);
+        }
+
+        @Test
+        @DisplayName("A campaign the public can't see should lose its id and name and come with campaignHidden true")
+        void getSupportFeed_NonPublicCampaign_ShouldHideCampaign() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = campaignDonation(100L, 10L, "Closed campaign");
+            when(donationValidationService.isCampaignPublic(donation)).thenReturn(false);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getCampaignId()).isNull();
+            assertThat(item.getCampaignName()).isNull();
+            assertThat(item.getCampaignHidden()).isTrue();
+        }
+
+        @Test
+        @DisplayName("A deleted campaign (relation null, id kept) should come with campaignHidden true")
+        void getSupportFeed_DeletedCampaign_ShouldHideCampaign() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = donation(100L);
+            donation.setCampaignId(10L);
+            when(donationValidationService.isCampaignPublic(donation)).thenReturn(false);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getCampaignId()).isNull();
+            assertThat(item.getCampaignName()).isNull();
+            assertThat(item.getCampaignHidden()).isTrue();
+        }
+
+        @Test
+        @DisplayName("A public campaign should keep its id and name and come with campaignHidden false")
+        void getSupportFeed_PublicCampaign_ShouldKeepCampaign() {
+            // Given
+            givenVisibleCreator();
+            Donation donation = campaignDonation(100L, 10L, "Visible campaign");
+            when(donationValidationService.isCampaignPublic(donation)).thenReturn(true);
+            givenFeed(List.of(donation), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getCampaignId()).isEqualTo(10L);
+            assertThat(item.getCampaignName()).isEqualTo("Visible campaign");
+            assertThat(item.getCampaignHidden()).isFalse();
+        }
+
+        @Test
+        @DisplayName("A direct donation should not call isCampaignPublic and come with campaignHidden false")
+        void getSupportFeed_DirectDonation_ShouldNotCheckCampaign() {
+            // Given
+            givenVisibleCreator();
+            givenFeed(List.of(donation(100L)), 1L);
+
+            // When
+            SupportFeedItemDTO item = singleItem();
+
+            // Then
+            assertThat(item.getCampaignId()).isNull();
+            assertThat(item.getCampaignName()).isNull();
+            assertThat(item.getCampaignHidden()).isFalse();
+            verify(donationValidationService, never()).isCampaignPublic(any());
+        }
+
+        private SupportFeedItemDTO singleItem() {
+            List<SupportFeedItemDTO> content = supporterService.getSupportFeed(CREATOR_ID, defaultPageable).getContent();
+            assertThat(content).hasSize(1);
+            return content.get(0);
+        }
+
+        private Donation campaignDonation(Long id, Long campaignId, String campaignName) {
+            Donation donation = donation(id);
+            donation.setCampaignId(campaignId);
+            donation.setCampaign(Campaign.builder().id(campaignId).name(campaignName).build());
+            return donation;
+        }
+    }
+
+    private void givenVisibleCreator() {
+        givenCreatorExists();
+        givenCaller(THIRD_PARTY_ID);
+        when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
     }
 
     private void givenCreatorExists() {
@@ -275,11 +492,11 @@ class SupporterServiceSupportFeedTest {
                 .amount(new BigDecimal("10.00"))
                 .status(DonationStatus.COMPLETED)
                 .recipientUserId(CREATOR_ID)
-                .createdAt(LocalDateTime.of(2026, 10, 20, 10, 0))
+                .createdAt(CREATED_AT)
                 .build();
     }
 
     private void assertFeedQueryNotCalled() {
-        verify(donationRepository, never()).findCompletedByRecipientId(anyLong(), any());
+        verify(donationRepository, never()).findCompletedByRecipientId(any(), any());
     }
 }

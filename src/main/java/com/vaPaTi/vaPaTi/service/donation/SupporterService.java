@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.service.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.SupportFeedItemDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.SupporterResponseDTO;
+import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
@@ -88,7 +89,25 @@ public class SupporterService {
                 pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
 
         return donationRepository.findCompletedByRecipientId(userId, sorted)
-                .map(donationMapper::toSupportFeedItemDTO);
+                .map(donation -> hideNonPublicData(donation, donationMapper.toSupportFeedItemDTO(donation)));
+    }
+
+    // The feed shows the public view to everyone, the creator and admins included: a campaign the public can't see
+    // loses its id and name, and a private message or reply is left out. The private data stays in /received
+    private SupportFeedItemDTO hideNonPublicData(Donation donation, SupportFeedItemDTO dto) {
+        if (donation.getCampaignId() != null && !donationValidationService.isCampaignPublic(donation)) {
+            dto.setCampaignId(null);
+            dto.setCampaignName(null);
+            dto.setCampaignHidden(true);
+        }
+        if (donation.isMessagePrivate()) {
+            dto.setMessage(null);
+        }
+        if (donation.isThanksPrivate()) {
+            dto.setThanksMessage(null);
+            dto.setThankedAt(null);
+        }
+        return dto;
     }
 
     // The creator must exist. Only the creator and admins see a banned or suspended creator; the rest get a 404.
