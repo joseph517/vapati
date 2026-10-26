@@ -34,22 +34,12 @@ public class SupporterService {
     private final UserValidationService userValidationService;
     private final AuthenticatedUserService authenticatedUserService;
 
-    // One row per donor with the aggregates of their COMPLETED donations to the creator's campaigns (deleted ones
-    // included). Everyone sees the donor. Only the creator and admins see the aggregates.
+    // One row per donor with the aggregates of their COMPLETED donations received by the creator, direct and to
+    // their campaigns (deleted ones included). Everyone sees the donor. Only the creator and admins see the aggregates.
     // The creator checks run before the sort check: a hidden profile gives 404, never the 400 of the sort
     @Transactional
     public Page<SupporterResponseDTO> getSupporters(Long userId, Pageable pageable) {
-        if (userId == null || userId <= 0) {
-            throw new MessageException("ID must be a positive number");
-        }
-
-        User creator = userValidationService.getUserById(userId);
-
-        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        boolean fullView = userId.equals(callerId) || userValidationService.isAdmin(callerId);
-        if (!fullView) {
-            userValidationService.validateProfileNotBlocked(creator);
-        }
+        boolean fullView = validateCreatorAndGetPrivileged(userId);
 
         Sort.Order order = pageable.getSort().stream().findFirst().orElse(null);
         String sortBy = order != null ? order.getProperty() : DEFAULT_SORT_BY;
@@ -83,5 +73,22 @@ public class SupporterService {
             });
         }
         return new PageImpl<>(rows, pageable, total);
+    }
+
+    // The creator must exist. Only the creator and admins see a banned or suspended creator; the rest get a 404.
+    // Returns whether the caller is the creator or an admin
+    private boolean validateCreatorAndGetPrivileged(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new MessageException("ID must be a positive number");
+        }
+
+        User creator = userValidationService.getUserById(userId);
+
+        Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
+        boolean privileged = userId.equals(callerId) || userValidationService.isAdmin(callerId);
+        if (!privileged) {
+            userValidationService.validateProfileNotBlocked(creator);
+        }
+        return privileged;
     }
 }
