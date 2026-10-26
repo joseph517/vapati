@@ -10,8 +10,8 @@ El cobro no es real: una donación se aprueba sola en el momento (aprobación si
 
 | Actor | Cómo se identifica | Qué puede hacer |
 |---|---|---|
-| **Visitante** | Sin token | Registrarse, iniciar sesión, ver las categorías, listar y ver campañas visibles con sus publicaciones, sus donaciones y sus estadísticas, y ver los supporters de un creador (sin importes). |
-| **USER** | JWT con rol `USER` | Todo lo del visitante, más: gestionar su perfil, crear y gestionar sus campañas, publicar en ellas, donar, seguir usuarios, vincular cuentas bancarias, reportar contenido y pedir la verificación de su cuenta. Ve los importes de sus propios supporters. |
+| **Visitante** | Sin token | Registrarse, iniciar sesión, ver las categorías, listar y ver campañas visibles con sus publicaciones (y cuántos likes tiene cada una), sus donaciones y sus estadísticas, ver los supporters de un creador (sin importes) y su feed de apoyos (sin importes ni datos privados). |
+| **USER** | JWT con rol `USER` | Todo lo del visitante, más: gestionar su perfil, crear y gestionar sus campañas, publicar en ellas, dar y quitar like a publicaciones, donar, seguir usuarios, vincular cuentas bancarias, reportar contenido y pedir la verificación de su cuenta. Ve los importes de sus propios supporters. |
 | **ADMIN** | JWT con rol `ADMIN` | Todo lo anterior, más: listar usuarios, gestionar categorías, revisar y resolver reportes (con sanciones), procesar solicitudes de verificación y ver lo que está oculto para el resto (campañas `CLOSED` ajenas y usuarios sancionados) y los importes de los supporters de cualquier creador. |
 
 Las rutas públicas están definidas en `security/SecurityConfig.java`. El detalle está en [Seguridad](03-seguridad.md).
@@ -24,14 +24,14 @@ Las rutas públicas están definidas en `security/SecurityConfig.java`. El detal
 | `user` | Registro, perfil propio, mensaje de agradecimiento predeterminado, perfil público, baja de la cuenta y listado de usuarios (ADMIN). | 9 | [dominios/user.md](dominios/user.md) |
 | `category` | Categorías que clasifican campañas e intereses de usuarios; el ADMIN las gestiona. | 4 | [dominios/category.md](dominios/category.md) |
 | `campaign` | Campañas con meta, estados (`ACTIVE`, `COMPLETED`, `CLOSED`), historial de transiciones y visibilidad. | 9 | [dominios/campaign.md](dominios/campaign.md) |
-| `donation` | Donar a una campaña o a un creador, responder una donación, mis donaciones, donaciones recibidas, donaciones de una campaña, sus estadísticas y los supporters de un creador. | 8 | [dominios/donation.md](dominios/donation.md) |
+| `donation` | Donar a una campaña o a un creador, responder una donación, mis donaciones, donaciones recibidas, donaciones de una campaña, sus estadísticas, los supporters de un creador y su feed de apoyos. | 9 | [dominios/donation.md](dominios/donation.md) |
 | `follower` | Seguir y dejar de seguir usuarios, listas y contadores. | 7 | [dominios/follower.md](dominios/follower.md) |
-| `publication` | Novedades que el dueño publica dentro de su campaña. | 3 | [dominios/publication.md](dominios/publication.md) |
+| `publication` | Novedades que el dueño publica dentro de su campaña, y los likes que reciben. | 5 | [dominios/publication.md](dominios/publication.md) |
 | `bankaccount` | Cuentas bancarias vinculadas al usuario. | 4 | [dominios/bankaccount.md](dominios/bankaccount.md) |
 | `verification` | Solicitud de verificación de cuenta y su resolución por un ADMIN. | 3 | [dominios/verification.md](dominios/verification.md) |
 | `report` | Reportes de usuarios, campañas y publicaciones, y su moderación. | 5 | [dominios/report.md](dominios/report.md) |
 
-Son 54 endpoints en total. Además, Swagger UI y la especificación OpenAPI se generan automáticamente a partir de los controllers (ver [Seguridad](03-seguridad.md)).
+Son 58 endpoints en total. Además, Swagger UI y la especificación OpenAPI se generan automáticamente a partir de los controllers (ver [Seguridad](03-seguridad.md)).
 
 ## Stack
 
@@ -66,6 +66,7 @@ El proyecto se construye con el Maven wrapper (`./mvnw`), así que no hace falta
 | **Estado de campaña** | `ACTIVE` (recibe donaciones), `COMPLETED` (alcanzó la meta) o `CLOSED` (cerrada por el dueño, por un ADMIN o por baja). Se guarda en `Goal.status`, y cada cambio queda en `CampaignStatusHistory`. |
 | **Campaña visible** | Una campaña no borrada, cuyo dueño no está borrado ni bloqueado y que no está `CLOSED`, salvo para su dueño o un ADMIN. Lo que no es visible responde `404`, como si no existiera. |
 | **Publicación** | Novedad que el dueño publica dentro de una de sus campañas. |
+| **Like** | Marca de un usuario autenticado en una publicación visible (`PublicationLike`), única por usuario y publicación. Dar y quitar like son idempotentes. El contador de una publicación no cuenta a los usuarios borrados ni bloqueados. |
 | **Donación** | Aporte de un usuario a una campaña o directo a otro usuario. Se aprueba sola al crearse y, si es a una campaña, suma al monto recaudado. |
 | **Donación directa** | Donación a un usuario, sin campaña (`campaignId: null`). No toca ninguna meta. El receptor tiene que ser un usuario `USER` activo: un ADMIN no recibe donaciones directas. |
 | **Receptor** | Quien recibe una donación (`recipient`): el dueño de la campaña en una donación a campaña, el usuario elegido en una directa. Es quien puede responderla, y quien la ve en `GET /api/donations/received`. |

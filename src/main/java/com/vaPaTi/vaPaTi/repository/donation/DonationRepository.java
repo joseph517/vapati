@@ -56,6 +56,16 @@ public interface DonationRepository extends JpaRepository<Donation, Long> {
             countQuery = "SELECT COUNT(d) FROM Donation d WHERE d.recipientUserId = :recipientId")
     Page<Donation> findByRecipientId(@Param("recipientId") Long recipientId, Pageable pageable);
 
+    // The public support feed of a creator: COMPLETED donations received, direct and to their campaigns. Filters by the
+    // read-only FK, not the relation. Only to-one fetches, so paging stays in SQL; the FETCH needs an explicit countQuery.
+    // A deleted campaign is left null by @SQLRestriction + @NotFound; c.goal carries the CLOSED status. recipient and
+    // the owner of each campaign are the creator, already in the persistence context (loaded by getUserById)
+    @Query(value = "SELECT d FROM Donation d LEFT JOIN FETCH d.donor du LEFT JOIN FETCH du.userInfo " +
+            "LEFT JOIN FETCH du.verificationRequest LEFT JOIN FETCH d.campaign c LEFT JOIN FETCH c.goal " +
+            "WHERE d.recipientUserId = :recipientId AND d.status = 'COMPLETED'",
+            countQuery = "SELECT COUNT(d) FROM Donation d WHERE d.recipientUserId = :recipientId AND d.status = 'COMPLETED'")
+    Page<Donation> findCompletedByRecipientId(@Param("recipientId") Long recipientId, Pageable pageable);
+
     @Query("SELECT COUNT(d) FROM Donation d WHERE d.campaignId = :campaignId AND d.status = 'COMPLETED'")
     Long countCompletedDonationsByCampaignId(@Param("campaignId") Long campaignId);
 

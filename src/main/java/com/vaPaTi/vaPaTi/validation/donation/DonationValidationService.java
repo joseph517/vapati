@@ -127,6 +127,13 @@ public class DonationValidationService {
         }
     }
 
+    // Only for a campaign donation (campaignId set). A soft-deleted campaign leaves the relation null (@NotFound)
+    // and is not public; otherwise the campaign domain decides, so the CLOSED rule has a single source
+    public boolean isCampaignPublic(Donation donation) {
+        return donation.getCampaign() != null
+                && campaignValidationService.isPublicCampaign(donation.getCampaign());
+    }
+
     // Only the recipient replies (the campaign owner in a campaign donation): an ADMIN can delete a reply but not write one
     public void validateIsRecipient(Donation donation, Long callerId) {
         if (!isRecipient(donation, callerId)) {

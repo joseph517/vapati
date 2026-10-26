@@ -18,9 +18,9 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### La ruta no decide el dominio del código
 
-- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` está en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia.
+- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` y `GET /api/users/{userId}/support-feed` están en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia.
 - **Por qué:** ningún controller inyecta el service de otro dominio. Los supporters son donaciones agregadas, así que el controller, el service (`SupporterService`) y la regla de orden van en donation, y la ruta queda donde la busca el cliente, bajo el usuario.
-- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`. Spec: `specs/50-supporters-de-un-creador.md`.
+- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`. Specs: `harness/specs/implementados/50-supporters-de-un-creador.md` y `harness/specs/52-feed-de-apoyos-en-el-perfil.md`.
 
 ## Identidad y autorización
 
@@ -66,7 +66,7 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 ### Ocultar un campo en lugar de cerrar el endpoint
 
 - **Qué:** el listado de donaciones de una campaña es público, pero `transactionId`, el mensaje privado y la respuesta privada del dueño solo los ven el dueño, un ADMIN o el propio donante. Para el resto, un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), y una respuesta privada como una donación sin respuesta (`thanksMessage: null`, `thanksPrivate: false`, `thankedAt: null`), para no revelar que hay algo oculto.
-- **Excepciones por diseño:** `GET /api/donations/received` no oculta nada: lo llama el receptor, que ve el `transactionId`, el mensaje privado y la respuesta privada de todo lo que recibió, así que no usa `canSeePrivateDonationData`. Las donaciones directas no tienen ninguna lectura pública ni de terceros, por eso no hay nada que ocultar en otra ruta.
+- **Excepciones por diseño:** `GET /api/donations/received` no oculta nada: lo llama el receptor, que ve el `transactionId`, el mensaje privado y la respuesta privada de todo lo que recibió, así que no usa `canSeePrivateDonationData`. Las donaciones directas se leen sueltas en el feed de apoyos del receptor, que no usa `canSeePrivateDonationData`: es una vista pública única (ver [Feed de apoyos: la misma vista para todos](#feed-de-apoyos-la-misma-vista-para-todos)).
 - **Dónde:** `service/donation/DonationService.java` (`canSeePrivateDonationData`, `getDonationsReceived`). Lo decide el service y no el mapper, porque el mapper no conoce a quien llama.
 
 ### Supporters: la identidad es pública, los importes no
@@ -75,7 +75,19 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** sigue a Ko-fi, cuyo perfil público muestra los primeros supporters sin importes. Ordenar por fecha revelaría quién donó más recientemente, que es el dato oculto; por eso se restringe. El orden por `totalAmount` sí revela quién donó más, y se aceptó como riesgo, como en Ko-fi. Ocultar campos y no cerrar la ruta es el mismo criterio que el `transactionId` y el mensaje privado, y como cada fila es un agregado sin mensajes no aplica `canSeePrivateDonationData`.
 - **Donantes inactivos, sin código nuevo:** un donante borrado sale anónimo (`donorUserId` y `donorUserName` en `null`) para todos, también para el ADMIN, como en `DonationMapper.toDTO`. Un donante baneado o suspendido sale normal, como en el listado de donaciones de una campaña. Sus importes siguen sumando: el ranking es un historial.
 - **Creador:** mismas reglas que el perfil (`404 User not found` si no existe, está borrado o, para la vista pública, sancionado). Es la primera ruta anónima que distingue un id de usuario existente de uno inexistente; no revela sanciones.
-- **Dónde:** `service/donation/SupporterService.java`, `validation/donation/DonationValidationService.java` (`validateSupporterSort`), `mapper/donation/DonationMapper.java` (`toSupporterDTO`). Detalle en [Donation](dominios/donation.md#supporters-de-un-creador). Spec: `specs/50-supporters-de-un-creador.md`.
+- **Dónde:** `service/donation/SupporterService.java`, `validation/donation/DonationValidationService.java` (`validateSupporterSort`), `mapper/donation/DonationMapper.java` (`toSupporterDTO`). Detalle en [Donation](dominios/donation.md#supporters-de-un-creador). Spec: `harness/specs/implementados/50-supporters-de-un-creador.md`.
+
+### Feed de apoyos: la misma vista para todos
+
+- **Qué:** `GET /api/users/{userId}/support-feed` es público, también sin token, y devuelve la misma vista a todos, incluidos el creador y el ADMIN: una fila por donación `COMPLETED` recibida, sin importes, con el mensaje y la respuesta privados en `null` (sin flag) y con las campañas no públicas (borradas, `CLOSED` o sin `goal`) anonimizadas con `campaignHidden=true`. El orden es fijo, `createdAt` y `id` descendentes. La identidad del donante es pública, como en los supporters.
+- **Por qué:** lo privado y el detalle completo ya están en `GET /api/donations/received`, que ve el receptor. Una sola vista pública hace que el contenido no dependa de quien llama. Un DTO propio (`SupportFeedItemDTO`) impide que un campo nuevo de `DonationResponseDTO` se filtre a una ruta pública. La campaña se oculta con la misma regla de `CLOSED` que `findByIdVisibleTo` aplica a quien no es dueño ni ADMIN, así el feed no muestra una campaña que el público no puede abrir.
+- **Dónde:** `service/donation/SupporterService.java` (`getSupportFeed`, `hideNonPublicData`), `validation/campaign/CampaignValidationService.java` (`isPublicCampaign`), `validation/donation/DonationValidationService.java` (`isCampaignPublic`). Detalle en [Donation](dominios/donation.md#feed-de-apoyos-de-un-creador). Spec: `harness/specs/52-feed-de-apoyos-en-el-perfil.md`.
+
+### Likes: contador sin vista de ADMIN
+
+- **Qué:** `likesCount` deja afuera los likes de usuarios borrados, baneados o con suspensión vigente, para todos, también para el ADMIN. Las filas se conservan y vuelven a contar si la cuenta se restaura o la sanción termina.
+- **Por qué:** no hay par de queries completa/`*VisibleTo` como pide [Queries en pares](#queries-en-pares-la-del-admin-y-la-del-resto): no hay una lista de quién dio like, solo un número, y una vista de ADMIN no agregaría nada. Es la regla de lectura de los usuarios bloqueados (`UserRepository.NOT_BLOCKED` junto con `u.deletedAt IS NULL`).
+- **Dónde:** `repository/publication/PublicationLikeRepository.java`. Detalle en [Publication](dominios/publication.md).
 
 ## Datos
 
@@ -110,14 +122,15 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### La base como red contra carreras
 
-- **Qué:** restricciones únicas (seguidor+seguido, `jti` revocado, reportante+entidad, número de cuenta, `transactionId`). `DataIntegrityViolationException` se traduce a `409`.
-- **Por qué:** la validación previa en Java no alcanza con requests simultáneos, y la restricción da la última palabra.
-- **Dónde:** las entidades, `exception/GlobalExceptionHandler.java`.
+- **Qué:** restricciones únicas (seguidor+seguido, `jti` revocado, reportante+entidad, número de cuenta, `transactionId`, publicación+usuario en `publication_like`). Por defecto, `DataIntegrityViolationException` se traduce a `409`. Hay dos excepciones idempotentes que absorben la violación y siguen: el logout (`AuthenticationService.revokeIgnoringDuplicates`: si otro logout revocó el mismo `jti`, ya está revocado) y el like (`PublicationLikeService.likePublication`: si otro request dio el mismo like, el estado final es el mismo y responde `200`).
+- **Por qué:** la validación previa en Java no alcanza con requests simultáneos, y la restricción da la última palabra. Los dos métodos idempotentes no son `@Transactional` a propósito: el rollback de la violación queda confinado al `save` o al insert que falla (y, con open-in-view activo, el contexto de persistencia del request se limpia), así el método puede seguir y responder `200`. Dentro de una transacción externa esa violación la marcaría rollback-only y terminaría en `409`. Quien copie el patrón dentro de un método `@Transactional` obtiene el `409` sin aviso.
+- **Dónde:** las entidades, `exception/GlobalExceptionHandler.java`, `service/auth/AuthenticationService.java`, `service/publication/PublicationLikeService.java`.
 
 ### Consultas sin N+1
 
 - **Qué:** los listados traen las relaciones con `JOIN FETCH`, incluido el `@OneToOne` inverso `User.verificationRequest`, que Hibernate cargaría aparte aunque fuera `LAZY`. Las categorías de un listado de campañas se cargan en bloques de 1000 ids, porque SQL Server acepta hasta 2100 parámetros.
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`.
+- **El listado de publicaciones:** suma dos consultas fijas por `campaignId` (una sola para un anónimo): el conteo de likes agrupado por publicación y los ids que quien llama marcó. Ninguna usa `IN :ids`, así que no crecen con el listado ni tocan el límite de parámetros.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`.
 
 ## Errores
 

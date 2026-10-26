@@ -4,16 +4,16 @@ Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué c
 
 ## Estado de la suite
 
-En el commit que describe esta documentación, `mvn -B test` corre **1415 tests en 76 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
+En el commit que describe esta documentación, `mvn -B test` corre **1484 tests en 82 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
 
 | Capa probada | Tests | Tipo |
 |---|---|---|
-| `service/` | 640 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
-| `validation/` | 535 | unitarios con Mockito |
+| `service/` | 674 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
+| `validation/` | 558 | unitarios con Mockito |
 | `dtos/` | 134 | Bean Validation sin Spring |
 | `repository/` | 39 | integración con SQL Server real (Testcontainers) |
 | `security/` | 22 | unitarios con Mockito |
-| `mapper/` | 30 | unitarios puros |
+| `mapper/` | 42 | unitarios puros |
 | `exception/` | 14 | unitarios del handler |
 | contexto de Spring | 1 | integración con SQL Server real (Testcontainers) |
 
@@ -89,11 +89,12 @@ Los dominios con más lógica **dividen los tests por operación** en varios arc
 | `service/user/UserService.java` | `service/user/UserServiceCreateUserTest.java`<br>`service/user/UserServiceDeleteUserTest.java`<br>`service/user/UserServiceGetUserByIdTest.java`<br>`service/user/UserServiceListUsersTest.java`<br>`service/user/UserServiceUpdateUserTest.java` |
 | `service/bankaccount/BankAccountService.java` | `service/bankaccount/BankAccountServiceTest.java` (alta)<br>`service/bankaccount/BankAccountServiceDeleteTest.java`<br>`service/bankaccount/BankAccountServiceListTest.java`<br>`service/bankaccount/BankAccountServiceUpdateTest.java` |
 | `service/publication/PublicationService.java` | `service/publication/PublicationServiceCreateTest.java`<br>`service/publication/PublicationServiceDeleteTest.java`<br>`service/publication/PublicationServiceGetByCampaignTest.java` |
+| `service/publication/PublicationLikeService.java` | `service/publication/PublicationLikeServiceLikeTest.java`<br>`service/publication/PublicationLikeServiceUnlikeTest.java` |
 | `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java`<br>`service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` (integración) |
 | `service/auth/AuthenticationService.java` | `service/auth/AuthenticationServiceTest.java` (login y logout)<br>`service/auth/RefreshTokenServiceTest.java` (refresh) |
 | `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceCategoryTest.java`<br>`validation/user/UserValidationServiceUserCreationTest.java`<br>`validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceUserUpdateTest.java` |
 | `validation/bankaccount/BankAccountValidationService.java` | `validation/bankaccount/BankAccountValidationServiceAccountValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceEntityBuildingTest.java`<br>`validation/bankaccount/BankAccountValidationServiceInputValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceUserVerificationTest.java` |
-| `validation/publication/PublicationValidationService.java` | `validation/publication/PublicationValidationServiceCreateTest.java`<br>`validation/publication/PublicationValidationServiceDeleteTest.java`<br>`validation/publication/PublicationValidationServiceReadTest.java` |
+| `validation/publication/PublicationValidationService.java` | `validation/publication/PublicationValidationServiceCreateTest.java`<br>`validation/publication/PublicationValidationServiceDeleteTest.java`<br>`validation/publication/PublicationValidationServiceReadTest.java`<br>`validation/publication/PublicationValidationServiceVisibleTest.java` |
 
 Al agregar tests a un dominio que ya está dividido, se sigue el mismo criterio: un archivo nuevo por operación.
 

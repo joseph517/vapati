@@ -51,3 +51,33 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Por qué acá:** el filtro JWT y el login usan la clase por inyección directa, así que el aviso se puede resolver sin cambiar cómo se cargan los usuarios; hay que confirmar que nada la use por la interfaz antes de tocarla.
 - **Costo y riesgo:** bajo.
 - **Migración:** (1) comprobar los usos de la interfaz; (2) ajustar `CustomUserDetailsService` o `SecurityConfig`; (3) verificar que el aviso desaparece y que el login y el filtro siguen igual.
+
+### Un tipo de "vista pública" para las lecturas de donaciones sueltas
+
+- **Origen:** revisión final del spec 52 (`harness/specs/52-feed-de-apoyos-en-el-perfil.md`), 2026-10-26.
+- **Evidencia:** `service/donation/DonationService.java` (`canSeePrivateDonationData` y el paso 5 de `getDonationsByCampaign`, que anula `transactionId`, `message` y `thanks*` sobre `DonationResponseDTO`) y `service/donation/SupporterService.java` (`hideNonPublicData`, que anula `message`, `thanksMessage`, `thankedAt` y la campaña sobre `SupportFeedItemDTO`) repiten la misma regla "privado → `null`, sin flag" en dos sitios con dos DTOs.
+- **Problema:** la regla de privacidad del mensaje y de la respuesta vive en dos servicios. Un tercer campo privado, o una tercera lectura, obliga a acordarse de tocar los dos.
+- **Propuesta:** un helper de dominio en `validation/donation/DonationValidationService.java` (por ejemplo `publicMessage(Donation)` y `publicThanks(Donation)`, que devuelvan el texto o `null`) usado por los dos servicios: una sola fuente de verdad, sin una capa nueva.
+- **Por qué acá:** con los likes en publicaciones (S6) y posibles feeds futuros, el dominio donation ya tiene seis lecturas y dos formas de ocultar.
+- **Costo y riesgo:** chico. El riesgo es cambiar la forma de `GET /api/donations/campaign/{id}`, que además pone `messagePrivate=false`; por eso el helper solo debe devolver el texto y no tocar flags.
+- **Migración:** (1) agregar los helpers con tests; (2) usarlos en `hideNonPublicData`; (3) usarlos en `getDonationsByCampaign`; suite verde en cada paso.
+
+### Validar `page * size` en `SortValidationService`
+
+- **Origen:** revisión final del spec 52, 2026-10-26 (el QA lo marcó como candidato a un spec común).
+- **Evidencia:** `validation/common/SortValidationService.java` valida `page >= 0` y `1 <= size <= 100`, pero no el producto. `GET /api/users/{userId}/support-feed?page=2147483647&size=100` responde `500 Internal server error` (`InvalidDataAccessApiUsageException`: el offset supera `Integer.MAX_VALUE`). `GET /api/donations/received` hace lo mismo; `/supporters` responde `200` vacío porque pagina con una query nativa.
+- **Problema:** un parámetro del cliente produce un `500` en los listados paginados con `Pageable`.
+- **Propuesta:** un solo guard en `SortValidationService.validateAndGetPageable`, que rechace con `400` un `page * size` (calculado como `long`) mayor que `Integer.MAX_VALUE`. Un único cambio cierra el caso en `/support-feed`, `/received` y los demás listados.
+- **Por qué acá:** todos los controllers paginados pasan por esa clase.
+- **Costo y riesgo:** chico. Hay que elegir el mensaje del `400` y revisar los tests de `SortValidationService`.
+- **Migración:** (1) agregar la regla y su mensaje con tests; (2) comprobar a mano `/received` y `/support-feed` con el valor extremo; (3) documentar el mensaje en [Errores y validación](05-errores-y-validacion.md).
+
+### Helper compartido para "insertar ignorando el duplicado"
+
+- **Origen:** revisión final del spec 53 (`harness/specs/53-likes-en-publicaciones.md`), 2026-10-26.
+- **Evidencia:** `service/auth/AuthenticationService.java` (`revokeIgnoringDuplicates`) y `service/publication/PublicationLikeService.java` (`likePublication`) repiten el mismo patrón: capturar `DataIntegrityViolationException` al insertar, fuera de una transacción externa (`likePublication` comprueba antes con `existsByPublication_IdAndUser_Id`; el logout comprueba dentro de `TokenBlackListService.revokeToken`). El spec 54 o futuros likes (S7) podrían sumar un tercero.
+- **Problema:** la regla "no ser `@Transactional` para que el rollback quede en el `save`" vive en comentarios repetidos. Quien copie el patrón dentro de un método `@Transactional` obtiene un `409` sin aviso.
+- **Propuesta:** cuando aparezca el tercer uso, un método utilitario `saveIgnoringDuplicate(Runnable/Supplier)` en un componente común, con el comentario del límite transaccional en un solo lugar.
+- **Por qué acá:** el proyecto documenta en [Decisiones de diseño](08-decisiones-de-diseno.md#la-base-como-red-contra-carreras) que la restricción única es la red, y ya hay dos excepciones idempotentes. Con dos usos todavía no paga.
+- **Costo y riesgo:** chico. El riesgo es meterlo en un bean con proxy transaccional y cambiar el comportamiento.
+- **Migración:** (1) extraer el helper con su test unitario; (2) migrar `likePublication`; (3) migrar `revokeIgnoringDuplicates`; cada paso con su clase de test.
