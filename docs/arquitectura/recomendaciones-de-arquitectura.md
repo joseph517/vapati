@@ -51,3 +51,23 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Por qué acá:** el filtro JWT y el login usan la clase por inyección directa, así que el aviso se puede resolver sin cambiar cómo se cargan los usuarios; hay que confirmar que nada la use por la interfaz antes de tocarla.
 - **Costo y riesgo:** bajo.
 - **Migración:** (1) comprobar los usos de la interfaz; (2) ajustar `CustomUserDetailsService` o `SecurityConfig`; (3) verificar que el aviso desaparece y que el login y el filtro siguen igual.
+
+### Un tipo de "vista pública" para las lecturas de donaciones sueltas
+
+- **Origen:** revisión final del spec 52 (`harness/specs/52-feed-de-apoyos-en-el-perfil.md`), 2026-10-26.
+- **Evidencia:** `service/donation/DonationService.java` (`canSeePrivateDonationData` y el paso 5 de `getDonationsByCampaign`, que anula `transactionId`, `message` y `thanks*` sobre `DonationResponseDTO`) y `service/donation/SupporterService.java` (`hideNonPublicData`, que anula `message`, `thanksMessage`, `thankedAt` y la campaña sobre `SupportFeedItemDTO`) repiten la misma regla "privado → `null`, sin flag" en dos sitios con dos DTOs.
+- **Problema:** la regla de privacidad del mensaje y de la respuesta vive en dos servicios. Un tercer campo privado, o una tercera lectura, obliga a acordarse de tocar los dos.
+- **Propuesta:** un helper de dominio en `validation/donation/DonationValidationService.java` (por ejemplo `publicMessage(Donation)` y `publicThanks(Donation)`, que devuelvan el texto o `null`) usado por los dos servicios: una sola fuente de verdad, sin una capa nueva.
+- **Por qué acá:** con los likes en publicaciones (S6) y posibles feeds futuros, el dominio donation ya tiene seis lecturas y dos formas de ocultar.
+- **Costo y riesgo:** chico. El riesgo es cambiar la forma de `GET /api/donations/campaign/{id}`, que además pone `messagePrivate=false`; por eso el helper solo debe devolver el texto y no tocar flags.
+- **Migración:** (1) agregar los helpers con tests; (2) usarlos en `hideNonPublicData`; (3) usarlos en `getDonationsByCampaign`; suite verde en cada paso.
+
+### Validar `page * size` en `SortValidationService`
+
+- **Origen:** revisión final del spec 52, 2026-10-26 (el QA lo marcó como candidato a un spec común).
+- **Evidencia:** `validation/common/SortValidationService.java` valida `page >= 0` y `1 <= size <= 100`, pero no el producto. `GET /api/users/{userId}/support-feed?page=2147483647&size=100` responde `500 Internal server error` (`InvalidDataAccessApiUsageException`: el offset supera `Integer.MAX_VALUE`). `GET /api/donations/received` hace lo mismo; `/supporters` responde `200` vacío porque pagina con una query nativa.
+- **Problema:** un parámetro del cliente produce un `500` en los listados paginados con `Pageable`.
+- **Propuesta:** un solo guard en `SortValidationService.validateAndGetPageable`, que rechace con `400` un `page * size` (calculado como `long`) mayor que `Integer.MAX_VALUE`. Un único cambio cierra el caso en `/support-feed`, `/received` y los demás listados.
+- **Por qué acá:** todos los controllers paginados pasan por esa clase.
+- **Costo y riesgo:** chico. Hay que elegir el mensaje del `400` y revisar los tests de `SortValidationService`.
+- **Migración:** (1) agregar la regla y su mensaje con tests; (2) comprobar a mano `/received` y `/support-feed` con el valor extremo; (3) documentar el mensaje en [Errores y validación](05-errores-y-validacion.md).

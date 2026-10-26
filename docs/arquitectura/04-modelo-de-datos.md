@@ -342,10 +342,11 @@ El proyecto resuelve esto con el mismo patrón en `Campaign.user`, `CampaignCate
 1. **Relación opcional en el mapeo** (sin `nullable = false` ni `optional = false`), así Hibernate usa `LEFT JOIN` y no descarta la fila que apunta a algo borrado.
 2. **`@NotFound(action = NotFoundAction.IGNORE)`**: si la fila apuntada no aparece, la relación queda en `null` en lugar de fallar. Como efecto, la relación es siempre EAGER: Hibernate tiene que cargarla para saber si existe (lo dice el comentario de `Report.reporter`).
 3. **`updatable = false` en la `@JoinColumn`**: al guardar la entidad, el `UPDATE` no incluye la FK. Si no, el `null` cargado para el destino borrado se escribiría en la columna y se perdería la referencia.
-4. **Copia de la FK como columna de solo lectura** (`insertable = false, updatable = false`) en `Donation.campaignId`, `Donation.donorUserId`, `Donation.recipientUserId` y `Publication.campaignId`. Conservan el valor aunque la relación esté en `null`, y permiten filtrar por FK sin hacer `JOIN` con la tabla borrada: `DonationRepository.countUniqueDonorsByCampaignId`, `findByDonorIdOrderByCreatedAtDesc` y `findByRecipientId`, o `PublicationRepository.findAllByCampaignId`.
+4. **Copia de la FK como columna de solo lectura** (`insertable = false, updatable = false`) en `Donation.campaignId`, `Donation.donorUserId`, `Donation.recipientUserId` y `Publication.campaignId`. Conservan el valor aunque la relación esté en `null`, y permiten filtrar por FK sin hacer `JOIN` con la tabla borrada: `DonationRepository.countUniqueDonorsByCampaignId`, `findByDonorIdOrderByCreatedAtDesc`, `findByRecipientId` y `findCompletedByRecipientId`, o `PublicationRepository.findAllByCampaignId`.
 
 Consecuencias que se ven en el código:
 
+- El feed de apoyos (`findCompletedByRecipientId`) detecta una campaña borrada por la relación en `null` (`@SQLRestriction` más `@NotFound` sobre el `LEFT JOIN FETCH d.campaign`), mientras `campaignId` conserva el id; no resuelve su nombre y la muestra con `campaignHidden=true` (ver [Donation](dominios/donation.md#feed-de-apoyos-de-un-creador)).
 - Los mappers preguntan por `null` antes de leer estas relaciones (`CampaignMapper`, `ReportMapper`, `DonationMapper`).
 - Las reglas de visibilidad usan ese `null`: una publicación cuyo autor fue borrado responde `404` como si no existiera (ver [Publication](dominios/publication.md)).
 - `Report.reviewedBy` es la única de la lista sin `updatable = false`; no pierde la referencia porque `ReportService.reviewReport` la vuelve a asignar en cada revisión.
