@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.controller.donation;
 
+import com.vaPaTi.vaPaTi.dtos.donation.SupportFeedItemDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.SupporterResponseDTO;
 import com.vaPaTi.vaPaTi.service.donation.SupporterService;
 import com.vaPaTi.vaPaTi.validation.common.SortValidationService;
@@ -16,6 +17,7 @@ import java.util.List;
 public class SupporterController {
 
     private static final List<String> SUPPORTER_SORT_FIELDS = List.of("totalAmount", "lastDonationAt");
+    private static final List<String> SUPPORT_FEED_SORT_FIELDS = List.of("createdAt");
 
     private final SupporterService supporterService;
     private final SortValidationService sortValidationService;
@@ -44,5 +46,22 @@ public class SupporterController {
         Pageable pageable = sortValidationService.validateAndGetPageable(
                 page, size, sortBy, sortDirection, SUPPORTER_SORT_FIELDS);
         return ResponseEntity.ok(supporterService.getSupporters(userId, pageable));
+    }
+
+    @GetMapping("/support-feed")
+    @Operation(summary = "Get the support feed of a creator",
+            description = "Public, paginated. All the COMPLETED donations received by {userId}, direct and to their campaigns, "
+                    + "one item per donation, newest first (ties broken by id descending). The response is the same for everyone, "
+                    + "the creator themselves and any ADMIN included. It never includes amounts. Private messages and private "
+                    + "replies come as null. A deleted or CLOSED campaign comes with campaignId and campaignName null and "
+                    + "campaignHidden=true")
+    public ResponseEntity<Page<SupportFeedItemDTO>> getSupportFeed(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Pageable pageable = sortValidationService.validateAndGetPageable(
+                page, size, "createdAt", "desc", SUPPORT_FEED_SORT_FIELDS);
+        return ResponseEntity.ok(supporterService.getSupportFeed(userId, pageable));
     }
 }
