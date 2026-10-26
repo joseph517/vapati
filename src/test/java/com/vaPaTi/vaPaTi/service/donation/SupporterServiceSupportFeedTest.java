@@ -396,6 +396,8 @@ class SupporterServiceSupportFeedTest {
             assertThat(item.getCampaignId()).isNull();
             assertThat(item.getCampaignName()).isNull();
             assertThat(item.getCampaignHidden()).isTrue();
+            assertThat(donation.getCampaignId()).isEqualTo(10L);
+            assertThat(donation.getCampaign().getName()).isEqualTo("Closed campaign");
         }
 
         @Test

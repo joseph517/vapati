@@ -65,6 +65,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isFalse();
+            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
         }
 
         @Test
@@ -75,6 +76,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isFalse();
+            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
         }
 
         @Test
@@ -88,6 +90,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isFalse();
+            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
         }
     }
 }

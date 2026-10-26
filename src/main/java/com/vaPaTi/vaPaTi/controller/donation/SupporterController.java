@@ -53,7 +53,7 @@ public class SupporterController {
             description = "Public, paginated. All the COMPLETED donations received by {userId}, direct and to their campaigns, "
                     + "one item per donation, newest first (ties broken by id descending). The response is the same for everyone, "
                     + "the creator themselves and any ADMIN included. It never includes amounts. Private messages and private "
-                    + "replies come as null. A deleted or CLOSED campaign comes with campaignId and campaignName null and "
+                    + "replies come as null. A deleted or CLOSED campaign, or one without a goal, comes with campaignId and campaignName null and "
                     + "campaignHidden=true")
     public ResponseEntity<Page<SupportFeedItemDTO>> getSupportFeed(
             @PathVariable Long userId,
