@@ -1,5 +1,6 @@
 package com.vaPaTi.vaPaTi.service.donation;
 
+import com.vaPaTi.vaPaTi.dtos.donation.SupportFeedItemDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.SupporterResponseDTO;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -13,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -73,6 +75,20 @@ public class SupporterService {
             });
         }
         return new PageImpl<>(rows, pageable, total);
+    }
+
+    // The COMPLETED donations received by the creator, direct and to their campaigns, one item per donation. The feed
+    // is the same for everyone: being privileged only lets an admin see the feed of a banned or suspended creator.
+    // id DESC breaks ties between donations with the same createdAt, so the pages don't overlap
+    @Transactional
+    public Page<SupportFeedItemDTO> getSupportFeed(Long userId, Pageable pageable) {
+        validateCreatorAndGetPrivileged(userId);
+
+        Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
+
+        return donationRepository.findCompletedByRecipientId(userId, sorted)
+                .map(donationMapper::toSupportFeedItemDTO);
     }
 
     // The creator must exist. Only the creator and admins see a banned or suspended creator; the rest get a 404.
