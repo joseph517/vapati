@@ -46,6 +46,14 @@ public class CampaignValidationService {
                 .orElseThrow(() -> campaignNotFound(campaignId));
     }
 
+    // In-memory version of the "not CLOSED" part of findByIdVisibleTo, for a caller without privileges. A campaign
+    // without a goal is hidden there too. It doesn't look at the owner: the caller already checked the owner is visible
+    public boolean isPublicCampaign(Campaign campaign) {
+        return campaign != null
+                && campaign.getGoal() != null
+                && campaign.getGoal().getStatus() != CampaignStatus.CLOSED;
+    }
+
     private ResourceNotFoundException campaignNotFound(Long campaignId) {
         return new ResourceNotFoundException("Campaign not found with id: " + campaignId);
     }
