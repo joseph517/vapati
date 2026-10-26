@@ -11,6 +11,8 @@ import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class PublicationValidationService {
@@ -55,5 +57,25 @@ public class PublicationValidationService {
         }
 
         return publication;
+    }
+
+    // Visible publication: whoever sees it can read it and write on it (likes, comments), also in a CLOSED campaign they can see. Anything hidden gets the same 404 as a missing publication, never the campaign's (it would reveal the publication exists)
+    public Optional<Publication> findVisiblePublication(Long publicationId, Long callerId) {
+        Optional<Publication> publication = publicationRepository.findById(publicationId);
+
+        if (publication.isEmpty() || publication.get().getUser() == null) {
+            return Optional.empty();
+        }
+
+        if (campaignValidationService.findVisibleCampaignById(publication.get().getCampaignId(), callerId).isEmpty()) {
+            return Optional.empty();
+        }
+
+        return publication;
+    }
+
+    public Publication validateAndGetVisiblePublication(Long publicationId, Long callerId) {
+        return findVisiblePublication(publicationId, callerId)
+                .orElseThrow(() -> new ResourceNotFoundException(PUBLICATION_NOT_FOUND + publicationId));
     }
 }
