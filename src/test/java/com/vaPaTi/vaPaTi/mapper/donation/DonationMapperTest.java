@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.SupportFeedItemDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.SupporterResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
@@ -344,5 +345,107 @@ class DonationMapperTest {
                 return lastDonationAt;
             }
         };
+    }
+
+    @Test
+    @DisplayName("Feed item: should copy donor, campaign, message, thanks and dates")
+    void toSupportFeedItemDTO_WithAliveRelations_ShouldCopyFields() {
+        // Given
+        LocalDateTime thankedAt = LocalDateTime.of(2026, 3, 2, 10, 0);
+        LocalDateTime createdAt = LocalDateTime.of(2026, 3, 1, 9, 0);
+        Donation donation = Donation.builder()
+                .id(10L).donor(donor).campaign(campaign).campaignId(2L)
+                .message("Keep going").thanksMessage("Thank you").thankedAt(thankedAt).createdAt(createdAt)
+                .build();
+
+        // When
+        SupportFeedItemDTO dto = donationMapper.toSupportFeedItemDTO(donation);
+
+        // Then
+        assertThat(dto.getDonationId()).isEqualTo(10L);
+        assertThat(dto.getDonorUserId()).isEqualTo(1L);
+        assertThat(dto.getDonorUserName()).isEqualTo("donor_user");
+        assertThat(dto.getCampaignId()).isEqualTo(2L);
+        assertThat(dto.getCampaignName()).isEqualTo("Alive campaign");
+        assertThat(dto.getMessage()).isEqualTo("Keep going");
+        assertThat(dto.getThanksMessage()).isEqualTo("Thank you");
+        assertThat(dto.getThankedAt()).isEqualTo(thankedAt);
+        assertThat(dto.getCreatedAt()).isEqualTo(createdAt);
+    }
+
+    @Test
+    @DisplayName("Feed item: should leave donor id and name null when the donor is deleted (null)")
+    void toSupportFeedItemDTO_WithNullDonor_ShouldLeaveDonorFieldsNull() {
+        Donation donation = Donation.builder().id(10L).donor(null).donorUserId(1L).build();
+
+        SupportFeedItemDTO dto = donationMapper.toSupportFeedItemDTO(donation);
+
+        assertThat(dto.getDonorUserId()).isNull();
+        assertThat(dto.getDonorUserName()).isNull();
+    }
+
+    @Test
+    @DisplayName("Feed item: should leave donorUserName null when the donor has no userInfo")
+    void toSupportFeedItemDTO_WithDonorWithoutUserInfo_ShouldLeaveNameNull() {
+        User noInfo = new User();
+        noInfo.setId(5L);
+        Donation donation = Donation.builder().id(10L).donor(noInfo).build();
+
+        SupportFeedItemDTO dto = donationMapper.toSupportFeedItemDTO(donation);
+
+        assertThat(dto.getDonorUserId()).isEqualTo(5L);
+        assertThat(dto.getDonorUserName()).isNull();
+    }
+
+    @Test
+    @DisplayName("Feed item: should keep campaignId and leave campaignName null when the campaign relation is null")
+    void toSupportFeedItemDTO_WithNullCampaignRelation_ShouldKeepCampaignId() {
+        Donation donation = Donation.builder().id(10L).donor(donor).campaign(null).campaignId(20L).build();
+
+        SupportFeedItemDTO dto = donationMapper.toSupportFeedItemDTO(donation);
+
+        assertThat(dto.getCampaignId()).isEqualTo(20L);
+        assertThat(dto.getCampaignName()).isNull();
+    }
+
+    @Test
+    @DisplayName("Feed item: should leave campaign fields null on a direct donation")
+    void toSupportFeedItemDTO_WithDirectDonation_ShouldLeaveCampaignFieldsNull() {
+        Donation donation = Donation.builder().id(10L).donor(donor).campaign(null).campaignId(null).build();
+
+        SupportFeedItemDTO dto = donationMapper.toSupportFeedItemDTO(donation);
+
+        assertThat(dto.getCampaignId()).isNull();
+        assertThat(dto.getCampaignName()).isNull();
+    }
+
+    @Test
+    @DisplayName("Feed item: campaignHidden should always be false")
+    void toSupportFeedItemDTO_ShouldAlwaysSetCampaignHiddenFalse() {
+        Donation withCampaign = Donation.builder().id(10L).donor(donor).campaign(campaign).campaignId(2L).build();
+        Donation withDeletedCampaign = Donation.builder().id(11L).donor(donor).campaign(null).campaignId(20L).build();
+        Donation direct = Donation.builder().id(12L).donor(donor).build();
+
+        assertThat(donationMapper.toSupportFeedItemDTO(withCampaign).getCampaignHidden()).isFalse();
+        assertThat(donationMapper.toSupportFeedItemDTO(withDeletedCampaign).getCampaignHidden()).isFalse();
+        assertThat(donationMapper.toSupportFeedItemDTO(direct).getCampaignHidden()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Feed item: should copy message and thanks even if private, the mapper does not decide")
+    void toSupportFeedItemDTO_WithPrivateTexts_ShouldStillCopyThem() {
+        Donation donation = Donation.builder().id(10L).donor(donor)
+                .message("secret").messagePrivate(true).thanksMessage("secret thanks").thanksPrivate(true).build();
+
+        SupportFeedItemDTO dto = donationMapper.toSupportFeedItemDTO(donation);
+
+        assertThat(dto.getMessage()).isEqualTo("secret");
+        assertThat(dto.getThanksMessage()).isEqualTo("secret thanks");
+    }
+
+    @Test
+    @DisplayName("Feed item: should return null when the donation is null")
+    void toSupportFeedItemDTO_WithNull_ShouldReturnNull() {
+        assertThat(donationMapper.toSupportFeedItemDTO(null)).isNull();
     }
 }
