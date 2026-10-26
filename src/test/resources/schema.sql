@@ -2,6 +2,7 @@
 -- This script creates all necessary tables and initial data for integration tests
 
 -- Drop tables if they exist (in reverse dependency order)
+IF OBJECT_ID('publication_like', 'U') IS NOT NULL DROP TABLE publication_like;
 IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
 IF OBJECT_ID('report', 'U') IS NOT NULL DROP TABLE report;
 IF OBJECT_ID('campaign_category', 'U') IS NOT NULL DROP TABLE campaign_category;
@@ -171,6 +172,17 @@ CREATE TABLE publication (
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
     FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE NO ACTION
+);
+
+-- Create publication_like table
+CREATE TABLE publication_like (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    publication_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT uk_publication_like_publication_user UNIQUE (publication_id, user_id),
+    FOREIGN KEY (publication_id) REFERENCES publication(id) ON DELETE NO ACTION,
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE NO ACTION
 );
 
 -- Create followers table (user following relationship)
