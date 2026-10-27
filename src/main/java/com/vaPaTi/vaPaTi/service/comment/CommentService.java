@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
-// Not @Transactional: every method makes a single write
+// Not @Transactional: every method makes at most a single write
 @Service
 @RequiredArgsConstructor
 public class CommentService {
@@ -35,7 +35,7 @@ public class CommentService {
         Publication publication = publicationValidationService.validateAndGetVisiblePublication(publicationId, callerId);
         String text = commentValidationService.validateAndNormalizeText(dto.getText());
 
-        // getReferenceById avoids a SELECT of the user, the JWT filter already loaded it
+        // getReferenceById returns a proxy: no SELECT of the caller just to link it, the token already proved it exists
         Comment comment = commentRepository.save(
                 commentMapper.toEntity(text, publication, userRepository.getReferenceById(callerId)));
 

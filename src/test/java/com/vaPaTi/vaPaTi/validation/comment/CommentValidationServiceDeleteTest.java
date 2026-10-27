@@ -150,6 +150,7 @@ class CommentValidationServiceDeleteTest {
             assertThatThrownBy(() -> commentValidationService.validateAndGetDeletableComment(COMMENT_ID, OTHER_USER_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage(FORBIDDEN_MESSAGE);
+            verify(campaignAuthorizationService).isAdmin(OTHER_USER_ID);
         }
 
         @Test

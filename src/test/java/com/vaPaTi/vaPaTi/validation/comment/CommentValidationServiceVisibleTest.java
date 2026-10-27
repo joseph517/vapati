@@ -127,6 +127,7 @@ class CommentValidationServiceVisibleTest {
             Comment result = commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID);
 
             assertThat(result).isSameAs(comment);
+            verify(publicationValidationService).findVisiblePublication(PUBLICATION_ID, CALLER_ID);
         }
 
         @Test
