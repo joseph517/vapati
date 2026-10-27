@@ -10,7 +10,6 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
@@ -55,9 +54,6 @@ class DonationValidationServiceThanksTest {
 
     @Mock
     private DonationRepository donationRepository;
-
-    @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
 
     // Real instance: the text rule lives in TextValidationService
     @Spy
@@ -227,7 +223,7 @@ class DonationValidationServiceThanksTest {
             assertThatThrownBy(() -> donationValidationService.validateIsRecipient(campaignDonation, ADMIN_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Only the campaign owner can reply to this donation");
-            verifyNoInteractions(campaignAuthorizationService);
+            verifyNoInteractions(roleValidationService);
         }
 
         @Test
@@ -246,7 +242,7 @@ class DonationValidationServiceThanksTest {
             assertThatThrownBy(() -> donationValidationService.validateIsRecipient(directDonation, ADMIN_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Only the recipient can reply to this donation");
-            verifyNoInteractions(campaignAuthorizationService);
+            verifyNoInteractions(roleValidationService);
         }
 
         @Test
@@ -281,7 +277,7 @@ class DonationValidationServiceThanksTest {
             // When & Then
             assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(campaignDonation, OWNER_ID))
                     .doesNotThrowAnyException();
-            verifyNoInteractions(campaignAuthorizationService);
+            verifyNoInteractions(roleValidationService);
         }
 
         @Test
@@ -290,7 +286,7 @@ class DonationValidationServiceThanksTest {
             // When & Then
             assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(directDonation, RECIPIENT_ID))
                     .doesNotThrowAnyException();
-            verifyNoInteractions(campaignAuthorizationService);
+            verifyNoInteractions(roleValidationService);
         }
 
         @Test

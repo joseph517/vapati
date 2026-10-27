@@ -39,9 +39,6 @@ class CampaignValidationServiceTest {
     @Mock
     private CategoryRepository categoryRepository;
     @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
-
-    @Mock
     private RoleValidationService roleValidationService;
 
     @InjectMocks

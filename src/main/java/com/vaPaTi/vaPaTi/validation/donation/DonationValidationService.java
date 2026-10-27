@@ -13,7 +13,6 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
@@ -33,7 +32,6 @@ public class DonationValidationService {
     private final UserRepository userRepository;
     private final TextValidationService textValidationService;
     private final DonationRepository donationRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
     private final UserValidationService userValidationService;
     private final RoleValidationService roleValidationService;
 

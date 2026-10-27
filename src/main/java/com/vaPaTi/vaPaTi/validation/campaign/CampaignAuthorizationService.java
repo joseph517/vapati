@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CampaignAuthorizationService {
 
-    private static final String ADMIN_ROLE = "ADMIN";
     private static final String UNAUTHORIZED_MESSAGE = "You are not authorized to perform this action";
     private static final String CAMPAIGN_NOT_FOUND = "Campaign not found with id: ";
 
@@ -41,17 +40,6 @@ public class CampaignAuthorizationService {
             }
             throw new ForbiddenActionException(UNAUTHORIZED_MESSAGE);
         }
-    }
-
-    public boolean isAdmin(Long userId) {
-        if (userId == null) {
-            return false;
-        }
-        return userRepository.existsByIdAndRole_Name(userId, ADMIN_ROLE);
-    }
-
-    private boolean hasAdminRole(User user) {
-        return user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName());
     }
 
     private boolean isClosed(Campaign campaign) {

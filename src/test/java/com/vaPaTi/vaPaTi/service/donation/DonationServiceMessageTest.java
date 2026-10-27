@@ -14,7 +14,6 @@ import com.vaPaTi.vaPaTi.repository.campaign.GoalRepository;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,9 +56,6 @@ class DonationServiceMessageTest {
     private CampaignRepository campaignRepository;
     @Mock
     private GoalRepository goalRepository;
-    @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
-
     @Mock
     private RoleValidationService roleValidationService;
 

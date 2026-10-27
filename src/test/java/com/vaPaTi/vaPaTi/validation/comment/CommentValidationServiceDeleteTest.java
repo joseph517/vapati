@@ -7,7 +7,6 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
@@ -48,9 +47,6 @@ class CommentValidationServiceDeleteTest {
 
     @Mock
     private PublicationValidationService publicationValidationService;
-
-    @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
 
     @Mock
     private AccountStatusValidationService accountStatusValidationService;

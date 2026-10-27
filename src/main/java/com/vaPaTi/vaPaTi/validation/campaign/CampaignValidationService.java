@@ -26,7 +26,6 @@ public class CampaignValidationService {
 
     private final CampaignRepository campaignRepository;
     private final CategoryRepository categoryRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
     private final RoleValidationService roleValidationService;
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {

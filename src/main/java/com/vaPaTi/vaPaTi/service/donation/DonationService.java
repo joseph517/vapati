@@ -19,7 +19,6 @@ import com.vaPaTi.vaPaTi.repository.campaign.GoalRepository;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import jakarta.transaction.Transactional;
@@ -52,7 +51,6 @@ public class DonationService {
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignRepository campaignRepository;
     private final GoalRepository goalRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
     private final RoleValidationService roleValidationService;
 
     @Transactional

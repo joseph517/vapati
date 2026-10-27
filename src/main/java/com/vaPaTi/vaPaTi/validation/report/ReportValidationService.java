@@ -33,7 +33,6 @@ public class ReportValidationService {
     private static final int MAX_REPORTS_PER_DAY = 10;
     private static final String USER_NOT_FOUND = "User not found";
     private static final String PUBLICATION_NOT_FOUND = "Publication not found";
-    private static final String ADMIN_ROLE = "ADMIN";
 
     // Actions a RESOLVED report can take on each entity type. NO_ACTION is not listed: RESOLVED does not accept it.
     private static final Map<ReportedEntityType, Set<ActionTaken>> ALLOWED_ACTIONS = Map.of(

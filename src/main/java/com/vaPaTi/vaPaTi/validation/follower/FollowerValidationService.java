@@ -16,8 +16,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class FollowerValidationService {
 
-    private static final String ADMIN_ROLE = "ADMIN";
-
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
     private final AccountStatusValidationService accountStatusValidationService;
@@ -43,15 +41,6 @@ public class FollowerValidationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Other user not found with ID: " + otherUserId));
 
         return followerRepository.existsByUserAndFollower(otherUser, currentUser);
-    }
-
-    /**
-     * Whether the user is an ADMIN, read from the database. False for a null id (anonymous).
-     * @param callerId ID of the authenticated user
-     * @return true if the user has the ADMIN role
-     */
-    public boolean isAdmin(Long callerId) {
-        return callerId != null && userRepository.existsByIdAndRole_Name(callerId, ADMIN_ROLE);
     }
 
     /**

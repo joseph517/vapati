@@ -5,7 +5,6 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
@@ -23,7 +22,6 @@ public class CommentValidationService {
 
     private final CommentRepository commentRepository;
     private final PublicationValidationService publicationValidationService;
-    private final CampaignAuthorizationService campaignAuthorizationService;
     private final AccountStatusValidationService accountStatusValidationService;
     private final TextValidationService textValidationService;
     private final RoleValidationService roleValidationService;

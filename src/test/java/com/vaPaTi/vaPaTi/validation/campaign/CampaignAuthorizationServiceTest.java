@@ -274,56 +274,6 @@ class CampaignAuthorizationServiceTest {
     }
 
     @Nested
-    @DisplayName("isAdmin Tests")
-    class IsAdminTests {
-
-        @Test
-        @DisplayName("Should return true when the user has the ADMIN role")
-        void isAdmin_WhenUserIsAdmin_ShouldReturnTrue() {
-            when(userRepository.existsByIdAndRole_Name(2L, "ADMIN")).thenReturn(true);
-
-            assertThat(campaignAuthorizationService.isAdmin(2L)).isTrue();
-            verify(userRepository, never()).findById(any());
-        }
-
-        @Test
-        @DisplayName("Should return false when the user has another role")
-        void isAdmin_WhenUserIsNotAdmin_ShouldReturnFalse() {
-            when(userRepository.existsByIdAndRole_Name(3L, "ADMIN")).thenReturn(false);
-
-            assertThat(campaignAuthorizationService.isAdmin(3L)).isFalse();
-            verify(userRepository, never()).findById(any());
-        }
-
-        @Test
-        @DisplayName("Should return false when the user has no role")
-        void isAdmin_WhenUserHasNullRole_ShouldReturnFalse() {
-            // A null role never matches the ADMIN name in the exists query
-            when(userRepository.existsByIdAndRole_Name(4L, "ADMIN")).thenReturn(false);
-
-            assertThat(campaignAuthorizationService.isAdmin(4L)).isFalse();
-            verify(userRepository, never()).findById(any());
-        }
-
-        @Test
-        @DisplayName("Should return false when the user does not exist")
-        void isAdmin_WhenUserNotFound_ShouldReturnFalse() {
-            when(userRepository.existsByIdAndRole_Name(999L, "ADMIN")).thenReturn(false);
-
-            assertThat(campaignAuthorizationService.isAdmin(999L)).isFalse();
-            verify(userRepository, never()).findById(any());
-        }
-
-        @Test
-        @DisplayName("Should return false without querying the database when the user id is null")
-        void isAdmin_WhenUserIdIsNull_ShouldReturnFalseWithoutQuerying() {
-            assertThat(campaignAuthorizationService.isAdmin(null)).isFalse();
-
-            verifyNoInteractions(userRepository);
-        }
-    }
-
-    @Nested
     @DisplayName("canCloseCampaign Tests")
     class CanCloseCampaignTests {
 

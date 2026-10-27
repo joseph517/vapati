@@ -473,21 +473,6 @@ class FollowerValidationServiceTest {
             assertThat(followerValidationService.isFollowing(currentUserId, otherUserId, true)).isTrue();
             verify(accountStatusValidationService, never()).isBlocked(any());
         }
-
-        @Test
-        @DisplayName("isAdmin reads the role from the database")
-        void isAdmin_ShouldQueryRole() {
-            when(userRepository.existsByIdAndRole_Name(currentUserId, "ADMIN")).thenReturn(true);
-
-            assertThat(followerValidationService.isAdmin(currentUserId)).isTrue();
-        }
-
-        @Test
-        @DisplayName("isAdmin with a null id: false without querying")
-        void isAdmin_WithNullId_ShouldReturnFalse() {
-            assertThat(followerValidationService.isAdmin(null)).isFalse();
-            verifyNoInteractions(userRepository);
-        }
     }
 
     @Nested

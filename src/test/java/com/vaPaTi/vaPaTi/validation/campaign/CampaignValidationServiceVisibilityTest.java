@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,7 @@ class CampaignValidationServiceVisibilityTest {
     private CategoryRepository categoryRepository;
 
     @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private CampaignValidationService campaignValidationService;
@@ -54,7 +55,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isTrue();
-            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
+            verifyNoInteractions(campaignRepository, roleValidationService);
         }
 
         @Test
@@ -65,7 +66,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isFalse();
-            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
+            verifyNoInteractions(campaignRepository, roleValidationService);
         }
 
         @Test
@@ -76,7 +77,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isFalse();
-            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
+            verifyNoInteractions(campaignRepository, roleValidationService);
         }
 
         @Test
@@ -90,7 +91,7 @@ class CampaignValidationServiceVisibilityTest {
 
             // Then
             assertThat(result).isFalse();
-            verifyNoInteractions(campaignRepository, campaignAuthorizationService);
+            verifyNoInteractions(campaignRepository, roleValidationService);
         }
     }
 }
