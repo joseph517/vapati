@@ -4,16 +4,16 @@ Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué c
 
 ## Estado de la suite
 
-En el commit que describe esta documentación, `mvn -B test` corre **1484 tests en 82 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
+En el commit que describe esta documentación, `mvn -B test` corre **1549 tests en 93 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
 
 | Capa probada | Tests | Tipo |
 |---|---|---|
-| `service/` | 674 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
-| `validation/` | 558 | unitarios con Mockito |
-| `dtos/` | 134 | Bean Validation sin Spring |
+| `service/` | 691 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
+| `validation/` | 598 | unitarios con Mockito |
+| `dtos/` | 139 | Bean Validation sin Spring |
 | `repository/` | 39 | integración con SQL Server real (Testcontainers) |
 | `security/` | 22 | unitarios con Mockito |
-| `mapper/` | 42 | unitarios puros |
+| `mapper/` | 45 | unitarios puros |
 | `exception/` | 14 | unitarios del handler |
 | contexto de Spring | 1 | integración con SQL Server real (Testcontainers) |
 
@@ -32,11 +32,11 @@ Como la capa `validation/` concentra las reglas de negocio (ver [Arquitectura](0
 
 ### Tests de DTOs
 
-`dtos/<dominio>/*DtoValidationTest.java` validan las anotaciones de Bean Validation de los DTOs de entrada con un `Validator` de Hibernate Validator creado a mano, sin contexto de Spring. Los helpers de `dtos/DtoValidation.java` (`assertValid`, `assertSingleViolation`, `assertViolationsOn`) comprueban qué campo exacto viola cada restricción.
+`dtos/<dominio>/*DtoValidationTest.java` validan las anotaciones de Bean Validation de los DTOs de entrada con un `Validator` de Hibernate Validator creado a mano, sin contexto de Spring. Los helpers de `dtos/DtoValidation.java` (`assertValid`, `assertSingleViolation`, `assertViolationsOn`) comprueban qué campo exacto viola cada restricción. Por ejemplo, `dtos/comment/CommentDtoValidationTest.java` cubre el `@Size(max = 280)` de `CreateCommentDTO`.
 
 ### Tests de mappers, excepciones y seguridad
 
-- `mapper/<dominio>/*MapperTest.java`: conversiones entidad → DTO, incluidos los campos nulos.
+- `mapper/<dominio>/*MapperTest.java`: conversiones entidad → DTO, incluidos los campos nulos (por ejemplo `mapper/comment/CommentMapperTest.java`).
 - `exception/GlobalExceptionHandlerTest.java`: el status y la forma `{error, message, timestamp}` de cada tipo de excepción que maneja `exception/GlobalExceptionHandler.java`.
 - `security/JwtAuthenticationFilterTest.java` y `security/AuthenticatedUserServiceTest.java`: el filtro JWT y la resolución del usuario autenticado, con el `SecurityContextHolder` y `JwtService` mockeados.
 
@@ -90,11 +90,16 @@ Los dominios con más lógica **dividen los tests por operación** en varios arc
 | `service/bankaccount/BankAccountService.java` | `service/bankaccount/BankAccountServiceTest.java` (alta)<br>`service/bankaccount/BankAccountServiceDeleteTest.java`<br>`service/bankaccount/BankAccountServiceListTest.java`<br>`service/bankaccount/BankAccountServiceUpdateTest.java` |
 | `service/publication/PublicationService.java` | `service/publication/PublicationServiceCreateTest.java`<br>`service/publication/PublicationServiceDeleteTest.java`<br>`service/publication/PublicationServiceGetByCampaignTest.java` |
 | `service/publication/PublicationLikeService.java` | `service/publication/PublicationLikeServiceLikeTest.java`<br>`service/publication/PublicationLikeServiceUnlikeTest.java` |
+| `service/comment/CommentService.java` | `service/comment/CommentServiceCreateTest.java`<br>`service/comment/CommentServiceListTest.java`<br>`service/comment/CommentServiceDeleteTest.java` |
 | `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java`<br>`service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` (integración) |
 | `service/auth/AuthenticationService.java` | `service/auth/AuthenticationServiceTest.java` (login y logout)<br>`service/auth/RefreshTokenServiceTest.java` (refresh) |
 | `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceCategoryTest.java`<br>`validation/user/UserValidationServiceUserCreationTest.java`<br>`validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceUserUpdateTest.java` |
 | `validation/bankaccount/BankAccountValidationService.java` | `validation/bankaccount/BankAccountValidationServiceAccountValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceEntityBuildingTest.java`<br>`validation/bankaccount/BankAccountValidationServiceInputValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceUserVerificationTest.java` |
 | `validation/publication/PublicationValidationService.java` | `validation/publication/PublicationValidationServiceCreateTest.java`<br>`validation/publication/PublicationValidationServiceDeleteTest.java`<br>`validation/publication/PublicationValidationServiceReadTest.java`<br>`validation/publication/PublicationValidationServiceVisibleTest.java` |
+| `validation/comment/CommentValidationService.java` | `validation/comment/CommentValidationServiceTextTest.java`<br>`validation/comment/CommentValidationServiceVisibleTest.java`<br>`validation/comment/CommentValidationServiceDeleteTest.java` |
+| `validation/common/SortValidationService.java` | `validation/common/SortValidationServiceUnsortedTest.java` (el overload sin orden) |
+| `validation/report/ReportValidationService.java` | `validation/report/ReportValidationServiceCommentTest.java` (reportes de comentarios; el resto de las reglas está en los otros archivos de ese paquete) |
+| `service/report/ReportActionService.java` | `service/report/ReportActionServiceCommentTest.java` (`CONTENT_REMOVED` sobre un comentario; el resto en `ReportActionServiceTest.java`) |
 
 Al agregar tests a un dominio que ya está dividido, se sigue el mismo criterio: un archivo nuevo por operación.
 

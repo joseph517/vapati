@@ -288,7 +288,7 @@ Con esto, un `git push origin main` directo es rechazado, y el botón de merge d
 4. Con el check en verde → **Merge pull request** (merge commit).
 5. El merge dispara el workflow en `main`: tests → build → push de `latest`. Lo seguís en la pestaña **Actions**. Tarda unos minutos, más la primera vez porque no hay caché.
 6. Verificás el tag nuevo en Docker Hub.
-7. **Si la versión trae un script de migración, corrélo antes de actualizar el servidor.** Hoy es `scripts/migrate-donation-recipient.sql` (la donación directa: agrega `donation.recipient_user_id` y deja `donation.campaign_id` nullable). `ddl-auto=update` no puede hacer ese cambio, y el código nuevo da `409` en una donación directa sin él. Se corre con la app **detenida** y **antes** del `pull` y el `up`: con la app parada no queda ninguna ventana de error, porque el código viejo no escribe `recipient_user_id` y con la columna ya `NOT NULL` sus donaciones darían `409`. El servidor no tiene el código fuente, así que copiá el script como en la sección 4.2:
+7. **Si la versión trae un script de migración, corrélo antes de actualizar el servidor.** Hoy son dos: `scripts/migrate-donation-recipient.sql` y `scripts/update-report-entity-type-check.sql` (los comentarios en publicaciones; más abajo). El primero (la donación directa: agrega `donation.recipient_user_id` y deja `donation.campaign_id` nullable). `ddl-auto=update` no puede hacer ese cambio, y el código nuevo da `409` en una donación directa sin él. Se corre con la app **detenida** y **antes** del `pull` y el `up`: con la app parada no queda ninguna ventana de error, porque el código viejo no escribe `recipient_user_id` y con la columna ya `NOT NULL` sus donaciones darían `409`. El servidor no tiene el código fuente, así que copiá el script como en la sección 4.2:
 
    ```bash
    # En tu máquina
@@ -305,6 +305,21 @@ Con esto, un `git push origin main` directo es rechazado, y el botón de merge d
    - `-I` es obligatorio (sin él aparece el Msg 1934 por el índice filtrado de `transaction_id`) y `-b` corta en el primer error: si falla, no levantes la imagen nueva.
    - El script es idempotente: una segunda corrida no cambia nada.
    - Antes, en producción, comprobá que no haya una FK ni un índice sobre `donation.campaign_id` que impidan el `ALTER COLUMN` (`EXEC sp_fkeys @fktable_name = 'donation'; EXEC sp_helpindex 'donation';`) y que `SELECT COUNT(*) FROM donation d LEFT JOIN campaign c ON c.id = d.campaign_id WHERE c.id IS NULL` dé `0`. Si el `ALTER` falla por una FK o un índice, el paso 5 reservado del script es el lugar para borrarlos y recrearlos con sus nombres reales.
+
+   **`scripts/update-report-entity-type-check.sql`** (reportar comentarios). Hibernate creó la `CHECK` de `report.reported_entity_type` con los tres valores que tenía el enum, y `ddl-auto=update` no la actualiza: sin el script, un reporte de un comentario responde `409`. Reemplaza esa `CHECK` por `CK_report_reported_entity_type`, con los cuatro valores. Va **antes** del `pull` y el `up`, igual que el anterior, pero **no hace falta detener la app**: el código viejo nunca escribe `COMMENT`, así que no hay ventana de error. Se copia y se corre así:
+
+   ```bash
+   # En tu máquina
+   scp scripts/update-report-entity-type-check.sql usuario@servidor:/ruta/de/despliegue/
+
+   # En el servidor, dentro de esa carpeta
+   docker cp update-report-entity-type-check.sql db_vapati_prod:/tmp/update-report-entity-type-check.sql
+   docker exec db_vapati_prod /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD>' -C -b -d ApiVaPaTiJava -i /tmp/update-report-entity-type-check.sql
+   ```
+
+   - Sin `-I`: este script no toca índices filtrados. `-b` corta en el primer error: si falla, no levantes la imagen nueva.
+   - Es idempotente: una segunda corrida no cambia nada.
+   - Una base nueva no lo necesita: Hibernate crea la `CHECK` ya con los cuatro valores.
 8. **Actualizar un servidor con Compose a la versión con `vapati_app` (Alpine, SQL Server fijado).** (1) Agregá `DB_APP_PASSWORD` al `.env` del servidor **antes** de `pull` y `up -d`; sin ella `up` falla enseguida. (2) Copiá al servidor el `docker-compose.prod.yml` nuevo junto con el `.env` (sección 4.2): la imagen nueva no arranca con el compose viejo (no le pasa `DB_APP_PASSWORD`) y la imagen vieja no conecta con el compose nuevo (ya no le pasa `DB_PASSWORD`). (3) `up -d` recrea `db_vapati_prod` con la imagen de SQL Server fijada (`2022-CU27-GDR1-ubuntu-22.04`), con un corte breve; al arrancar crea el login `vapati_app`, y SQL Server migra en el lugar las bases de sistema del volumen, así que haz un respaldo del volumen antes. (4) Los scripts manuales siguen usando `sa` con `DB_PASSWORD`.
 
 > Un **Rerun** de un workflow viejo en `main` vuelve a publicar ese código viejo como `latest`. Si necesitás volver atrás, preferí el rollback por tag (sección 7.4).

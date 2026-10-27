@@ -29,6 +29,16 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Costo y riesgo:** bajo. La máscara exige que `.env` exista en el host: enmascarar un archivo inexistente hace fallar el arranque del contenedor.
 - **Migración:** la máscara ya está. Para lo pendiente, enmascarar los otros archivos de secretos de la misma forma, o dejar de montar la raíz completa si el script puede leer el pom de otro modo.
 
+### El hot reload no recarga la app cuando se crea un paquete nuevo
+
+- **Origen:** revisión final del spec 54 (`harness/specs/54-comentarios-en-publicaciones.md`), 2026-10-27.
+- **Evidencia:** en tres pasos del spec 54 que creaban un paquete nuevo bajo `src/main/java` (`entity/comment`, `validation/comment`) el stack quedó `healthy` con la versión vieja: `Comment.class` compilado, pero sin `target/classes/.reloadtrigger` nuevo ni un `Started VaPaTiApplication` posterior, y el único remedio fue reiniciar `app-dev` a mano. Un paso que creó `dtos/comment` sí recargó. En `scripts/dev-hot-reload.sh`, `handle_event` acepta eventos `ISDIR`, así que el fallo está entre la compilación y el `touch` del trigger, o en la pérdida de los eventos de archivos creados dentro de un directorio antes de que `inotifywait -r` le ponga su watch.
+- **Problema:** el stack queda `healthy` con código viejo, sin ningún aviso (no existe `/tmp/hot-reload/failed`), y quien prueba lo hace contra la versión anterior. Va a pasar en cada dominio nuevo que cree paquetes.
+- **Propuesta:** al recibir `CREATE,ISDIR` dentro de `src/main/java`, hacer un `find <dir> -name '*.java' -newer <marca>` y marcar el cambio de fuentes (cubre la carrera de inotify); y que, tras compilar, el script compruebe que cada `.java` tocado del lote tiene su `.class` y, si no, cree `/tmp/hot-reload/failed` con un banner "RELOAD INCOMPLETE" para que el healthcheck lo delate.
+- **Por qué acá:** el desarrollo y la QA por paso dependen del hot reload, y hoy el fallo es silencioso.
+- **Costo y riesgo:** chico (bash, unas 20 líneas). Riesgo de recompilar de más. Cambiar `scripts/dev-hot-reload.sh` exige reconstruir la imagen de `app-dev` (`--build`).
+- **Migración:** (1) reproducir creando un paquete con una clase; (2) agregar el rescan en `handle_event`; (3) agregar la comprobación posterior a la compilación; (4) reconstruir `app-dev` y repetir la reproducción.
+
 ## Prioridad baja
 
 ### Que el borrado lógico deje de depender de la semántica de `EntityManager.remove`
@@ -62,12 +72,23 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Costo y riesgo:** chico. El riesgo es cambiar la forma de `GET /api/donations/campaign/{id}`, que además pone `messagePrivate=false`; por eso el helper solo debe devolver el texto y no tocar flags.
 - **Migración:** (1) agregar los helpers con tests; (2) usarlos en `hideNonPublicData`; (3) usarlos en `getDonationsByCampaign`; suite verde en cada paso.
 
+### Corregir el comentario engañoso sobre `getReferenceById`
+
+- **Origen:** revisión final del spec 54 (`harness/specs/54-comentarios-en-publicaciones.md`), 2026-10-27.
+- **Estado:** **aplicada en parte** en la rama del spec 54: `service/comment/CommentService.java` ya dice que `getReferenceById` devuelve un proxy. Queda `service/publication/PublicationLikeService.java` (`likePublication`).
+- **Evidencia:** el comentario de `PublicationLikeService` dice "getReferenceById avoids a SELECT of the user, the JWT filter already loaded it".
+- **Problema:** atribuye el ahorro del `SELECT` al filtro JWT, cuando lo evita `getReferenceById` porque devuelve un proxy. Es un patrón que se replica por copia y el próximo dominio lo va a copiar otra vez.
+- **Propuesta:** "getReferenceById returns a proxy: no SELECT of the caller, who the token already proved exists".
+- **Por qué acá:** la misma frase ya se copió una vez de likes a comentarios.
+- **Costo y riesgo:** una línea de comentario, sin riesgo.
+- **Migración:** un commit `refactor:` con ese archivo.
+
 ### Validar `page * size` en `SortValidationService`
 
 - **Origen:** revisión final del spec 52, 2026-10-26 (el QA lo marcó como candidato a un spec común).
 - **Evidencia:** `validation/common/SortValidationService.java` valida `page >= 0` y `1 <= size <= 100`, pero no el producto. `GET /api/users/{userId}/support-feed?page=2147483647&size=100` responde `500 Internal server error` (`InvalidDataAccessApiUsageException`: el offset supera `Integer.MAX_VALUE`). `GET /api/donations/received` hace lo mismo; `/supporters` responde `200` vacío porque pagina con una query nativa.
 - **Problema:** un parámetro del cliente produce un `500` en los listados paginados con `Pageable`.
-- **Propuesta:** un solo guard en `SortValidationService.validateAndGetPageable`, que rechace con `400` un `page * size` (calculado como `long`) mayor que `Integer.MAX_VALUE`. Un único cambio cierra el caso en `/support-feed`, `/received` y los demás listados.
+- **Propuesta:** un solo guard en `SortValidationService`, en el helper privado `validatePageAndSize` que comparten los dos `validateAndGetPageable` (con y sin orden), que rechace con `400` un `page * size` (calculado como `long`) mayor que `Integer.MAX_VALUE`. Un único cambio cierra el caso en `/support-feed`, `/received` y los demás listados.
 - **Por qué acá:** todos los controllers paginados pasan por esa clase.
 - **Costo y riesgo:** chico. Hay que elegir el mensaje del `400` y revisar los tests de `SortValidationService`.
 - **Migración:** (1) agregar la regla y su mensaje con tests; (2) comprobar a mano `/received` y `/support-feed` con el valor extremo; (3) documentar el mensaje en [Errores y validación](05-errores-y-validacion.md).

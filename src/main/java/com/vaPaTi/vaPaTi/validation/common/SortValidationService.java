@@ -16,13 +16,7 @@ public class SortValidationService {
 
     public Pageable validateAndGetPageable(int page, int size, String sortBy, String sortDirection,
                                            List<String> allowedSortFields) {
-        if (page < 0) {
-            throw new MessageException("Page must be greater than or equal to 0");
-        }
-
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new MessageException("Size must be between 1 and " + MAX_PAGE_SIZE);
-        }
+        validatePageAndSize(page, size);
 
         if (!allowedSortFields.contains(sortBy)) {
             throw new MessageException("Invalid sortBy '" + sortBy + "'. Allowed: " + String.join(", ", allowedSortFields));
@@ -38,5 +32,21 @@ public class SortValidationService {
         }
 
         return PageRequest.of(page, size, Sort.by(direction, sortBy));
+    }
+
+    // Pagination whose order is written in the query: only page and size come from the client
+    public Pageable validateAndGetPageable(int page, int size) {
+        validatePageAndSize(page, size);
+        return PageRequest.of(page, size);
+    }
+
+    private void validatePageAndSize(int page, int size) {
+        if (page < 0) {
+            throw new MessageException("Page must be greater than or equal to 0");
+        }
+
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new MessageException("Size must be between 1 and " + MAX_PAGE_SIZE);
+        }
     }
 }

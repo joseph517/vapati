@@ -76,7 +76,7 @@ Como hay un handler por subclase, Spring elige el más específico: un `Resource
 | `MissingServletRequestParameterException` | 400 | `Invalid parameter` | `Required parameter '<nombre>' is missing` | Query param obligatorio ausente |
 | `HttpRequestMethodNotSupportedException` | 405 | `Method not allowed` | `Method <método> is not supported for this endpoint` | Método HTTP incorrecto; agrega el header `Allow` con los métodos soportados |
 | `HttpMediaTypeNotSupportedException` | 415 | `Unsupported media type` | `Content type '<tipo>/<subtipo>' is not supported. Use application/json` (o `Content type is not supported. Use application/json` si no vino `Content-Type`) | Body que no es JSON |
-| `DataIntegrityViolationException` | 409 | `Conflict` | `The request conflicts with existing data` | Un `UNIQUE` o `FOREIGN KEY` violado en la base que no se detectó antes; se loguea con `warn` |
+| `DataIntegrityViolationException` | 409 | `Conflict` | `The request conflicts with existing data` | Un `UNIQUE`, `FOREIGN KEY` o `CHECK` violado en la base que no se detectó antes; se loguea con `warn` |
 | `NoResourceFoundException` | 404 | `Resource not found` | `No endpoint found for this request` | Ruta inexistente |
 | `Exception` (cualquier otra) | 500 | `Internal server error` | `An unexpected error occurred. Please try again later.` | Todo lo no previsto; se loguea con `error` y el stack trace, pero no se devuelve al cliente |
 
@@ -132,6 +132,7 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | `dtos/donation/CreateDonationThanksDTO.java` | `thanksMessage` | `@Size(max = 280, message = "Thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `DonationValidationService`) |
 | `dtos/user/UpdateAutoThanksDTO.java` | `autoThanksMessage` | `@Size(max = 280, message = "Auto thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `UserValidationService`) |
 | `dtos/publication/CreatePublicationDTO.java` | `description` | `@NotBlank`, `@Size(max = 255)` |
+| `dtos/comment/CreateCommentDTO.java` | `text` | `@Size(max = 280, message = "Text must be at most 280 characters")`, sin `@NotBlank` (ausente o en blanco lo rechaza `CommentValidationService`) |
 | `dtos/category/CreateCategoryDTO.java` | `name` | `@NotBlank`, `@Size(max = 255)` |
 | | `description` | `@Size(max = 255)` |
 | `dtos/category/UpdateCategoryDTO.java` | `name` | `@Size(max = 255)`, `@Pattern(".*\\S.*", message = "must not be blank")` |
@@ -158,9 +159,9 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | `dtos/verification/ProcessVerificationRequestDTO.java` | `requestId` | `@NotNull`, `@Positive` |
 | | `status` | `@NotNull` |
 
-Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, `Donation.thanksMessage` y `UserInfo.autoThanksMessage`, que declaran `length = 280` igual que su `@Size`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
+Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, `Donation.thanksMessage`, `UserInfo.autoThanksMessage` y `Comment.text`, que declaran `length = 280` igual que su `@Size`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
 
-La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `CreateDonationThanksDTO`, `UpdateAutoThanksDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
+La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `CreateDonationThanksDTO`, `CreateCommentDTO`, `UpdateAutoThanksDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
 
 `fields` es un mapa con una entrada por campo: si un mismo campo viola dos reglas a la vez (por ejemplo `categoryIds: []` viola `@NotEmpty` y `@Size(min = 1)`), solo se ve uno de los dos mensajes.
 
@@ -203,6 +204,9 @@ Valida y arma el `Pageable` de los listados paginados. Cada controller le pasa s
 | `controller/donation/SupporterController.java` | `GET /api/users/{userId}/supporters` | `totalAmount`, `lastDonationAt` | `page=0`, `size=10`, `sortBy=totalAmount`, `sortDirection=desc` |
 | `controller/donation/SupporterController.java` | `GET /api/users/{userId}/support-feed` | `createdAt` (fijo: el cliente no elige orden) | `page=0`, `size=10`, `sortBy=createdAt`, `sortDirection=desc`; solo `page` y `size` son parámetros |
 | `controller/donation/DonationController.java` | `GET /api/donations/received` | `createdAt`, `amount` | `page=0`, `size=10`, `sortBy=createdAt`, `sortDirection=desc` |
+| `controller/comment/CommentController.java` | `GET /api/publications/{publicationId}/comments` | Ninguno: usa el overload sin orden | `page=0`, `size=10`; solo `page` y `size` son parámetros |
+
+El método `validateAndGetPageable(page, size)` (sin orden) es para los listados cuyo orden está escrito en la query, como los comentarios: aplica solo las dos primeras reglas de abajo y devuelve un `Pageable` sin `Sort`. Comparte con el método completo el helper privado `validatePageAndSize`. Un `sortBy` en la URL se ignora: no es un parámetro del endpoint.
 
 Reglas, en este orden, todas con `400 Business logic error`:
 
@@ -221,7 +225,7 @@ En los supporters, los campos de orden no son columnas: el servicio lee `sortBy`
 
 ### `validation/common/TextValidationService.java`
 
-Regla de texto obligatorio que comparten dos dominios. Un solo método, `normalizeRequiredText(text, fieldLabel, maxLength)`, que lanza `MessageException` (`400 Business logic error`) o devuelve el texto con `trim`:
+Regla de texto obligatorio que comparten cuatro usos en tres dominios. Un solo método, `normalizeRequiredText(text, fieldLabel, maxLength)`, que lanza `MessageException` (`400 Business logic error`) o devuelve el texto con `trim`:
 
 | Regla | Mensaje |
 |---|---|
@@ -233,8 +237,9 @@ Regla de texto obligatorio que comparten dos dominios. Un solo método, `normali
 | `DonationValidationService.validateAndNormalizeMessage` | `Message` | 280 | El mensaje del donante es opcional: `null` devuelve `null` sin llamar al servicio. |
 | `DonationValidationService.validateAndNormalizeThanksMessage` | `Thanks message` | 280 | La respuesta del receptor a una donación. |
 | `UserValidationService.validateAndNormalizeAutoThanksMessage` | `Auto thanks message` | 280 | El mensaje predeterminado del usuario. |
+| `CommentValidationService.validateAndNormalizeText` | `Text` | 280 | El texto de un comentario; obligatorio. |
 
-En los tres casos el DTO tiene además un `@Size(max = 280)` con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
+En los cuatro casos el DTO tiene además un `@Size(max = 280)` con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
 
 ## `404` en lugar de `403`: no revelar lo que no se puede ver
 
@@ -249,8 +254,11 @@ El criterio del proyecto es que **un recurso que quien llama no puede ver respon
 | Dar o quitar like a una publicación oculta (también de autor borrado) | 404 | `Publication not found with ID: <id>`, nunca el de la campaña | `PublicationValidationService.validateAndGetVisiblePublication` |
 | Donar directo a un usuario inexistente, borrado, baneado o suspendido (también si dona un ADMIN) | 404 | `User not found` | `DonationValidationService.validateAndGetRecipient`, con `UserValidationService.getUserById` y `validateProfileNotBlocked` |
 | Perfil, seguidores, supporters, feed de apoyos o reporte de un usuario baneado o suspendido (para quien no es ADMIN) | 404 | `User not found` | `validation/user/UserValidationService.java` (`validateProfileNotBlocked`, también desde `service/donation/SupporterService.java`, en supporters y feed de apoyos), `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java` |
-| Recurso borrado lógicamente | 404 | el de "no encontrado" del dominio | `@SQLRestriction` sobre `deleted_at` en `User`, `Campaign`, `Goal`, `Publication`, `BankAccount` y `VerificationRequest` (ver [Modelo de datos](04-modelo-de-datos.md)) |
+| Comentar o leer los comentarios de una publicación oculta (inexistente, borrada, de autor borrado o de campaña no visible) | 404 | `Publication not found with ID: <id>`, nunca el de la campaña | `PublicationValidationService.validateAndGetVisiblePublication`, desde `service/comment/CommentService.java` |
+| Borrar o reportar un comentario oculto (inexistente, borrado, de autor borrado, de autor sancionado para quien no es ADMIN, o de una publicación no visible) | 404 | `Comment not found with ID: <id>`, nunca el de la publicación | `validation/comment/CommentValidationService.java` (`validateAndGetVisibleComment`), también desde `ReportValidationService` |
+| Recurso borrado lógicamente | 404 | el de "no encontrado" del dominio | `@SQLRestriction` sobre `deleted_at` en `User`, `Campaign`, `Goal`, `Publication`, `Comment`, `BankAccount` y `VerificationRequest` (ver [Modelo de datos](04-modelo-de-datos.md)) |
 | Campaña visible pero ajena, al modificarla, cerrarla o ver su historial | 403 | `You are not authorized to perform this action` | `CampaignAuthorizationService.validateOwnershipOrAdmin` |
+| Comentario visible ajeno, al borrarlo (quien llama no es su autor, ni el autor de la publicación, ni ADMIN) | 403 | `Only the comment author, the publication author or an admin can delete this comment` | `CommentValidationService.validateAndGetDeletableComment` |
 | Responder o borrar la respuesta de una donación ajena, **sin importar si la campaña es visible** | 403 | Donación a campaña: `Only the campaign owner can reply to this donation` / `Only the campaign owner or an admin can delete this reply`. Donación directa: `Only the recipient can reply to this donation` / `Only the recipient or an admin can delete this reply` | `DonationValidationService.validateIsRecipient` / `validateIsRecipientOrAdmin` (el literal lo elige `campaignId`) |
 | Endpoint de ADMIN llamado por un `USER` | 403 | `You don't have permission to access this resource` | `@PreAuthorize` + `GlobalExceptionHandler` |
 | Cuenta propia baneada o suspendida | 403 | `Your account has been banned. Reason: ...` / `Your account is suspended until ... Reason: ...` | `validation/auth/AccountStatusValidationService.java` |

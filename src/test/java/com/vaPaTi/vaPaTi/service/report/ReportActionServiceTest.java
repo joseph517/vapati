@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
+import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -741,7 +742,8 @@ class ReportActionServiceTest {
                     mock(CampaignStatusHistoryRepository.class),
                     mock(EntityManager.class)
             );
-            service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService);
+            service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService,
+                    mock(CommentRepository.class));
 
             testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
             testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);

@@ -15,6 +15,7 @@ import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.comment.CommentValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +41,8 @@ public class ReportValidationService {
             ReportedEntityType.PUBLICATION, EnumSet.of(
                     ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER),
             ReportedEntityType.CAMPAIGN, EnumSet.of(
+                    ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER),
+            ReportedEntityType.COMMENT, EnumSet.of(
                     ActionTaken.WARNING_SENT, ActionTaken.CONTENT_REMOVED, ActionTaken.OTHER)
     );
 
@@ -48,6 +51,7 @@ public class ReportValidationService {
     private final PublicationRepository publicationRepository;
     private final CampaignValidationService campaignValidationService;
     private final AccountStatusValidationService accountStatusValidationService;
+    private final CommentValidationService commentValidationService;
 
     /**
      * Validate the input DTO
@@ -114,6 +118,8 @@ public class ReportValidationService {
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
             case CAMPAIGN -> ownerIdOf(campaignValidationService.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
+            // A hidden comment (blocked author for a non-admin, or a publication the reporter can't see) answers the same 404 as a missing one
+            case COMMENT -> ownerIdOf(commentValidationService.validateAndGetVisibleComment(entityId, reporterId).getUser());
             default -> throw new MessageException("Invalid entity type");
         };
     }
@@ -130,6 +136,7 @@ public class ReportValidationService {
             case USER -> throw new MessageException("You cannot report yourself");
             case PUBLICATION -> throw new MessageException("You cannot report your own publication");
             case CAMPAIGN -> throw new MessageException("You cannot report your own campaign");
+            case COMMENT -> throw new MessageException("You cannot report your own comment");
             default -> throw new MessageException("Invalid entity type");
         }
     }

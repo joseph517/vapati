@@ -2,6 +2,7 @@
 -- This script creates all necessary tables and initial data for integration tests
 
 -- Drop tables if they exist (in reverse dependency order)
+IF OBJECT_ID('comment', 'U') IS NOT NULL DROP TABLE comment;
 IF OBJECT_ID('publication_like', 'U') IS NOT NULL DROP TABLE publication_like;
 IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
 IF OBJECT_ID('report', 'U') IS NOT NULL DROP TABLE report;
@@ -185,6 +186,18 @@ CREATE TABLE publication_like (
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE NO ACTION
 );
 
+-- Create comment table (comments on publications, soft delete)
+CREATE TABLE comment (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    publication_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    text VARCHAR(280) NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    deleted_at DATETIME2 NULL,
+    FOREIGN KEY (publication_id) REFERENCES publication(id) ON DELETE NO ACTION,
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE NO ACTION
+);
+
 -- Create followers table (user following relationship)
 CREATE TABLE followers (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -278,6 +291,7 @@ CREATE INDEX idx_donation_status ON donation(status);
 CREATE INDEX idx_donation_created ON donation(created_at);
 CREATE INDEX idx_publication_user ON publication(user_id);
 CREATE INDEX idx_publication_campaign ON publication(campaign_id);
+CREATE INDEX idx_comment_publication_created ON comment(publication_id, created_at);
 CREATE INDEX idx_followers_user ON followers(user_id);
 CREATE INDEX idx_followers_follower ON followers(follower_id);
 CREATE INDEX idx_revoked_tokens_jti ON revoked_tokens(jti);
