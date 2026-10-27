@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.entity.report.ReportedEntityType;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
+import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
@@ -26,6 +27,7 @@ public class ReportActionService {
     private final PublicationRepository publicationRepository;
     private final CampaignRepository campaignRepository;
     private final CampaignService campaignService;
+    private final CommentRepository commentRepository;
 
     /**
      * Execute the action specified in the report
@@ -110,7 +112,7 @@ public class ReportActionService {
     }
 
     /**
-     * Remove the reported content (Publication or Campaign)
+     * Remove the reported content (Publication, Campaign or Comment)
      */
     private void executeContentRemoval(Report report) {
         switch (report.getReportedEntityType()) {
@@ -119,6 +121,9 @@ public class ReportActionService {
                 break;
             case CAMPAIGN:
                 removeCampaign(report.getReportedEntityId(), report.getReviewedBy().getId());
+                break;
+            case COMMENT:
+                removeComment(report.getReportedEntityId());
                 break;
             case USER:
                 // Cannot remove a user directly, only ban/suspend
@@ -143,6 +148,11 @@ public class ReportActionService {
     private void removeCampaign(Long campaignId, Long adminId) {
         campaignRepository.findById(campaignId)
                 .ifPresent(campaign -> campaignService.closeAndSoftDelete(campaign, adminId));
+    }
+
+    // A report always points to an entity that existed, so an empty lookup means it was already removed: nothing to do
+    private void removeComment(Long commentId) {
+        commentRepository.findById(commentId).ifPresent(commentRepository::delete);
     }
 
     /**
