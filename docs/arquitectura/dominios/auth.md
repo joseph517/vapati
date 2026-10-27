@@ -73,7 +73,7 @@ Ningún DTO de este dominio tiene anotaciones de Bean Validation y los controlle
 |---|---|---|
 | Email inexistente y contraseña incorrecta dan la misma respuesta: `401` `Invalid email or password`. | `DaoAuthenticationProvider` convierte el "usuario no encontrado" en `BadCredentialsException`, y el service traduce esa excepción a un único mensaje. Así el login no revela qué emails están registrados. | `service/auth/AuthenticationService.java`, `security/SecurityConfig.java` (`authenticationProvider`) |
 | El estado de la cuenta (ban/suspensión) se valida **después** de la contraseña. | Solo quien conoce la contraseña se entera de que la cuenta está sancionada y por qué. | `service/auth/AuthenticationService.java` |
-| Una cuenta baneada, o suspendida con `suspendedUntil` en el futuro, recibe `403` en login y refresh, con el motivo (`bannedReason` o `Violation of terms` si es `null`). | Es la misma comprobación que hace el filtro JWT en cada request, centralizada en una sola clase: login, refresh y requests autenticados responden igual. Una suspensión vencida no bloquea y no hace falta "levantarla". | `validation/auth/AccountStatusValidationService.java` (`validateNotBlocked`) |
+| Una cuenta baneada, o suspendida con `suspendedUntil` en el futuro, recibe `403` en login y refresh, con el motivo (`bannedReason` o `Violation of terms` si es `null`). | Es la misma comprobación que hace el filtro JWT en cada request, centralizada en una sola clase: login, refresh y requests autenticados responden igual. Una suspensión vencida no es una sanción y no hace falta "levantarla". | `validation/auth/AccountStatusValidationService.java` (`validateNotSanctioned`) |
 | El login encuentra cuentas borradas lógicamente y las restaura (`deletedAt = null`). | La única forma de borrar una cuenta es que el propio usuario llame a `DELETE /api/users/delete`; volver a loguearse con su contraseña la reactiva. Las campañas que se cerraron al borrar la cuenta siguen cerradas. Una cuenta borrada **y** sancionada recibe `403` y sigue borrada. | `service/auth/AuthenticationService.java`, `service/auth/CustomUserDetailsService.java` (`loadUserByUsername` busca con `findByEmailIncludingDeleted` y nunca restaura por sí mismo) |
 | El refresh **no** restaura cuentas borradas: responde `401`. | Usa `findByIdForRequest`, que respeta el `@SQLRestriction("deleted_at IS NULL")` de `User`. Restaurar requiere la contraseña, no basta con tener un refresh token. | `service/auth/AuthenticationService.java`, `repository/user/UserRepository.java` |
 | El refresh solo acepta tokens de tipo `refresh`, vigentes, firmados con la clave actual, no revocados, de una cuenta existente y emitidos después de `tokensValidAfter`. Todo rechazo da el mismo `401` `Invalid or expired refresh token`. | No se distingue el motivo para no dar pistas a quien prueba tokens. Cualquier excepción inesperada al leer el token (firma, formato, `sub` no numérico de tokens viejos) termina en ese mismo `401`. | `service/auth/AuthenticationService.java` (`refreshToken`) |
@@ -191,7 +191,7 @@ Las tres rutas devuelven errores con la forma `{error, message, timestamp}` de `
 - **Qué hace** (`AuthenticationService.authenticate`, `@Transactional`):
   1. Llama a `AuthenticationManager.authenticate` con email y contraseña. El `DaoAuthenticationProvider` de `SecurityConfig` carga el usuario con `CustomUserDetailsService.loadUserByUsername` (que usa `findByEmailIncludingDeleted`, una query nativa que ve también las cuentas borradas) y compara la contraseña con BCrypt. Una `BadCredentialsException` se traduce a `InvalidCredentialsException("Invalid email or password")`.
   2. Vuelve a cargar el `User` con `findByEmailIncludingDeleted`.
-  3. `AccountStatusValidationService.validateNotBlocked`: ban → `403`; suspensión vigente → `403`.
+  3. `AccountStatusValidationService.validateNotSanctioned`: ban → `403`; suspensión vigente → `403`.
   4. Si `deletedAt` no es `null`, lo pone en `null` y guarda: la cuenta queda restaurada.
   5. Genera el access token y el refresh token con `JwtService` y arma `AuthResponse.UserInfo.fromUser`.
 
@@ -222,7 +222,7 @@ Las tres rutas devuelven errores con la forma `{error, message, timestamp}` de `
   4. Busca el `jti` en `revoked_tokens` (`TokenBlackListService.isTokenRevoked`).
   5. Carga el usuario con `findByIdForRequest` (no ve cuentas borradas; trae `userInfo` y `role` en el mismo `SELECT`).
   6. Rechaza el token si su `iat` es anterior a `tokensValidAfter`.
-  7. `AccountStatusValidationService.validateNotBlocked`.
+  7. `AccountStatusValidationService.validateNotSanctioned`.
   8. Inserta el `jti` usado en `revoked_tokens` con su fecha de vencimiento (rotación). Un choque con el `UNIQUE` se traduce a `401`.
   9. Genera el par nuevo y la `AuthResponse`.
 
@@ -270,7 +270,7 @@ Las tres rutas devuelven errores con la forma `{error, message, timestamp}` de `
 | service | `service/auth/JwtService.java` | Genera y lee los tokens (claims, `type`, `jti`, `iat`, `exp`), valida `JWT_SECRET` al arrancar. |
 | service | `service/auth/TokenBlackListService.java` | Consulta e inserta en `revoked_tokens`. Tiene la limpieza de vencidos con `@Scheduled`, que hoy no se ejecuta por falta de `@EnableScheduling`. |
 | service | `service/auth/CustomUserDetailsService.java` | `loadUserByUsername` para el login (incluye cuentas borradas, sin restaurarlas) y `loadUserForRequest` para el filtro JWT. |
-| validation | `validation/auth/AccountStatusValidationService.java` | `validateNotBlocked` (lanza `403` con el motivo) e `isBlocked` (la misma condición como booleano, que usan otros dominios para ocultar usuarios sancionados). |
+| validation | `validation/auth/AccountStatusValidationService.java` | `validateNotSanctioned` (lanza `403` con el motivo) e `isSanctioned` (la misma condición como booleano, que usan otros dominios para ocultar usuarios sancionados). |
 | entity | `entity/auth/RevokedToken.java` | Fila de la lista negra (`jti`, vencimiento). |
 | repository | `repository/auth/RevokedTokenRepository.java` | `existsByJti`, `deleteExpiredTokens`. |
 | repository | `repository/user/UserRepository.java` | `findByEmailIncludingDeleted` (login), `findByIdForRequest` (refresh y filtro). |

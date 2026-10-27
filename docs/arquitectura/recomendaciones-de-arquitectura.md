@@ -102,3 +102,13 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Por qué acá:** el proyecto documenta en [Decisiones de diseño](08-decisiones-de-diseno.md#la-base-como-red-contra-carreras) que la restricción única es la red, y ya hay dos excepciones idempotentes. Con dos usos todavía no paga.
 - **Costo y riesgo:** chico. El riesgo es meterlo en un bean con proxy transaccional y cambiar el comportamiento.
 - **Migración:** (1) extraer el helper con su test unitario; (2) migrar `likePublication`; (3) migrar `revokeIgnoringDuplicates`; cada paso con su clase de test.
+
+### Un único punto para "oculto salvo para ADMIN" sobre usuarios sancionados
+
+- **Origen:** revisión final del spec 58 (`harness/specs/58-sancion-y-rol-admin-unificados.md`), 2026-10-27.
+- **Evidencia:** el patrón `isSanctioned(user) && !isAdmin(caller)` (o `callerIsAdmin || !isSanctioned`) está repetido en `validation/report/ReportValidationService.java` (`validateEntityExists`, rama `USER`), `validation/comment/CommentValidationService.java` (`validateAndGetVisibleComment`), `validation/follower/FollowerValidationService.java` (5 filtros, con un `callerIsAdmin` precalculado), `service/user/UserService.java` (`getUserById`) y `service/donation/SupporterService.java` (`privileged || validateProfileNotSanctioned`).
+- **Problema:** hoy la regla es una sola, pero cada llamador decide por su cuenta el orden de evaluación, de modo que la consulta del rol solo corra si hace falta. El spec 57 va a sumar el bloqueo entre usuarios a esos mismos sitios, y cada uno puede combinar las dos reglas distinto.
+- **Propuesta:** un método de visibilidad en `validation/common`, por ejemplo `UserVisibilityService.isHiddenFrom(User target, Long callerId)`, que encapsule "sancionado y no ADMIN" (y, con el 57, "bloqueado entre usuarios"), con la evaluación perezosa del rol. Es una Specification en pequeño: una regla con nombre, reutilizable. Conviene evaluarla en el diseño del spec 57.
+- **Por qué acá:** el 57 y S11 (mensajes) van a combinar los dos criterios en las mismas clases. Tener un solo punto evita que la combinación diverja.
+- **Costo y riesgo:** chico (5 o 6 llamadores, tests que cambian de mock). El riesgo es perder el atajo "no consultar el rol si no está sancionado": hay que conservarlo y probarlo con `never()`.
+- **Migración:** (1) evaluarlo en el diseño del spec 57, no antes; (2) crear el método con sus tests; (3) migrar los llamadores de un dominio por paso; (4) borrar los patrones inline.

@@ -65,17 +65,17 @@ El proyecto se construye con el Maven wrapper (`./mvnw`), así que no hace falta
 | **Meta** | Monto objetivo (`amountGoal`), monto recaudado (`amountRaised`) y estado de una campaña. Entidad `Goal`, separada de `Campaign`; los montos son `BigDecimal` con dos decimales. |
 | **Dueño** | El usuario que creó una campaña. Solo él (o un ADMIN) la modifica, la cierra o la reactiva. |
 | **Estado de campaña** | `ACTIVE` (recibe donaciones), `COMPLETED` (alcanzó la meta) o `CLOSED` (cerrada por el dueño, por un ADMIN o por baja). Se guarda en `Goal.status`, y cada cambio queda en `CampaignStatusHistory`. |
-| **Campaña visible** | Una campaña no borrada, cuyo dueño no está borrado ni bloqueado y que no está `CLOSED`, salvo para su dueño o un ADMIN. Lo que no es visible responde `404`, como si no existiera. |
+| **Campaña visible** | Una campaña no borrada, cuyo dueño no está borrado ni sancionado y que no está `CLOSED`, salvo para su dueño o un ADMIN. Lo que no es visible responde `404`, como si no existiera. |
 | **Publicación** | Novedad que el dueño publica dentro de una de sus campañas. |
-| **Like** | Marca de un usuario autenticado en una publicación visible (`PublicationLike`), única por usuario y publicación. Dar y quitar like son idempotentes. El contador de una publicación no cuenta a los usuarios borrados ni bloqueados. |
-| **Comentario** | Texto de hasta 280 caracteres que un usuario autenticado escribe en una publicación visible (`Comment`). Lo borran su autor, el autor de la publicación o un ADMIN. Se ve mientras su autor no esté borrado ni bloqueado (salvo para un ADMIN) y su publicación sea visible. |
+| **Like** | Marca de un usuario autenticado en una publicación visible (`PublicationLike`), única por usuario y publicación. Dar y quitar like son idempotentes. El contador de una publicación no cuenta a los usuarios borrados ni sancionados. |
+| **Comentario** | Texto de hasta 280 caracteres que un usuario autenticado escribe en una publicación visible (`Comment`). Lo borran su autor, el autor de la publicación o un ADMIN. Se ve mientras su autor no esté borrado ni sancionado (salvo para un ADMIN) y su publicación sea visible. |
 | **Donación** | Aporte de un usuario a una campaña o directo a otro usuario. Se aprueba sola al crearse y, si es a una campaña, suma al monto recaudado. |
 | **Donación directa** | Donación a un usuario, sin campaña (`campaignId: null`). No toca ninguna meta. El receptor tiene que ser un usuario `USER` activo: un ADMIN no recibe donaciones directas. |
 | **Receptor** | Quien recibe una donación (`recipient`): el dueño de la campaña en una donación a campaña, el usuario elegido en una directa. Es quien puede responderla, y quien la ve en `GET /api/donations/received`. |
 | **Seguir** | Relación entre dos usuarios (`Follower`): uno sigue al otro. |
 | **Reporte** | Denuncia de un usuario sobre otro usuario, una campaña, una publicación o un comentario, con un motivo. Un ADMIN lo revisa y lo resuelve con una acción (`ActionTaken`). |
 | **Sanción** | Suspensión temporal (`suspendedUntil`) o baneo (`banned`) de un usuario, aplicada al resolver un reporte. |
-| **Bloqueado** | Usuario baneado o con una suspensión vigente. No puede usar la API y, para todos salvo un ADMIN, desaparece: su perfil, sus campañas y su presencia en seguidores responden `404` o se omiten. |
+| **Sancionado** | Usuario baneado o con una suspensión vigente. "Bloqueo" queda para el bloqueo entre usuarios, que es otra cosa. No puede usar la API y, para todos salvo un ADMIN, desaparece: su perfil, sus campañas y su presencia en seguidores responden `404` o se omiten. |
 | **Verificación** | Solicitud de un usuario para que un ADMIN marque su cuenta como verificada. |
 | **Soft delete (borrado lógico)** | Borrar es completar `deletedAt` en lugar de eliminar la fila. Lo usan `User`, `Campaign`, `Publication`, `Comment` y `VerificationRequest`: `@SQLDelete` convierte el `DELETE` en un `UPDATE` y `@SQLRestriction("deleted_at IS NULL")` excluye lo borrado de toda consulta. Las relaciones históricas (donaciones, reportes) siguen apuntando a la fila. |
 | **Token revocado** | JWT invalidado antes de que expire (por logout o renovación), guardado en `RevokedToken`. |

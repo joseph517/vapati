@@ -2,7 +2,7 @@
 
 Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectura, cada funcionalidad y por qué funciona como funciona. Todo lo que dice sale del código.
 
-**Describe:** la rama `spec-54-comentarios-en-publicaciones` en el commit `5f5a11d`, al 2026-10-27. Es una foto: los cambios posteriores al código no se reflejan acá.
+**Describe:** la rama `spec-58-sancion-y-rol-admin-unificados` en el commit `13c01de`, al 2026-10-27. Es una foto: los cambios posteriores al código no se reflejan acá.
 
 **Para quién es:** un dev backend que entra al proyecto, que sabe Java y lo básico de Spring. No se explica Spring desde cero, sino cómo lo usa este proyecto.
 

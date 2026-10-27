@@ -57,8 +57,8 @@ El detalle general de borrado lógico y de `@NotFound` está en [Modelo de datos
 
 **Consultas de likes del listado** (`repository/publication/PublicationLikeRepository.java`). Después de `findAllByCampaignId`, el listado hace dos consultas más, ambas filtradas por `campaignId` (la copia de solo lectura `Publication.campaignId`, sin unir `campaign`):
 
-- `countVisibleByCampaignIdGroupedByPublication`: un `COUNT` agrupado por publicación de toda la campaña, que cuenta solo los likes de usuarios no borrados (`u.deletedAt IS NULL`) y no bloqueados (`UserRepository.NOT_BLOCKED`, con el `:now` de la JVM). Las publicaciones sin likes que cuenten no vuelven en el resultado y el service las deja en `0`.
-- `findLikedPublicationIdsByCampaignIdAndUserId`: los ids de las publicaciones de la campaña a las que quien llama dio like. No filtra por bloqueo porque quien llama nunca está bloqueado: el filtro JWT lo corta antes con `403`. Para un anónimo no se ejecuta.
+- `countVisibleByCampaignIdGroupedByPublication`: un `COUNT` agrupado por publicación de toda la campaña, que cuenta solo los likes de usuarios no borrados (`u.deletedAt IS NULL`) y no sancionados (`UserRepository.NOT_SANCTIONED`, con el `:now` de la JVM). Las publicaciones sin likes que cuenten no vuelven en el resultado y el service las deja en `0`.
+- `findLikedPublicationIdsByCampaignIdAndUserId`: los ids de las publicaciones de la campaña a las que quien llama dio like. No filtra por sanción porque quien llama nunca está sancionado: el filtro JWT lo corta antes con `403`. Para un anónimo no se ejecuta.
 
 Son dos consultas fijas (una para un anónimo), sin `IN :ids`, así que el listado no crece con la cantidad de publicaciones ni se acerca al límite de 2100 parámetros de SQL Server. Son JPQL: Hibernate las valida al arrancar, pero los tests unitarios mockean el repositorio y no las ejecutan.
 
@@ -75,7 +75,7 @@ Son dos consultas fijas (una para un anónimo), sin `IN :ids`, así que el lista
 | Una publicación cuyo autor fue borrado se trata como inexistente. | Con el autor borrado, `user` llega en `null` por `@NotFound`; se responde `404`, igual que si la publicación no existiera. | `PublicationValidationService.validateAndGetOwnedPublication` |
 | Quien ve la publicación puede darle like y quitárselo, incluido su autor y un ADMIN, también en una campaña `CLOSED` que ve. | Un like no tiene efecto económico, a diferencia de donarse a uno mismo, y no es moderar. El ADMIN usa la visibilidad de ADMIN, como en las demás escrituras sobre publicaciones y reportes. | `PublicationValidationService.validateAndGetVisiblePublication` |
 | Dar y quitar like es idempotente: un `POST` repetido y un `DELETE` sin like responden `200` con el estado actual. | El cliente puede reintentar sin manejar códigos de error, y la respuesta trae el contador real para corregir su estado optimista. | `PublicationLikeService` |
-| Solo cuentan los likes de usuarios no borrados, no baneados y sin suspensión vigente, para todos, también para el ADMIN. La fila se conserva. | Es la regla de lectura de los usuarios bloqueados. No hay lista de quién dio like sino un número, así que no hay una vista de ADMIN que cuente a los sancionados. | `PublicationLikeRepository` (`countVisibleByPublicationId`, `countVisibleByCampaignIdGroupedByPublication`) |
+| Solo cuentan los likes de usuarios no borrados, no baneados y sin suspensión vigente, para todos, también para el ADMIN. La fila se conserva. | Es la regla de lectura de los usuarios sancionados. No hay lista de quién dio like sino un número, así que no hay una vista de ADMIN que cuente a los sancionados. | `PublicationLikeRepository` (`countVisibleByPublicationId`, `countVisibleByCampaignIdGroupedByPublication`) |
 | Dos likes simultáneos de la misma persona dejan una sola fila y ambos responden `200`. `likePublication` no es `@Transactional`. | Gana la restricción única: el `save` perdedor viola `uk_publication_like_publication_user`, lo captura el service y relee el estado. Sin transacción externa, solo esa transacción del `save` hace rollback; dentro de una externa quedaría marcada como rollback-only y terminaría en `409`. Ver [Decisiones de diseño](../08-decisiones-de-diseno.md#la-base-como-red-contra-carreras). | `PublicationLikeService.likePublication` |
 | `findVisiblePublication` y `validateAndGetVisiblePublication` son la única fuente de "la publicación es visible", y la usan los likes. | Una publicación es visible si existe, no está borrada, su autor no está borrado y su campaña es visible para quien llama. Lo oculto responde con el `404` de la publicación, nunca con el de la campaña, que revelaría que la publicación existe. | `PublicationValidationService` |
 | Borrar una publicación no borra sus comentarios. | `PublicationRepository.delete` solo marca `deleted_at` en la publicación. Los comentarios quedan en la base, sin cascada, y dejan de verse porque su publicación ya no es visible (ver [comment](comment.md)). | `service/publication/PublicationService.java` |
@@ -110,7 +110,7 @@ Este dominio no tiene estados. Lo que importa es el estado de la campaña (`Camp
 
 Nadie ve publicaciones de una campaña borrada ni de un dueño borrado. Los criterios de "sancionado" (baneado, o suspendido con `suspendedUntil` en el futuro) están en [Seguridad](../03-seguridad.md).
 
-Para saber si quien llama es admin, el dominio usa `CampaignAuthorizationService.isAdmin`, que consulta la base (`UserRepository.existsByIdAndRole_Name(userId, "ADMIN")`) en lugar de mirar las autoridades del token.
+La visibilidad la decide `CampaignValidationService.findVisibleCampaignById`, que usa `RoleValidationService.isAdmin`. Esa comprobación consulta la base (`UserRepository.existsByIdAndRole_Name(userId, "ADMIN")`) en lugar de mirar las autoridades del token.
 
 **Quién modifica.** Publicar: solo el dueño de la campaña. Borrar: solo el autor de la publicación (que es el dueño de la campaña). El admin no puede hacer ninguna de las dos cosas desde estos endpoints. Dar y quitar like: cualquier usuario autenticado que ve la publicación, incluidos su autor y un ADMIN.
 
@@ -324,9 +324,9 @@ Los cinco endpoints se reparten en dos controllers: tres en `controller/publicat
 | Controller | `controller/publication/PublicationController.java`, `controller/publication/PublicationLikeController.java` |
 | Service | `service/publication/PublicationService.java`, `service/publication/PublicationLikeService.java` |
 | Validation | `validation/publication/PublicationValidationService.java` |
-| Validation (de otro dominio) | `validation/campaign/CampaignValidationService.java` (visibilidad), `validation/campaign/CampaignAuthorizationService.java` (`isAdmin`) |
+| Validation (de otro dominio) | `validation/campaign/CampaignValidationService.java` (visibilidad), `validation/common/RoleValidationService.java` (`isAdmin`, vía `CampaignValidationService`) |
 | Mapper | `mapper/publication/PublicationMapper.java` |
-| Repository | `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/campaign/CampaignRepository.java` (`findByIdWithActiveOwner`, `findByIdVisibleTo`), `repository/user/UserRepository.java` (`getReferenceById`, `NOT_BLOCKED`) |
+| Repository | `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/campaign/CampaignRepository.java` (`findByIdWithActiveOwner`, `findByIdVisibleTo`), `repository/user/UserRepository.java` (`getReferenceById`, `NOT_SANCTIONED`) |
 | DTOs | `dtos/publication/CreatePublicationDTO.java`, `dtos/publication/PublicationResponseDTO.java`, `dtos/publication/PublicationLikeResponseDTO.java` |
 | Entity | `entity/publication/Publication.java`, `entity/publication/PublicationLike.java`; usa `entity/campaign/Campaign.java`, `entity/campaign/CampaignStatus.java`, `entity/user/User.java` |
 | Seguridad | `security/SecurityConfig.java` (`PUBLIC_GET_URLS`), `security/AuthenticatedUserService.java`, `security/JwtAuthenticationFilter.java` |

@@ -4,12 +4,12 @@ Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué c
 
 ## Estado de la suite
 
-En el commit que describe esta documentación, `mvn -B test` corre **1549 tests en 93 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
+En el commit que describe esta documentación, `mvn -B test` corre **1544 tests en 94 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
 
 | Capa probada | Tests | Tipo |
 |---|---|---|
 | `service/` | 691 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
-| `validation/` | 598 | unitarios con Mockito |
+| `validation/` | 593 | unitarios con Mockito |
 | `dtos/` | 139 | Bean Validation sin Spring |
 | `repository/` | 39 | integración con SQL Server real (Testcontainers) |
 | `security/` | 22 | unitarios con Mockito |
