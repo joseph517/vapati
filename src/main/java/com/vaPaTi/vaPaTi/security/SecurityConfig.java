@@ -50,7 +50,8 @@ public class SecurityConfig {
             "/api/donations/campaign/*",
             "/api/donations/campaign/*/statistics",
             "/api/users/*/supporters",
-            "/api/users/*/support-feed"
+            "/api/users/*/support-feed",
+            "/api/publications/*/comments"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
