@@ -249,10 +249,18 @@ En común: la misma imagen y el mismo `command` y healthcheck de SQL Server (con
 | `src/main/resources/data.sql` | Siembra los roles `USER` y `ADMIN` y las categorías Technology, Health, Education, Environment, Arts y Sports, de forma idempotente. | Al arrancar la aplicación, después de Hibernate. |
 | `scripts/create-admin-user.sql` | Inserta un usuario con rol `ADMIN` (filas en `[user]` y `user_info`). Es la única forma de crear un admin: `POST /api/users/create` siempre asigna `USER`. Exige que `data.sql` ya haya sembrado el rol. | A mano, con `sqlcmd` dentro del contenedor de SQL Server. |
 | `scripts/migrate-donation-recipient.sql` | Agrega `donation.recipient_user_id` (rellenada con el dueño de la campaña, `NOT NULL`, con FK e índice) y vuelve nullable `donation.campaign_id`, para las donaciones directas. Es idempotente. Ver [Modelo de datos](04-modelo-de-datos.md#migración-manual-de-donation). | A mano, con la app **detenida** y antes de levantar la imagen nueva, en dev y en prod, con `sqlcmd -I -b` dentro del contenedor de SQL Server. En prod, los pasos están en `DOCKER-HUB-DEPLOY.md` § 7.2. |
+| `scripts/update-report-entity-type-check.sql` | Reemplaza la `CHECK` que Hibernate generó sobre `report.reported_entity_type` por `CK_report_reported_entity_type`, con los cuatro valores (suma `COMMENT`). Es idempotente. Ver [Modelo de datos](04-modelo-de-datos.md#check-de-reportreported_entity_type). | A mano, antes de levantar la imagen nueva, en dev y en prod, con `sqlcmd -b` (sin `-I`) dentro del contenedor de SQL Server. No hace falta detener la app. En prod, los pasos están en `DOCKER-HUB-DEPLOY.md` § 7.2. |
 | `utils/PasswordHashGenerator.java` | Utilidad de línea de comandos (no es un bean) que imprime el hash BCrypt de una password, para completar el script anterior. | A mano. En la imagen de desarrollo, con el classpath de `target/classes` y `/root/.m2`; en la de producción, con el `PropertiesLauncher` de Spring Boot sobre `app.jar`. |
 | `init-db.sql` | Crea la base si no existe. Hace lo mismo que el `command` de Compose. | Nunca: está montado en el contenedor de desarrollo pero nadie lo ejecuta. |
 | `init-db.sh/` | Es un directorio vacío. El compose de desarrollo lo monta como `/init-db.sh`. | Nunca. |
 | `intit-db.sh` | Script que espera 15 segundos y ejecuta `init-db.sql` con `sqlcmd`. | Nunca: no lo referencia ningún compose ni Dockerfile. |
+
+Para correr el script de la `CHECK` en desarrollo, es el mismo comando que el del admin, con `-b` y el script nuevo:
+
+```bash
+docker cp scripts/update-report-entity-type-check.sql db_vapati_dev:/tmp/update-report-entity-type-check.sql
+docker exec db_vapati_dev /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<DB_PASSWORD>' -C -b -d ApiVaPaTiJava -i /tmp/update-report-entity-type-check.sql
+```
 
 Para crear el admin en desarrollo, en resumen:
 

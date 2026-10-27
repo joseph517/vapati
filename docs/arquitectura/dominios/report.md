@@ -39,7 +39,7 @@ Restricción `UNIQUE (reporter_id, reported_entity_type, reported_entity_id)`: u
 | Enum | Valores | Uso |
 |---|---|---|
 | `ReportStatus` | `PENDING`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED` | Estado de la denuncia. Ver "Estados". |
-| `ReportedEntityType` | `USER`, `PUBLICATION`, `CAMPAIGN` | Qué se denuncia. |
+| `ReportedEntityType` | `USER`, `PUBLICATION`, `CAMPAIGN`, `COMMENT` | Qué se denuncia. La columna tiene una `CHECK` con los valores del enum, de nombre fijo (`CK_report_reported_entity_type`), que sumar un valor obliga a recrear con un script (ver [Modelo de datos](../04-modelo-de-datos.md#check-de-reportreported_entity_type)). |
 | `ReportReason` | `SPAM`, `INAPPROPRIATE_CONTENT`, `HARASSMENT`, `FRAUD`, `MISINFORMATION`, `IMPERSONATION`, `OTHER` | Motivo elegido por el denunciante. Solo se guarda y se cuenta en las estadísticas; no cambia ninguna regla. |
 | `ActionTaken` | `NO_ACTION`, `WARNING_SENT`, `CONTENT_REMOVED`, `USER_SUSPENDED`, `USER_BANNED`, `OTHER` | Decisión del `ADMIN` al revisar. Ver "Acciones de moderación". |
 
@@ -55,8 +55,9 @@ Restricción `UNIQUE (reporter_id, reported_entity_type, reported_entity_id)`: u
 | Un usuario denunciado tiene que existir y no estar borrado. | `UserRepository.findById` respeta `@SQLRestriction`, así que un usuario borrado responde igual que uno inexistente: `404 "User not found"`. | `validation/report/ReportValidationService.java` (`validateEntityExists`) |
 | Un usuario sancionado se oculta como uno inexistente, salvo para un `ADMIN`. | Si `AccountStatusValidationService.isBlocked` da `true` (ban, o suspensión vigente) y el denunciante no es `ADMIN`, responde el mismo `404 "User not found"`. Así no se puede usar el endpoint para averiguar si alguien está sancionado. `isBlocked` va primero para consultar el rol solo cuando el usuario está sancionado. | `ReportValidationService.validateEntityExists` |
 | Una publicación se puede denunciar solo si quien denuncia puede ver su campaña. | Carga la publicación con `findById` (que no ve las borradas) y luego pide la campaña con `CampaignValidationService.findVisibleCampaignById` usando `Publication.campaignId`. Si la campaña no es visible (`CLOSED` de otro, borrada, de dueño borrado o de dueño sancionado), responde `404 "Publication not found"`, sin revelar nada de la campaña. | `ReportValidationService.validateEntityExists` |
+| Un comentario se puede denunciar solo si es visible para quien denuncia. | Delega en `CommentValidationService.validateAndGetVisibleComment`: un comentario inexistente, borrado, de autor borrado, de autor sancionado (si el denunciante no es `ADMIN`) o de una publicación que el denunciante no ve da `404 "Comment not found with ID: <id>"`. Un `ADMIN` puede denunciar el comentario de un autor sancionado. | `ReportValidationService.validateEntityExists`, `validation/comment/CommentValidationService.java` |
 | Una campaña se puede denunciar solo si es visible para quien denuncia. | Usa `CampaignValidationService.findVisibleCampaignByIdOrThrow`, la misma regla que los demás dominios: una campaña `CLOSED` ajena o de un dueño sancionado da `404 "Campaign not found with id: <id>"`, igual que una inexistente. Un `ADMIN` ve también las `CLOSED` y las de dueños sancionados. | `ReportValidationService.validateEntityExists`, `validation/campaign/CampaignValidationService.java` |
-| No se puede denunciar a uno mismo ni el contenido propio. | `validateEntityExists` devuelve el id del dueño (el propio usuario, el autor de la publicación o el dueño de la campaña) y `validateNotSelfReport` lo compara con el denunciante. Responde `400` con un mensaje por tipo. Un dueño `null` (autor borrado) nunca cuenta como autodenuncia. | `ReportValidationService.validateNotSelfReport` |
+| No se puede denunciar a uno mismo ni el contenido propio. | `validateEntityExists` devuelve el id del dueño (el propio usuario, el autor de la publicación o del comentario, o el dueño de la campaña) y `validateNotSelfReport` lo compara con el denunciante. Responde `400` con un mensaje por tipo. Un dueño `null` (autor borrado) nunca cuenta como autodenuncia. | `ReportValidationService.validateNotSelfReport` |
 | Una sola denuncia por denunciante y entidad. | `validateNoDuplicateReport` consulta `existsByReporterIdAndReportedEntityTypeAndReportedEntityId` y responde `409 "You have already reported this <tipo>"`. La restricción `UNIQUE` de la tabla cubre la carrera de dos altas simultáneas, que termina en el `409` genérico del handler. Como no mira el estado, una denuncia `REJECTED` tampoco se puede repetir. | `ReportValidationService.validateNoDuplicateReport`, `entity/report/Report.java` |
 | Hasta 10 denuncias por usuario en 24 horas. | Cuenta las denuncias del denunciante con `createdAt` en las últimas 24 horas (ventana móvil, con la hora de la JVM). Al llegar a `MAX_REPORTS_PER_DAY = 10` responde `400`. Limita el abuso del canal. | `ReportValidationService.validateDailyReportLimit`, `repository/report/ReportRepository.java` (`countReportsByReporterIdSince`) |
 | Toda denuncia nace `PENDING`. | El service la arma con `status = PENDING` y `@PrePersist` lo repite si llegara nulo. | `ReportService.createReport`, `Report.onCreate` |
@@ -72,10 +73,10 @@ El orden de las validaciones es: existencia y visibilidad → autodenuncia → d
 | No se puede volver a `PENDING`. | `400 "Cannot set status back to PENDING"`. | `ReportValidationService.validateReviewInput` |
 | Resolver exige una acción real. | Con `RESOLVED`, `actionTaken` nulo o `NO_ACTION` da `400 "Action taken must be specified when resolving a report"`. Una denuncia que no amerita acción se rechaza (`REJECTED`). | `ReportValidationService.validateReviewInput` |
 | Solo resolver ejecuta acciones. | Con `UNDER_REVIEW` o `REJECTED`, cualquier acción distinta de `NO_ACTION` da `400 "Action taken can only be set when resolving a report"`. `NO_ACTION` o `null` se aceptan y se guardan tal cual. | `ReportValidationService.validateReviewInput` |
-| La acción tiene que corresponder al tipo de entidad. | `ALLOWED_ACTIONS`: `USER` admite `WARNING_SENT`, `USER_SUSPENDED`, `USER_BANNED`, `OTHER`; `PUBLICATION` y `CAMPAIGN` admiten `WARNING_SENT`, `CONTENT_REMOVED`, `OTHER`. Otra combinación da `400 "Action <ACCIÓN> does not apply to a <tipo>"`. Así no queda registrada una acción que el sistema no puede ejecutar. | `ReportValidationService.validateReviewInput` |
+| La acción tiene que corresponder al tipo de entidad. | `ALLOWED_ACTIONS`: `USER` admite `WARNING_SENT`, `USER_SUSPENDED`, `USER_BANNED`, `OTHER`; `PUBLICATION`, `CAMPAIGN` y `COMMENT` admiten `WARNING_SENT`, `CONTENT_REMOVED`, `OTHER`. Otra combinación da `400 "Action <ACCIÓN> does not apply to a <tipo>"`. Así no queda registrada una acción que el sistema no puede ejecutar. | `ReportValidationService.validateReviewInput` |
 | Cada revisión sobrescribe los datos de revisión. | `status`, `adminNotes`, `actionTaken`, `reviewedBy` y `reviewedAt` se reemplazan con lo del body y el `ADMIN` actual. Pasar a `UNDER_REVIEW` ya completa `reviewedBy` y `reviewedAt`, y la resolución posterior los pisa; si el body de la resolución no trae `adminNotes`, las notas anteriores quedan en `null`. | `ReportService.reviewReport` |
 | La acción se ejecuta en la misma transacción que la revisión. | `ReportService.reviewReport` y `ReportActionService.executeAction` son `@Transactional`: si la acción falla, el cambio de estado también se revierte. | `service/report/ReportService.java`, `service/report/ReportActionService.java` |
-| Resolver una denuncia no toca las demás sobre la misma entidad. | Las otras denuncias del mismo usuario, publicación o campaña siguen en su estado y hay que revisarlas una por una. | `ReportService.reviewReport` |
+| Resolver una denuncia no toca las demás sobre la misma entidad. | Las otras denuncias del mismo usuario, publicación, campaña o comentario siguen en su estado y hay que revisarlas una por una. | `ReportService.reviewReport` |
 
 ### Acciones de moderación
 
@@ -87,6 +88,7 @@ Las ejecuta `ReportActionService.executeAction` después de guardar el reporte, 
 | `USER_SUSPENDED` | `USER` | `suspendedUntil = ahora + 30 días`, `bannedReason = adminNotes` o `"Suspended by admin"`. | También alcanza cuentas borradas. Si el usuario está baneado o ya tiene una suspensión vigente, no se modifica (no se extiende ni se acorta), aunque el reporte queda `RESOLVED` con `USER_SUSPENDED`. |
 | `CONTENT_REMOVED` | `PUBLICATION` | `publicationRepository.delete`, que por `@SQLDelete` es un borrado lógico. | Si la publicación ya no se encuentra (borrada después de la denuncia), no hace nada. |
 | `CONTENT_REMOVED` | `CAMPAIGN` | `CampaignService.closeAndSoftDelete(campaign, adminId)`: cierra la meta registrando la transición con el `ADMIN` como autor y borra la campaña lógicamente. | Busca con `findById` y no con la consulta de dueño activo, para poder resolver aunque el dueño haya borrado su cuenta. Si la campaña ya no está, no hace nada. Ver [campaign](campaign.md). |
+| `CONTENT_REMOVED` | `COMMENT` | `commentRepository.delete`, que por `@SQLDelete` es un borrado lógico. | Busca con `findById`; si el comentario ya no se encuentra (lo borró su autor, el autor de la publicación o un ADMIN después de la denuncia), no hace nada. También borra el comentario de un autor borrado (`user` en `null`). |
 | `WARNING_SENT` | cualquiera | Nada. | El método `executeWarning` está vacío: el aviso queda registrado solo en el reporte (`actionTaken` y `adminNotes`). El comentario lo prepara para un envío de email futuro. |
 | `OTHER` | cualquiera | Nada. | Queda como registro de una acción tomada fuera del sistema. |
 
@@ -118,7 +120,7 @@ stateDiagram-v2
 |---|---|---|
 | Crear una denuncia | Cualquier usuario autenticado y no sancionado (`USER` o `ADMIN`) | `anyRequest().authenticated()` en `security/SecurityConfig.java`; `/api/reports` no está en `PUBLIC_URLS`. El comentario de `SecurityConfig` remite a los `@PreAuthorize` del controller. |
 | Listar, consultar una, revisar, ver estadísticas | Solo `ADMIN` | `@PreAuthorize("hasRole('ADMIN')")`. El rol sale de la base: el filtro JWT carga al usuario en cada request y arma la autoridad `ROLE_<rol>` (ver [03-seguridad.md](../03-seguridad.md)). |
-| Ver qué entidades se pueden denunciar | Lo que el denunciante puede ver | `USER`: no borrado y, para no `ADMIN`, no sancionado. `PUBLICATION`: no borrada y con campaña visible. `CAMPAIGN`: visible según `CampaignValidationService.findVisibleCampaignById`. |
+| Ver qué entidades se pueden denunciar | Lo que el denunciante puede ver | `USER`: no borrado y, para no `ADMIN`, no sancionado. `PUBLICATION`: no borrada y con campaña visible. `CAMPAIGN`: visible según `CampaignValidationService.findVisibleCampaignById`. `COMMENT`: visible según `CommentValidationService.validateAndGetVisibleComment`. |
 
 Un `ADMIN` ve todas las denuncias, incluidas las que apuntan a entidades borradas o sancionadas, y las de denunciantes borrados (con los datos del denunciante en `null`). Un usuario común no tiene ningún endpoint para ver sus propias denuncias.
 
@@ -151,7 +153,7 @@ En los endpoints de `ADMIN`, la conversión de parámetros de ruta y query y la 
 
   | Campo | Tipo | Obligatorio | Validación |
   |---|---|---|---|
-  | `reportedEntityType` | `ReportedEntityType` | sí | `@NotNull`; uno de `USER`, `PUBLICATION`, `CAMPAIGN` |
+  | `reportedEntityType` | `ReportedEntityType` | sí | `@NotNull`; uno de `USER`, `PUBLICATION`, `CAMPAIGN`, `COMMENT` |
   | `reportedEntityId` | `Long` | sí | `@NotNull`, `@Positive` |
   | `reason` | `ReportReason` | sí | `@NotNull`; uno de `SPAM`, `INAPPROPRIATE_CONTENT`, `HARASSMENT`, `FRAUD`, `MISINFORMATION`, `IMPERSONATION`, `OTHER` |
   | `description` | `String` | no | `@Size(max = 1000)` |
@@ -168,20 +170,23 @@ En los endpoints de `ADMIN`, la conversión de parámetros de ruta y query y la 
   | Status | Mensaje | Cuándo |
   |---|---|---|
   | 400 | `One or more fields are invalid` (con `fields`: `must not be null`, `must be greater than 0`, `size must be between 0 and 1000`) | Falta un campo obligatorio, `reportedEntityId <= 0` o `description` de más de 1000 caracteres. |
-  | 400 | `Invalid value '<valor>' for field 'reportedEntityType'. Allowed: USER, PUBLICATION, CAMPAIGN` | Tipo fuera del enum (análogo para `reason`, con sus siete valores). |
+  | 400 | `Invalid value '<valor>' for field 'reportedEntityType'. Allowed: USER, PUBLICATION, CAMPAIGN, COMMENT` | Tipo fuera del enum (análogo para `reason`, con sus siete valores). |
   | 400 | `Invalid value '<valor>' for field 'reportedEntityId'` | Id no numérico. |
   | 400 | `Request body is required` / `Malformed request body` | Sin body, o JSON mal formado. |
   | 400 | `You cannot report yourself` | `USER` con el id del propio denunciante. |
   | 400 | `You cannot report your own publication` | La publicación es del denunciante. |
   | 400 | `You cannot report your own campaign` | La campaña es del denunciante. |
+  | 400 | `You cannot report your own comment` | El comentario es del denunciante. |
   | 400 | `You have reached the maximum number of reports allowed per day (10)` | El denunciante ya creó 10 denuncias en las últimas 24 horas. |
   | 404 | `User not found` | Usuario inexistente, borrado, o sancionado (si el denunciante no es `ADMIN`). |
   | 404 | `Publication not found` | Publicación inexistente o borrada, o cuya campaña el denunciante no puede ver. |
   | 404 | `Campaign not found with id: <id>` | Campaña inexistente, borrada, de dueño borrado, o (si el denunciante no es `ADMIN`) `CLOSED` ajena o de dueño sancionado. |
-  | 409 | `You have already reported this user` / `... this publication` / `... this campaign` | El denunciante ya tiene una denuncia (en cualquier estado) sobre esa entidad. |
-  | 409 | `The request conflicts with existing data` | Dos altas simultáneas de la misma denuncia: la segunda choca con la restricción `UNIQUE`. |
+  | 404 | `Comment not found with ID: <id>` | Comentario inexistente o borrado, de autor borrado o (si el denunciante no es `ADMIN`) sancionado, o de una publicación que el denunciante no ve. |
+  | 409 | `You have already reported this user` / `... this publication` / `... this campaign` / `... this comment` | El denunciante ya tiene una denuncia (en cualquier estado) sobre esa entidad. |
+  | 409 | `The request conflicts with existing data` | Dos altas simultáneas de la misma denuncia: la segunda choca con la restricción `UNIQUE`. También, si no se corrió `scripts/update-report-entity-type-check.sql`, cualquier denuncia de un `COMMENT`: la `CHECK` vieja de la columna rechaza el valor. Es un error de despliegue, no del contrato. |
   | 415 | `Content type '<tipo>' is not supported. Use application/json` | Body que no es JSON. |
 
+- **Swagger:** el `@Operation` de `ReportController.createReport` dice `Create a new report for a user, publication, campaign or comment`.
 - **Qué hace** (`ReportService.createReport`):
   1. Toma el id del denunciante del token (`AuthenticatedUserService.getAuthenticatedUserId`).
   2. `validateInput(dto)`: repite a mano los chequeos de Bean Validation (con `@Valid` ya aplicado, no rechaza nada nuevo).
@@ -299,7 +304,7 @@ En los endpoints de `ADMIN`, la conversión de parámetros de ruta y query y la 
   | 400 | `Cannot set status back to PENDING` | `status = PENDING`. |
   | 400 | `Action taken must be specified when resolving a report` | `RESOLVED` sin `actionTaken` o con `NO_ACTION`. |
   | 400 | `Action taken can only be set when resolving a report` | `UNDER_REVIEW` o `REJECTED` con una acción distinta de `NO_ACTION`. |
-  | 400 | `Action <ACCIÓN> does not apply to a <tipo>` | `RESOLVED` con una acción que no corresponde al tipo (por ejemplo `Action CONTENT_REMOVED does not apply to a user`). |
+  | 400 | `Action <ACCIÓN> does not apply to a <tipo>` | `RESOLVED` con una acción que no corresponde al tipo (por ejemplo `Action CONTENT_REMOVED does not apply to a user`, o `Action USER_BANNED does not apply to a comment`). |
   | 403 | `You don't have permission to access this resource` | El usuario autenticado no es `ADMIN`. |
   | 404 | `Report not found with id: <id>` | No existe el reporte. |
   | 409 | `Report already reviewed with status: RESOLVED` / `... REJECTED` | El reporte ya está en un estado final (se comprueba antes que el body). |
@@ -338,7 +343,7 @@ En los endpoints de `ADMIN`, la conversión de parámetros de ruta y query y la 
   |---|---|---|
   | 403 | `You don't have permission to access this resource` | El usuario autenticado no es `ADMIN`. |
 
-- **Qué hace** (`ReportService.getReportStats`): recorre los valores de cada enum y hace un `COUNT` por valor (`count`, `countByStatus`, `countByReason`, `countByReportedEntityType`), más tres `countByStatus` repetidos para los campos sueltos: 18 consultas en total, sin transacción común. Las claves de los mapas son los nombres de los enums.
+- **Qué hace** (`ReportService.getReportStats`): recorre los valores de cada enum y hace un `COUNT` por valor (`count`, `countByStatus`, `countByReason`, `countByReportedEntityType`), más tres `countByStatus` repetidos para los campos sueltos: 19 consultas en total, sin transacción común. Las claves de los mapas son los nombres de los enums.
 
 ## Clases involucradas
 
@@ -346,9 +351,9 @@ En los endpoints de `ADMIN`, la conversión de parámetros de ruta y query y la 
 |---|---|
 | Controller | `controller/report/ReportController.java` |
 | Service | `service/report/ReportService.java` (alta, listado, consulta, revisión, estadísticas), `service/report/ReportActionService.java` (ejecución de las acciones de moderación) |
-| Validation | `validation/report/ReportValidationService.java`; usa `validation/campaign/CampaignValidationService.java` (visibilidad de campañas), `validation/auth/AccountStatusValidationService.java` (`isBlocked`) y `validation/common/SortValidationService.java` (paginación, desde el controller) |
+| Validation | `validation/report/ReportValidationService.java`; usa `validation/campaign/CampaignValidationService.java` (visibilidad de campañas), `validation/comment/CommentValidationService.java` (visibilidad de comentarios), `validation/auth/AccountStatusValidationService.java` (`isBlocked`) y `validation/common/SortValidationService.java` (paginación, desde el controller) |
 | Mapper | `mapper/report/ReportMapper.java` |
-| Repository | `repository/report/ReportRepository.java`; además `repository/user/UserRepository.java` (`findById`, `existsByIdAndRole_Name`, `findByIdIncludingDeleted`), `repository/publication/PublicationRepository.java` (`findById`, `delete`), `repository/campaign/CampaignRepository.java` (`findById`) |
+| Repository | `repository/report/ReportRepository.java`; además `repository/user/UserRepository.java` (`findById`, `existsByIdAndRole_Name`, `findByIdIncludingDeleted`), `repository/publication/PublicationRepository.java` (`findById`, `delete`), `repository/campaign/CampaignRepository.java` (`findById`), `repository/comment/CommentRepository.java` (`findById`, `delete`) |
 | DTOs | `dtos/report/CreateReportDTO.java`, `dtos/report/ReviewReportDTO.java`, `dtos/report/ReportDTO.java`, `dtos/report/ReportResponseDTO.java`, `dtos/report/ReportStatsDTO.java` |
 | Entidades | `entity/report/Report.java`, `entity/report/ReportStatus.java`, `entity/report/ReportReason.java`, `entity/report/ReportedEntityType.java`, `entity/report/ActionTaken.java`, `entity/user/User.java` (columnas de sanción) |
 | Otros dominios que usa | `service/campaign/CampaignService.java` (`closeAndSoftDelete`), `security/AuthenticatedUserService.java` |

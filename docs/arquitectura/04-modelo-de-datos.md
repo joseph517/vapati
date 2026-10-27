@@ -6,7 +6,7 @@ La base es **SQL Server** (`ApiVaPaTiJava`). Todas las entidades usan `@Id @Gene
 
 ## Diagrama entidad-relación
 
-Incluye las 16 clases `@Entity` de `entity/`. Los nombres de las cajas son los de las clases; los de las columnas, los de la tabla. Las líneas punteadas del final son referencias sin FK (el objetivo polimórfico de un reporte).
+Incluye las 18 clases `@Entity` de `entity/`. Los nombres de las cajas son los de las clases; los de las columnas, los de la tabla. Las líneas punteadas del final son referencias sin FK (el objetivo polimórfico de un reporte).
 
 ```mermaid
 erDiagram
@@ -116,6 +116,14 @@ erDiagram
         bigint user_id FK
         datetime created_at
     }
+    Comment {
+        bigint id PK
+        bigint user_id FK "autor"
+        bigint publication_id FK
+        string text "varchar 280"
+        datetime created_at
+        datetime deleted_at "soft delete"
+    }
     Follower {
         bigint id PK
         bigint user_id FK "seguido"
@@ -185,6 +193,8 @@ erDiagram
     Campaign ||--o{ Publication : "campaign_id"
     User ||--o{ PublicationLike : "user_id"
     Publication ||--o{ PublicationLike : "publication_id"
+    User ||--o{ Comment : "user_id"
+    Publication ||--o{ Comment : "publication_id"
     User ||--o{ Follower : "user_id (seguido)"
     User ||--o{ Follower : "follower_id (seguidor)"
     User ||--o{ Report : "reporter_id"
@@ -194,6 +204,7 @@ erDiagram
     Report }o..o| User : "objetivo USER"
     Report }o..o| Publication : "objetivo PUBLICATION"
     Report }o..o| Campaign : "objetivo CAMPAIGN"
+    Report }o..o| Comment : "objetivo COMMENT"
 ```
 
 ## Entidades
@@ -232,6 +243,7 @@ erDiagram
 | `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), la respuesta del receptor `thanksMessage` (opcional, hasta 280), `thanksPrivate` (`bit NOT NULL`, default `0`) y `thankedAt`, `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId`, `donorUserId` y `recipientUserId` | `donor`, `recipient` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). `campaign` es opcional: una donación directa tiene `campaign_id` y `campaign` en `null`. `recipient` es el dueño de la campaña, o el usuario de una donación directa. |
 | `Publication` | `entity/publication/Publication.java` | `publication` | `description`, `createdAt`, `updatedAt`, `deletedAt`, y la copia de solo lectura `campaignId` | `user` (autor) y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
 | `PublicationLike` | `entity/publication/PublicationLike.java` | `publication_like` | `createdAt` | `publication` y `user` (`@ManyToOne` LAZY, `optional = false`, sin `@NotFound`). `UNIQUE (publication_id, user_id)` (`uk_publication_like_publication_user`): un like por usuario y publicación. Sin borrado lógico ni cascada. |
+| `Comment` | `entity/comment/Comment.java` | `comment` | `text` (hasta 280), `createdAt`, `deletedAt`, y la copia de solo lectura `publicationId` | `user` (autor, `@ManyToOne` con `@NotFound`, no actualizable) y `publication` (`@ManyToOne` LAZY, `optional = false`, no actualizable, sin `@NotFound`). Índice `idx_comment_publication_created (publication_id, created_at)`. Sin `updatedAt` ni cascada. Ver [Comment](dominios/comment.md). |
 | `Follower` | `entity/follower/Follower.java` | `followers` | `createdAt`, `updatedAt` | `user` (el seguido) y `follower` (quien sigue), ambos `@ManyToOne` a `User`. `UNIQUE (user_id, follower_id)`: no se puede seguir dos veces a la misma persona. |
 
 Los montos son `BigDecimal` con `precision = 15, scale = 2` (`DECIMAL(15,2)`), y los DTOs de entrada los limitan con `@Digits(integer = 13, fraction = 2)`, que coincide con la columna. No hay `double` ni `float` para dinero.
@@ -271,23 +283,27 @@ JPA carga por defecto en forma **EAGER** las relaciones `@ManyToOne` y `@OneToOn
 | `Donation.donor`, `.recipient`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Publication.user`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `PublicationLike.publication`, `.user` | `@ManyToOne` | LAZY | — | `optional = false`, sin `@NotFound`. |
+| `Comment.user` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. El `@NotFound` la vuelve EAGER y hace que Hibernate no exporte su FK. |
+| `Comment.publication` | `@ManyToOne` | LAZY | — | `optional = false`, `updatable = false`, sin `@NotFound`: la FK sí se exporta. |
 | `Follower.user`, `.follower` | `@ManyToOne` | EAGER | — | Sin `@NotFound`. |
 | `Report.reporter` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Report.reviewedBy` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`. |
 | `BankAccount.user` | `@ManyToOne` | LAZY | — | |
 | `VerificationRequest.user` | `@OneToOne` | EAGER | — | Sin `@NotFound`. |
 
+`Comment.publication` es un proxy que se carga con la sesión abierta del request (open-in-view, ver [Quién crea las tablas](#quién-crea-las-tablas)): `CommentValidationService.validateAndGetDeletableComment` navega `comment.getPublication().getUser()` fuera de una transacción. Si algún día se apaga open-in-view, o ese método se llama desde un hilo sin sesión, esa lectura lanza `LazyInitializationException`.
+
 Ejemplos de cómo se evitan los `SELECT` por fila:
 
 - `repository/user/UserRepository.java`: `findByIdForRequest` (lo usa el filtro JWT en cada request) trae `userInfo`, `role` y `verificationRequest` con `@EntityGraph`. El listado paginado de usuarios va en dos pasos (`findPageOfIds` pagina ids en SQL y `findAllWithDetailsByIdIn` carga esos usuarios con sus colecciones), porque traer colecciones en la query paginada haría que Hibernate pagine en memoria.
 - `repository/campaign/CampaignRepository.java`: la constante `LISTING_FETCH` reúne los `JOIN FETCH` del dueño, su `userInfo`, su `verificationRequest` y la meta. Las categorías de un listado se cargan aparte con `CampaignCategoryRepository.findByCampaignIdIn`, en bloques para no pasar el límite de 2100 parámetros de SQL Server.
-- `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java` y `repository/report/ReportRepository.java` siguen el mismo patrón. En `findAllWithUsers` de reportes y en `findByRecipientId` de donaciones solo se traen relaciones a uno, para que la paginación siga siendo SQL, y el `countQuery` es explícito porque no se puede derivar de una query con `FETCH`. `findByDonorIdOrderByCreatedAtDesc` y `findByRecipientId` traen también el receptor (`d.recipient`): al ser `@NotFound` la relación es EAGER y, sin el fetch, cada fila la cargaría con su propia consulta. `findByCampaignOrderByCreatedAtDesc` no lo trae a propósito: el receptor es el dueño de la campaña, que ya está en el contexto de persistencia.
+- `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/comment/CommentRepository.java` y `repository/report/ReportRepository.java` siguen el mismo patrón. En `findAllWithUsers` de reportes y en `findByRecipientId` de donaciones solo se traen relaciones a uno, para que la paginación siga siendo SQL, y el `countQuery` es explícito porque no se puede derivar de una query con `FETCH`. `findByDonorIdOrderByCreatedAtDesc` y `findByRecipientId` traen también el receptor (`d.recipient`): al ser `@NotFound` la relación es EAGER y, sin el fetch, cada fila la cargaría con su propia consulta. `findByCampaignOrderByCreatedAtDesc` no lo trae a propósito: el receptor es el dueño de la campaña, que ya está en el contexto de persistencia.
 
 Las cascadas de `User` sirven para el alta: `UserService.createUser` guarda el `User` y, por `cascade = ALL`, se insertan su `UserInfo` y sus `UserCategory`. Al actualizar, `orphanRemoval` borra las `UserCategory` que se sacaron del set. La cascada de borrado no se usa: ningún código llama a `delete` sobre un usuario (ver la sección siguiente).
 
 ## Enums
 
-Todos los enums que se guardan en la base usan `@Enumerated(EnumType.STRING)`: la columna tiene el nombre del valor, no su posición, así que reordenar o agregar valores no corrompe los datos existentes.
+Todos los enums que se guardan en la base usan `@Enumerated(EnumType.STRING)`: la columna tiene el nombre del valor, no su posición, así que reordenar o agregar valores no corrompe los datos ya guardados: el orden no importa y los valores viejos siguen siendo válidos. Pero agregar un valor a un enum persistido **no alcanza** con `ddl-auto=update`: Hibernate 6 crea, al crear la tabla, una restricción `CHECK` con los valores que tenía el enum en ese momento, y `update` nunca la actualiza. Un valor nuevo se rechaza al insertar (el request termina en `409`) hasta que un script recree la `CHECK`. Hoy solo `report.reported_entity_type` tiene una `CHECK` con nombre fijo, `CK_report_reported_entity_type` (ver [`CHECK` de `report.reported_entity_type`](#check-de-reportreported_entity_type)); en las demás columnas enum la `CHECK` tiene un nombre generado por Hibernate.
 
 | Enum | Archivo | Valores | Dónde se guarda | Notas |
 |---|---|---|---|---|
@@ -295,7 +311,7 @@ Todos los enums que se guardan en la base usan `@Enumerated(EnumType.STRING)`: l
 | `DonationStatus` | `entity/donation/DonationStatus.java` | `PENDING`, `COMPLETED`, `FAILED`, `REFUNDED` | `Donation.status` (`VARCHAR(20)`) | La entidad usa `PENDING` por defecto, pero la aprobación es simulada: `DonationService` crea cada donación directamente en `COMPLETED`. Ver [Donation](dominios/donation.md). |
 | `ReportStatus` | `entity/report/ReportStatus.java` | `PENDING`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED` | `Report.status` | Por defecto `PENDING`. Ver [Report](dominios/report.md). |
 | `ReportReason` | `entity/report/ReportReason.java` | `SPAM`, `INAPPROPRIATE_CONTENT`, `HARASSMENT`, `FRAUD`, `MISINFORMATION`, `IMPERSONATION`, `OTHER` | `Report.reason` | |
-| `ReportedEntityType` | `entity/report/ReportedEntityType.java` | `USER`, `PUBLICATION`, `CAMPAIGN` | `Report.reportedEntityType` | Define a qué tabla apunta `reportedEntityId`. |
+| `ReportedEntityType` | `entity/report/ReportedEntityType.java` | `USER`, `PUBLICATION`, `CAMPAIGN`, `COMMENT` | `Report.reportedEntityType` | Define a qué tabla apunta `reportedEntityId`. Su columna tiene la `CHECK` `CK_report_reported_entity_type`, que se actualiza con un script al sumar un valor. |
 | `ActionTaken` | `entity/report/ActionTaken.java` | `NO_ACTION`, `WARNING_SENT`, `CONTENT_REMOVED`, `USER_SUSPENDED`, `USER_BANNED`, `OTHER` | `Report.actionTaken` | Qué acciones admite cada tipo de objetivo lo decide `ReportValidationService`; las ejecuta `service/report/ReportActionService.java`. |
 | `VerificationStatus` | `entity/verification/VerificationStatus.java` | `PENDING`, `APPROVED`, `REJECTED` | `VerificationRequest.status`, como texto | No está mapeado con `@Enumerated`: la columna es un `String` y el código convierte con `name()` y `valueOf()`. Ver [Verification](dominios/verification.md). |
 
@@ -303,7 +319,7 @@ Los roles (`USER`, `ADMIN`) no son un enum: son filas de la tabla `roles`.
 
 ## Borrado lógico (soft delete)
 
-Seis entidades no se borran físicamente: tienen una columna `deleted_at` y `@SQLRestriction("deleted_at IS NULL")`. Esa restricción hace que Hibernate agregue la condición a toda carga de la entidad (`findById`, queries JPQL y derivadas, colecciones), así que para la aplicación una fila borrada no existe.
+Siete entidades no se borran físicamente: tienen una columna `deleted_at` y `@SQLRestriction("deleted_at IS NULL")`. Esa restricción hace que Hibernate agregue la condición a toda carga de la entidad (`findById`, queries JPQL y derivadas, colecciones), así que para la aplicación una fila borrada no existe.
 
 | Entidad | `@SQLDelete` | Cómo se borra en la práctica | Se puede restaurar |
 |---|---|---|---|
@@ -311,6 +327,7 @@ Seis entidades no se borran físicamente: tienen una columna `deleted_at` y `@SQ
 | `Campaign` | `UPDATE campaign SET deleted_at = GETDATE()` | `CampaignService.closeAndSoftDelete` cierra la meta, registra la transición y llama a `campaignRepository.delete`, que ejecuta el `@SQLDelete`. Ver la nota de abajo sobre el borrado y las entidades que la referencian. | No. |
 | `Goal` | `UPDATE goal SET deleted_at = GETDATE()` | Por la cascada de `Campaign.goal` al borrar la campaña. | No. |
 | `Publication` | `UPDATE publication SET deleted_at = GETDATE()` | `publicationRepository.delete`, cuando la borra su autor (`PublicationService.deletePublication`) o por moderación (`CONTENT_REMOVED` en `ReportActionService`). | No. |
+| `Comment` | `UPDATE comment SET deleted_at = GETDATE()` | `commentRepository.delete`, cuando lo borra su autor, el autor de la publicación o un ADMIN (`CommentService.deleteComment`), o por moderación (`CONTENT_REMOVED` en `ReportActionService`). | No. |
 | `BankAccount` | `UPDATE bank_accounts SET deleted_at = now()` | `BankAccountService` pone `deletedAt` a mano y guarda. El `@SQLDelete` no se usa. | Sí: dar de alta otra vez el mismo número para el mismo usuario (ver [Bank account](dominios/bankaccount.md)). |
 | `VerificationRequest` | `UPDATE verification_request SET deleted_at = CURRENT_TIMESTAMP` | Ningún flujo la borra hoy. | — |
 
@@ -347,12 +364,12 @@ Las queries nativas no se validan al arrancar: un error de SQL aparece recién a
 
 El problema: una donación apunta a una campaña con `deleted_at` puesto. Para Hibernate esa campaña "no existe" (la oculta `@SQLRestriction`), pero la FK sigue teniendo valor. Sin ningún cuidado pasan dos cosas: si la relación es obligatoria, Hibernate resuelve la carga con un `INNER JOIN` y la donación misma desaparece del resultado; y si la relación es opcional, Hibernate no encuentra la fila referenciada y lanza una excepción.
 
-El proyecto resuelve esto con el mismo patrón en `Campaign.user`, `CampaignCategory.campaign`, `Donation.donor`, `Donation.recipient`, `Donation.campaign`, `Publication.user`, `Publication.campaign`, `Report.reporter` y `Report.reviewedBy`:
+El proyecto resuelve esto con el mismo patrón en `Campaign.user`, `CampaignCategory.campaign`, `Donation.donor`, `Donation.recipient`, `Donation.campaign`, `Publication.user`, `Publication.campaign`, `Comment.user`, `Report.reporter` y `Report.reviewedBy`:
 
 1. **Relación opcional en el mapeo** (sin `nullable = false` ni `optional = false`), así Hibernate usa `LEFT JOIN` y no descarta la fila que apunta a algo borrado.
 2. **`@NotFound(action = NotFoundAction.IGNORE)`**: si la fila apuntada no aparece, la relación queda en `null` en lugar de fallar. Como efecto, la relación es siempre EAGER: Hibernate tiene que cargarla para saber si existe (lo dice el comentario de `Report.reporter`).
 3. **`updatable = false` en la `@JoinColumn`**: al guardar la entidad, el `UPDATE` no incluye la FK. Si no, el `null` cargado para el destino borrado se escribiría en la columna y se perdería la referencia.
-4. **Copia de la FK como columna de solo lectura** (`insertable = false, updatable = false`) en `Donation.campaignId`, `Donation.donorUserId`, `Donation.recipientUserId` y `Publication.campaignId`. Conservan el valor aunque la relación esté en `null`, y permiten filtrar por FK sin hacer `JOIN` con la tabla borrada: `DonationRepository.countUniqueDonorsByCampaignId`, `findByDonorIdOrderByCreatedAtDesc`, `findByRecipientId` y `findCompletedByRecipientId`, o `PublicationRepository.findAllByCampaignId`.
+4. **Copia de la FK como columna de solo lectura** (`insertable = false, updatable = false`) en `Donation.campaignId`, `Donation.donorUserId`, `Donation.recipientUserId`, `Publication.campaignId` y `Comment.publicationId`. Conservan el valor aunque la relación esté en `null`, y permiten filtrar por FK sin hacer `JOIN` con la tabla borrada: `DonationRepository.countUniqueDonorsByCampaignId`, `findByDonorIdOrderByCreatedAtDesc`, `findByRecipientId` y `findCompletedByRecipientId`, `PublicationRepository.findAllByCampaignId` o `CommentRepository.findAllByPublicationId`.
 
 Consecuencias que se ven en el código:
 
@@ -361,7 +378,7 @@ Consecuencias que se ven en el código:
 - Las reglas de visibilidad usan ese `null`: una publicación cuyo autor fue borrado responde `404` como si no existiera (ver [Publication](dominios/publication.md)).
 - `Report.reviewedBy` es la única de la lista sin `updatable = false`; no pierde la referencia porque `ReportService.reviewReport` la vuelve a asignar en cada revisión.
 
-Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `PublicationLike.user`, `PublicationLike.publication`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados, y las queries de conteo de likes hacen `JOIN` con `user` y con `publication` y filtran `u.deletedAt IS NULL`). Ver [Deuda técnica](deuda-tecnica.md) para los casos en que eso no alcanza.
+Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `PublicationLike.user`, `PublicationLike.publication`, `Comment.publication`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados, y las queries de conteo de likes hacen `JOIN` con `user` y con `publication` y filtran `u.deletedAt IS NULL`). Ver [Deuda técnica](deuda-tecnica.md) para los casos en que eso no alcanza.
 
 ### Usuarios borrados frente a usuarios bloqueados
 
@@ -371,7 +388,7 @@ Borrado y bloqueo son cosas distintas en el modelo. Un usuario **borrado** tiene
 (u.banned IS NULL OR u.banned = false) AND (u.suspendedUntil IS NULL OR u.suspendedUntil <= :now)
 ```
 
-El `:now` lo pasa el service desde la JVM, no lo calcula la base. `banned` es un `Boolean` y la condición acepta `NULL` porque los usuarios creados con `User.builder()` no toman el valor inicial del campo y quedan con `banned` en `NULL`. Las queries `*VisibleTo` y `*Visible*` de campañas y seguidores la combinan con `u.deletedAt IS NULL`, igual que las de conteo de likes de `PublicationLikeRepository` (`countVisibleByPublicationId` y `countVisibleByCampaignIdGroupedByPublication`). La regla es la misma que aplica `validation/auth/AccountStatusValidationService.java` en Java; ver [Seguridad](03-seguridad.md).
+El `:now` lo pasa el service desde la JVM, no lo calcula la base. `banned` es un `Boolean` y la condición acepta `NULL` porque los usuarios creados con `User.builder()` no toman el valor inicial del campo y quedan con `banned` en `NULL`. Las queries `*VisibleTo` y `*Visible*` de campañas y seguidores la combinan con `u.deletedAt IS NULL`, igual que las de conteo de likes de `PublicationLikeRepository` (`countVisibleByPublicationId` y `countVisibleByCampaignIdGroupedByPublication`) y el listado de comentarios de `CommentRepository` (`findVisibleByPublicationId`), que va en par con `findAllByPublicationId`, la query del ADMIN, que solo excluye a los borrados. La regla es la misma que aplica `validation/auth/AccountStatusValidationService.java` en Java; ver [Seguridad](03-seguridad.md).
 
 ## Fechas de auditoría
 
@@ -381,7 +398,7 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 |---|---|
 | `@CreationTimestamp` / `@UpdateTimestamp` de Hibernate y además `@PrePersist` / `@PreUpdate` | `Campaign`, `Goal`, `Donation` |
 | Solo `@PrePersist` / `@PreUpdate` | `User`, `BankAccount`, `Report`, `Publication` (en `Publication` el mapper también las asigna) |
-| Solo `@PrePersist` (sin `updatedAt`) | `PublicationLike` |
+| Solo `@PrePersist` (sin `updatedAt`) | `PublicationLike`, `Comment` |
 | `@CreationTimestamp` solo | `CampaignStatusHistory.changedAt` |
 | Asignadas a mano en service, validation o mapper | `UserInfo`, `VerificationRequest`, `Follower.createdAt` |
 | En el constructor | `RevokedToken.createdAt` |
@@ -390,7 +407,7 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 
 ## Lombok en las entidades
 
-Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `PublicationLike` excluye sus dos relaciones (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas.
+Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `Comment` excluye sus dos relaciones (`user` y `publication`) y `PublicationLike` las suyas (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas.
 
 Dos detalles a tener en cuenta al tocar entidades:
 
@@ -423,7 +440,7 @@ El perfil `docker` (el que activan `docker-compose.dev.yml`, junto con `dev`, y 
 
 ### Migración manual de `donation`
 
-`scripts/migrate-donation-recipient.sql` es la única migración de datos commiteada. Existe porque `ddl-auto=update` puede agregar la columna `recipient_user_id` pero no puede volver nullable a `campaign_id` ni rellenar ni exigir `NOT NULL` en una tabla con filas. Sin el script, `campaign_id` sigue `NOT NULL` y una donación directa responde `409`. Hace, en este orden (cada paso es idempotente):
+`scripts/migrate-donation-recipient.sql` es una de las dos migraciones manuales commiteadas (la otra es [`scripts/update-report-entity-type-check.sql`](#check-de-reportreported_entity_type)). Existe porque `ddl-auto=update` puede agregar la columna `recipient_user_id` pero no puede volver nullable a `campaign_id` ni rellenar ni exigir `NOT NULL` en una tabla con filas. Sin el script, `campaign_id` sigue `NOT NULL` y una donación directa responde `409`. Hace, en este orden (cada paso es idempotente):
 
 1. Agrega `donation.recipient_user_id BIGINT NULL`, si no existe.
 2. Rellena las filas existentes con el `user_id` de su campaña (`UPDATE ... JOIN campaign`). Es SQL nativo, así que no aplica `@SQLRestriction`: cubre también campañas y dueños borrados.
@@ -438,7 +455,29 @@ Antes de correrlo en cada entorno conviene mirar `EXEC sp_fkeys @fktable_name = 
 
 **Base nueva.** Una base creada desde cero por Hibernate deja `recipient_user_id` nullable y sin la FK ni el índice con nombre, porque `@NotFound` impide que Hibernate exporte la FK (le pasa lo mismo a `donor_user_id`). La garantía real es que `DonationService.createDonation` siempre asigna `recipient`. Para que coincida con dev y producción, el script se corre también ahí, una vez que arrancó la aplicación (el paso 1 no hace nada porque la columna ya existe, y el resto rellena, exige `NOT NULL` y crea la FK y el índice). Los tests usan su propio `src/test/resources/schema.sql`, que ya declara `recipient_user_id NOT NULL`, `campaign_id NULL` y `idx_donation_recipient`.
 
-Los scripts de migración de los specs 23 y 42 nunca se commitearon y no están en el repo: este es el único.
+Los scripts de migración de los specs 23 y 42 nunca se commitearon y no están en el repo: hay dos migraciones manuales commiteadas, este y `scripts/update-report-entity-type-check.sql`.
+
+### `CHECK` de `report.reported_entity_type`
+
+`scripts/update-report-entity-type-check.sql` existe porque Hibernate 6 crea, al crear la tabla `report`, una `CHECK (reported_entity_type IN ('USER','PUBLICATION','CAMPAIGN'))` con los valores del enum de ese momento, y `ddl-auto=update` no la modifica. Sin el script, un reporte con `reportedEntityType = COMMENT` falla al insertar con una violación de la `CHECK` y responde `409 "The request conflicts with existing data"`. Es un error de despliegue, no del contrato.
+
+Qué hace el script (es idempotente):
+
+1. Borra toda `CHECK` de `report` que toque la columna `reported_entity_type`, salvo la que él mismo crea. La busca por columna y también por su definición, porque una `CHECK` declarada a nivel de tabla tiene `parent_column_id = 0` y no aparece en el `JOIN` con `sys.columns`.
+2. Crea `CK_report_reported_entity_type` con los cuatro valores (`USER`, `PUBLICATION`, `CAMPAIGN`, `COMMENT`), si no existe. Con nombre fijo, el próximo valor del enum solo tiene que borrarla por nombre y recrearla.
+
+Cuándo se corre: **a mano, en cada entorno, antes de levantar la imagen nueva**, con `sqlcmd -b` dentro del contenedor de SQL Server, igual que `scripts/migrate-donation-recipient.sql`. **No hace falta detener la app**: el código viejo nunca escribe `COMMENT`, así que no hay ventana de error. No lleva `-I`, porque no toca índices filtrados. Los comandos están en [Infraestructura](06-infraestructura.md#inicialización-de-la-base) y en [`DOCKER-HUB-DEPLOY.md`](../../DOCKER-HUB-DEPLOY.md) § 7.2.
+
+La consulta previa, para ver qué `CHECK` hay hoy sobre la columna:
+
+```sql
+SELECT cc.name, cc.definition
+FROM sys.check_constraints cc
+WHERE cc.parent_object_id = OBJECT_ID('report')
+  AND cc.definition LIKE '%reported[_]entity[_]type%';
+```
+
+**Base nueva.** Hibernate crea la `CHECK` con los cuatro valores y un nombre generado, así que el script es opcional: si se corre, solo deja el nombre fijo. Los tests usan `src/test/resources/schema.sql`, cuyo `report` no tiene `CHECK`.
 
 ### `src/main/resources/data.sql`
 
@@ -459,6 +498,6 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 
 ## Clases involucradas
 
-- Entidades: todo `entity/` (17 entidades y 7 enums).
-- Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
-- Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`.
+- Entidades: todo `entity/` (18 entidades y 7 enums).
+- Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
+- Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`, `scripts/update-report-entity-type-check.sql`.

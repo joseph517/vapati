@@ -18,9 +18,9 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### La ruta no decide el dominio del código
 
-- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` y `GET /api/users/{userId}/support-feed` están en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia.
-- **Por qué:** ningún controller inyecta el service de otro dominio. Los supporters son donaciones agregadas, así que el controller, el service (`SupporterService`) y la regla de orden van en donation, y la ruta queda donde la busca el cliente, bajo el usuario.
-- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`. Specs: `harness/specs/implementados/50-supporters-de-un-creador.md` y `harness/specs/52-feed-de-apoyos-en-el-perfil.md`.
+- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` y `GET /api/users/{userId}/support-feed` están en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia. Los comentarios siguen el mismo criterio: `controller/comment/CommentController.java` atiende `/api/publications/{publicationId}/comments` desde el dominio `comment`, y `PublicationController` no cambia.
+- **Por qué:** ningún controller inyecta el service de otro dominio. Los supporters son donaciones agregadas, así que el controller, el service (`SupporterService`) y la regla de orden van en donation, y la ruta queda donde la busca el cliente, bajo el usuario. Los comentarios tienen sus propias reglas, su tabla y su borrado, y `publication` no importa nada de `comment`: si lo hiciera (por ejemplo para contarlos en `PublicationResponseDTO`), los dos dominios dependerían uno del otro.
+- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`, `controller/comment/CommentController.java`. Specs: `harness/specs/implementados/50-supporters-de-un-creador.md`, `harness/specs/implementados/52-feed-de-apoyos-en-el-perfil.md` y `harness/specs/54-comentarios-en-publicaciones.md`.
 
 ## Identidad y autorización
 
@@ -61,7 +61,7 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 - **Qué:** las lecturas tienen una versión completa (ADMIN) y una `*VisibleTo` o `*Visible*` (resto), y el service elige con un booleano.
 - **Por qué:** el ADMIN modera, así que ve lo oculto en las lecturas. En las escrituras no tiene excepción (no puede seguir a un usuario sancionado).
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/follower/FollowerRepository.java`.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/follower/FollowerRepository.java`, `repository/comment/CommentRepository.java` (`findAllByPublicationId` y `findVisibleByPublicationId`).
 
 ### Ocultar un campo en lugar de cerrar el endpoint
 
@@ -89,13 +89,19 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** no hay par de queries completa/`*VisibleTo` como pide [Queries en pares](#queries-en-pares-la-del-admin-y-la-del-resto): no hay una lista de quién dio like, solo un número, y una vista de ADMIN no agregaría nada. Es la regla de lectura de los usuarios bloqueados (`UserRepository.NOT_BLOCKED` junto con `u.deletedAt IS NULL`).
 - **Dónde:** `repository/publication/PublicationLikeRepository.java`. Detalle en [Publication](dominios/publication.md).
 
+### Comentarios: visibles con su publicación, y los borra también el dueño
+
+- **Qué:** un comentario se ve si su autor está activo (o sancionado, si quien llama es ADMIN) y su publicación es visible para quien llama. Lo borran su autor, el autor de la publicación o un ADMIN, y primero se mira la visibilidad y después el permiso: lo que quien llama no ve responde el `404` del comentario, y un comentario visible que no puede borrar responde `403`. Todo lo oculto responde el mismo `404 Comment not found with ID: <id>`, nunca el de la publicación.
+- **Por qué:** el comentario se escribe en el espacio del creador, así que el creador puede limpiarlo aunque no lo haya escrito; y el ADMIN modera, como en las lecturas de [Queries en pares](#queries-en-pares-la-del-admin-y-la-del-resto). El listado sí tiene vista de ADMIN (a diferencia de los likes), porque es una lista de personas y no un número. Responder el `404` de la publicación revelaría que el comentario existe.
+- **Dónde:** `validation/comment/CommentValidationService.java`, `repository/comment/CommentRepository.java`. Detalle en [Comment](dominios/comment.md).
+
 ## Datos
 
 ### Borrado lógico, con relaciones tolerantes
 
-- **Qué:** `User`, `Campaign`, `Publication` y `VerificationRequest` se borran con `@SQLDelete` + `@SQLRestriction("deleted_at IS NULL")`. Las relaciones que apuntan a ellas desde registros históricos (donaciones, reportes, publicaciones) usan `@ManyToOne` opcional + `@NotFound(IGNORE)` + `updatable = false`, y una copia de solo lectura de la FK (`campaignId`, `donorUserId`, `recipientUserId`).
+- **Qué:** `User`, `Campaign`, `Publication`, `Comment` y `VerificationRequest` se borran con `@SQLDelete` + `@SQLRestriction("deleted_at IS NULL")`. Las relaciones que apuntan a ellas desde registros históricos (donaciones, reportes, publicaciones, comentarios) usan `@ManyToOne` opcional + `@NotFound(IGNORE)` + `updatable = false`, y una copia de solo lectura de la FK (`campaignId`, `donorUserId`, `recipientUserId`, `publicationId`). `Comment.user` sigue ese patrón; `Comment.publication` es LAZY, sin `@NotFound`, y solo se navega cuando la publicación ya resultó visible.
 - **Por qué:** lo borrado desaparece de toda consulta, pero una donación o un reporte no desaparecen porque se borró su campaña o su autor: la relación queda en `null` y la FK no se pisa en un `UPDATE`. La FK de solo lectura permite filtrar sin hacer join a una tabla con restricción.
-- **Dónde:** `entity/donation/Donation.java`, `entity/publication/Publication.java`, `entity/report/Report.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md).
+- **Dónde:** `entity/donation/Donation.java`, `entity/publication/Publication.java`, `entity/comment/Comment.java`, `entity/report/Report.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md).
 - **Costo:** con Hibernate 6.6, borrar con `repository.delete` una entidad con `@SQLDelete` la deja removida para el contexto de persistencia, y cualquier entidad administrada de la misma transacción que la referencie hace fallar el flush. `CampaignService.closeAndSoftDelete` lo resuelve desacoplando (`detach`) la fila de historial que acaba de escribir. Detalle en [Modelo de datos](04-modelo-de-datos.md#borrado-lógico-soft-delete) y [Recomendaciones de arquitectura](recomendaciones-de-arquitectura.md).
 
 ### Agregados que atraviesan el borrado: SQL nativo con el orden escrito
@@ -130,7 +136,8 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 - **Qué:** los listados traen las relaciones con `JOIN FETCH`, incluido el `@OneToOne` inverso `User.verificationRequest`, que Hibernate cargaría aparte aunque fuera `LAZY`. Las categorías de un listado de campañas se cargan en bloques de 1000 ids, porque SQL Server acepta hasta 2100 parámetros.
 - **El listado de publicaciones:** suma dos consultas fijas por `campaignId` (una sola para un anónimo): el conteo de likes agrupado por publicación y los ids que quien llama marcó. Ninguna usa `IN :ids`, así que no crecen con el listado ni tocan el límite de parámetros.
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`.
+- **El listado de comentarios:** trae el autor, su `userInfo` y su `verificationRequest` con `JOIN FETCH`, todos a uno, así que Hibernate pagina en SQL. Cada página son dos consultas fijas (la página y el conteo), más las de visibilidad.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`, `repository/comment/CommentRepository.java`.
 
 ## Errores
 
@@ -201,14 +208,14 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### Una regla de texto obligatorio compartida
 
-- **Qué:** el mensaje del donante, la respuesta del receptor y el mensaje predeterminado se validan con el mismo `TextValidationService.normalizeRequiredText`: `trim`, blanco → `400 <campo> cannot be blank`, más de 280 → `400 <campo> must be at most 280 characters`.
-- **Por qué:** la usan dos dominios (`donation` y `user`), y lo compartido va en `validation/common/`. Así no hay tres copias de la misma regla.
+- **Qué:** el mensaje del donante, la respuesta del receptor, el mensaje predeterminado y el texto de un comentario se validan con el mismo `TextValidationService.normalizeRequiredText`: `trim`, blanco → `400 <campo> cannot be blank`, más de 280 → `400 <campo> must be at most 280 characters`.
+- **Por qué:** la usan tres dominios (`donation`, `user` y `comment`), y lo compartido va en `validation/common/`. Así no hay tres copias de la misma regla.
 - **Dónde:** `validation/common/TextValidationService.java`.
 
 ### Moderación solo por reportes
 
-- **Qué:** un ADMIN no borra publicaciones ni sanciona usuarios desde sus dominios: lo hace resolviendo un reporte con una acción (`CONTENT_REMOVED`, `USER_SUSPENDED`, `USER_BANNED`). Las campañas son la excepción, porque un ADMIN puede editarlas y borrarlas directamente.
-- **Dónde:** `service/report/ReportActionService.java`, `validation/campaign/CampaignAuthorizationService.java`.
+- **Qué:** un ADMIN no borra publicaciones ni sanciona usuarios desde sus dominios: lo hace resolviendo un reporte con una acción (`CONTENT_REMOVED`, `USER_SUSPENDED`, `USER_BANNED`). Hay tres excepciones, donde un ADMIN actúa directamente: las campañas, que puede editar y borrar; la respuesta a una donación, que puede borrar (`DonationValidationService.validateIsRecipientOrAdmin`); y los comentarios, que puede borrar (`CommentValidationService.validateAndGetDeletableComment`). Las publicaciones y las sanciones siguen pasando solo por reportes.
+- **Dónde:** `service/report/ReportActionService.java`, `validation/campaign/CampaignAuthorizationService.java`, `validation/donation/DonationValidationService.java`, `validation/comment/CommentValidationService.java`.
 
 ### Secreto JWT obligatorio y validado al arrancar
 

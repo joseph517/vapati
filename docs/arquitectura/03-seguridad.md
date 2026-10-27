@@ -107,6 +107,7 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 | `/api/campaigns/list` | Listado de campañas. |
 | `/api/campaigns/*` | Detalle de una campaña. |
 | `/api/campaigns/*/publications` | Publicaciones de una campaña. |
+| `/api/publications/*/comments` | Comentarios de una publicación, paginados (`controller/comment/CommentController.java`). |
 | `/api/donations/campaign/*` | Donaciones de una campaña. |
 | `/api/donations/campaign/*/statistics` | Estadísticas de donaciones de una campaña. |
 | `/api/users/*/supporters` | Supporters de un creador (`controller/donation/SupporterController.java`). |
@@ -116,7 +117,7 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 
 `/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`.
 
-En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. En el feed de apoyos el token no cambia el contenido: es la misma vista pública para todos, y solo decide si un creador sancionado da `404` (resto) o `200` (el propio creador o un ADMIN). Detalle en [Campañas](dominios/campaign.md) y [Donaciones](dominios/donation.md).
+En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. En el feed de apoyos el token no cambia el contenido: es la misma vista pública para todos, y solo decide si un creador sancionado da `404` (resto) o `200` (el propio creador o un ADMIN). En los comentarios de una publicación, un ADMIN ve además los comentarios de autores sancionados; para el resto, y para un visitante, esos comentarios se omiten. Solo el `GET` es público: `POST /api/publications/*/comments` y `DELETE /api/comments/*` piden token. Detalle en [Campañas](dominios/campaign.md), [Donaciones](dominios/donation.md) y [Comentarios](dominios/comment.md).
 
 No hay reglas por rol en `SecurityConfig`: ninguna ruta pide `hasRole` a nivel de URL. Los roles se controlan con `@PreAuthorize` y la propiedad de los recursos en la capa `validation/`.
 

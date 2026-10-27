@@ -53,8 +53,8 @@ Raíz: `src/main/java/com/vaPaTi/vaPaTi/`.
 VaPaTiApplication.java
 controller/   dtos/   entity/   mapper/   repository/   service/   validation/
    └── <dominio>/   (auth, user, category, campaign, donation, follower,
-                     publication, bankaccount, verification, report)
-validation/common/   código de validación compartido (SortValidationService)
+                     publication, comment, bankaccount, verification, report)
+validation/common/   código de validación compartido (SortValidationService, TextValidationService)
 exception/           excepciones y GlobalExceptionHandler
 security/            SecurityConfig, JwtAuthenticationFilter, AuthenticatedUserService, CorsConfig, OpenAPIConfig
 utils/               ValidationUtils, PasswordHashGenerator
@@ -62,7 +62,7 @@ utils/               ValidationUtils, PasswordHashGenerator
 
 - **Por capa, y dentro por dominio.** Todo lo de un dominio se encuentra buscando la misma subcarpeta en cada capa. Ningún `.java` vive suelto en una carpeta de capa.
 - **No todos los dominios tienen todas las capas.** `auth` no tiene mapper (sus DTOs se arman en `AuthenticationService`), `category` no tiene `validation/`, y `campaign` tiene dos clases de validación.
-- **Un controller solo inyecta services de su dominio (y `validation/common`).** Ninguno inyecta el service de otro dominio: `ReportController`, `UserController` y `SupporterController` inyectan su service más `validation/common/SortValidationService`. Si una ruta cuelga del recurso de otro dominio, el controller vive en el dominio dueño de los datos: `controller/donation/SupporterController.java` atiende `GET /api/users/{userId}/supporters` y `GET /api/users/{userId}/support-feed`, igual que `controller/follower/FollowerController.java` atiende las rutas de seguidores bajo `/api/users/{userId}` (ver [Decisiones de diseño](08-decisiones-de-diseno.md#la-ruta-no-decide-el-dominio-del-código)).
+- **Un controller solo inyecta services de su dominio (y `validation/common`).** Ninguno inyecta el service de otro dominio: `ReportController`, `UserController`, `SupporterController`, `DonationController` y `CommentController` inyectan su service más `validation/common/SortValidationService` (`CommentController` inyecta `CommentService` y `SortValidationService`). Si una ruta cuelga del recurso de otro dominio, el controller vive en el dominio dueño de los datos: `controller/donation/SupporterController.java` atiende `GET /api/users/{userId}/supporters` y `GET /api/users/{userId}/support-feed`, igual que `controller/follower/FollowerController.java` atiende las rutas de seguidores bajo `/api/users/{userId}` y `controller/comment/CommentController.java` atiende `/api/publications/{publicationId}/comments` (ver [Decisiones de diseño](08-decisiones-de-diseno.md#la-ruta-no-decide-el-dominio-del-código)).
 - **Los enums viven con su entidad.** `CampaignStatus` está en `entity/campaign/`, `ReportStatus` en `entity/report/`.
 - **Lo transversal no se divide por dominio.** `exception/`, `security/` y `utils/` son planos.
 

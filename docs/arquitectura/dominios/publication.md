@@ -6,6 +6,8 @@ Una publicación es una novedad que el dueño de una campaña escribe dentro de 
 
 El dominio es chico: se puede **publicar**, **listar las publicaciones de una campaña**, **borrar una publicación propia** y **dar y quitar like** a una publicación visible. No hay edición. Casi todas sus reglas se apoyan en la campaña: quién puede publicar depende de quién es su dueño y en qué estado está, y quién puede leer depende de si la campaña es visible para quien llama.
 
+Los comentarios de una publicación viven en su propio dominio, [comment](comment.md): este archivo no los cubre.
+
 ## Entidades y datos
 
 **`Publication`** (`entity/publication/Publication.java`, tabla `publication`):
@@ -76,6 +78,7 @@ Son dos consultas fijas (una para un anónimo), sin `IN :ids`, así que el lista
 | Solo cuentan los likes de usuarios no borrados, no baneados y sin suspensión vigente, para todos, también para el ADMIN. La fila se conserva. | Es la regla de lectura de los usuarios bloqueados. No hay lista de quién dio like sino un número, así que no hay una vista de ADMIN que cuente a los sancionados. | `PublicationLikeRepository` (`countVisibleByPublicationId`, `countVisibleByCampaignIdGroupedByPublication`) |
 | Dos likes simultáneos de la misma persona dejan una sola fila y ambos responden `200`. `likePublication` no es `@Transactional`. | Gana la restricción única: el `save` perdedor viola `uk_publication_like_publication_user`, lo captura el service y relee el estado. Sin transacción externa, solo esa transacción del `save` hace rollback; dentro de una externa quedaría marcada como rollback-only y terminaría en `409`. Ver [Decisiones de diseño](../08-decisiones-de-diseno.md#la-base-como-red-contra-carreras). | `PublicationLikeService.likePublication` |
 | `findVisiblePublication` y `validateAndGetVisiblePublication` son la única fuente de "la publicación es visible", y la usan los likes. | Una publicación es visible si existe, no está borrada, su autor no está borrado y su campaña es visible para quien llama. Lo oculto responde con el `404` de la publicación, nunca con el de la campaña, que revelaría que la publicación existe. | `PublicationValidationService` |
+| Borrar una publicación no borra sus comentarios. | `PublicationRepository.delete` solo marca `deleted_at` en la publicación. Los comentarios quedan en la base, sin cascada, y dejan de verse porque su publicación ya no es visible (ver [comment](comment.md)). | `service/publication/PublicationService.java` |
 | Borrar la campaña no borra sus publicaciones. | `CampaignService.closeAndSoftDelete` solo cierra y borra la campaña. Las publicaciones quedan en la base sin `deleted_at`, pero dejan de verse porque su campaña ya no es visible para nadie. Su autor todavía puede borrarlas. | `service/campaign/CampaignService.java` |
 
 Orden de los chequeos al publicar:
