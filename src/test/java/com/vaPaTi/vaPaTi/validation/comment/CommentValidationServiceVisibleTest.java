@@ -192,10 +192,12 @@ class CommentValidationServiceVisibleTest {
     class CanSeeSanctionedAuthors {
 
         @Test
-        @DisplayName("Should return false for an anonymous caller, without querying the role")
+        @DisplayName("Should return false for an anonymous caller, leaving the null id to RoleValidationService")
         void shouldReturnFalse_whenCallerIsAnonymous() {
+            when(roleValidationService.isAdmin(null)).thenReturn(false);
+
             assertThat(commentValidationService.canSeeSanctionedAuthors(null)).isFalse();
-            verify(roleValidationService, never()).isAdmin(any());
+            verify(roleValidationService).isAdmin(null);
         }
 
         @Test

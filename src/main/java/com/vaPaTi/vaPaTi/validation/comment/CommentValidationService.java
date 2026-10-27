@@ -70,6 +70,6 @@ public class CommentValidationService {
     }
 
     public boolean canSeeSanctionedAuthors(Long callerId) {
-        return callerId != null && roleValidationService.isAdmin(callerId);
+        return roleValidationService.isAdmin(callerId);
     }
 }
