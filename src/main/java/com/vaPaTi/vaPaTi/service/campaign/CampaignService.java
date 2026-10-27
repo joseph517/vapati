@@ -22,6 +22,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
@@ -50,12 +51,13 @@ public class CampaignService {
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
     private final EntityManager entityManager;
+    private final RoleValidationService roleValidationService;
 
     // Public listings: admins see every campaign, everyone else (anonymous included) only their own CLOSED ones
     @Transactional
     public List<CampaignResponseDTO> getAllCampaigns() {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+        List<Campaign> campaigns = roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findAllWithActiveOwner()
                 : campaignRepository.findAllVisibleTo(callerId, LocalDateTime.now());
 
@@ -113,7 +115,7 @@ public class CampaignService {
         CampaignStatus campaignStatus = campaignValidationService.parseStatus(status);
 
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+        List<Campaign> campaigns = roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus)
                 : campaignRepository.findByGoalStatusVisibleTo(campaignStatus, callerId, LocalDateTime.now());
 
@@ -123,7 +125,7 @@ public class CampaignService {
     @Transactional
     public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+        List<Campaign> campaigns = roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findByCategoryIdWithActiveOwner(categoryId)
                 : campaignRepository.findByCategoryIdVisibleTo(categoryId, callerId, LocalDateTime.now());
 

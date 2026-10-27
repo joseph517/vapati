@@ -16,6 +16,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.comment.CommentValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -52,6 +53,7 @@ public class ReportValidationService {
     private final CampaignValidationService campaignValidationService;
     private final AccountStatusValidationService accountStatusValidationService;
     private final CommentValidationService commentValidationService;
+    private final RoleValidationService roleValidationService;
 
     /**
      * Validate the input DTO
@@ -95,7 +97,7 @@ public class ReportValidationService {
                 // A banned or suspended user is hidden like a missing one, except for an ADMIN.
                 // isBlocked goes first so the role is only queried for a blocked user
                 if (accountStatusValidationService.isBlocked(user.get())
-                        && !userRepository.existsByIdAndRole_Name(reporterId, ADMIN_ROLE)) {
+                        && !roleValidationService.isAdmin(reporterId)) {
                     throw new ResourceNotFoundException(USER_NOT_FOUND);
                 }
                 yield entityId;

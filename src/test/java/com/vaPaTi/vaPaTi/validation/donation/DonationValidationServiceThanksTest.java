@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -61,6 +62,9 @@ class DonationValidationServiceThanksTest {
     // Real instance: the text rule lives in TextValidationService
     @Spy
     private TextValidationService textValidationService = new TextValidationService();
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private DonationValidationService donationValidationService;
@@ -293,7 +297,7 @@ class DonationValidationServiceThanksTest {
         @DisplayName("Should pass when an ADMIN deletes the reply of a campaign donation")
         void campaignDonation_WhenAdmin_ShouldPass() {
             // Given
-            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
 
             // When & Then
             assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(campaignDonation, ADMIN_ID))
@@ -304,7 +308,7 @@ class DonationValidationServiceThanksTest {
         @DisplayName("Should pass when an ADMIN deletes the reply of a direct donation")
         void directDonation_WhenAdmin_ShouldPass() {
             // Given
-            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
 
             // When & Then
             assertThatCode(() -> donationValidationService.validateIsRecipientOrAdmin(directDonation, ADMIN_ID))
@@ -315,7 +319,7 @@ class DonationValidationServiceThanksTest {
         @DisplayName("Should throw the campaign owner message when a third party deletes the reply of a campaign donation")
         void campaignDonation_WhenThirdParty_ShouldThrow() {
             // Given
-            when(campaignAuthorizationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> donationValidationService.validateIsRecipientOrAdmin(campaignDonation, THIRD_PARTY_ID))
@@ -327,7 +331,7 @@ class DonationValidationServiceThanksTest {
         @DisplayName("Should throw the recipient message when a third party deletes the reply of a direct donation")
         void directDonation_WhenThirdParty_ShouldThrow() {
             // Given
-            when(campaignAuthorizationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> donationValidationService.validateIsRecipientOrAdmin(directDonation, THIRD_PARTY_ID))

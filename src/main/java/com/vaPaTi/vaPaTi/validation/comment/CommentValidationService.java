@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class CommentValidationService {
     private final CampaignAuthorizationService campaignAuthorizationService;
     private final AccountStatusValidationService accountStatusValidationService;
     private final TextValidationService textValidationService;
+    private final RoleValidationService roleValidationService;
 
     public String validateAndNormalizeText(String text) {
         return textValidationService.normalizeRequiredText(text, "Text", MAX_TEXT_LENGTH);
@@ -40,7 +42,7 @@ public class CommentValidationService {
         }
 
         if (accountStatusValidationService.isBlocked(comment.getUser())
-                && !campaignAuthorizationService.isAdmin(callerId)) {
+                && !roleValidationService.isAdmin(callerId)) {
             throw new ResourceNotFoundException(COMMENT_NOT_FOUND + commentId);
         }
 
@@ -62,7 +64,7 @@ public class CommentValidationService {
             return comment;
         }
 
-        if (campaignAuthorizationService.isAdmin(callerId)) {
+        if (roleValidationService.isAdmin(callerId)) {
             return comment;
         }
 
@@ -70,6 +72,6 @@ public class CommentValidationService {
     }
 
     public boolean canSeeBlockedAuthors(Long callerId) {
-        return callerId != null && campaignAuthorizationService.isAdmin(callerId);
+        return callerId != null && roleValidationService.isAdmin(callerId);
     }
 }

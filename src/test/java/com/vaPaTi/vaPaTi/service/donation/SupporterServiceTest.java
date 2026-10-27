@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,9 @@ class SupporterServiceTest {
     private UserValidationService userValidationService;
     @Mock
     private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private SupporterService supporterService;
@@ -118,7 +122,7 @@ class SupporterServiceTest {
             // Given
             givenCreatorExists();
             givenCaller(ADMIN_ID);
-            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             givenSupporters(List.of(rowA, rowB), 2L);
             when(userRepository.findAllWithDetailsByIdIn(List.of(DONOR_A_ID, DONOR_B_ID)))
                     .thenReturn(List.of(donorA, donorB));
@@ -137,7 +141,7 @@ class SupporterServiceTest {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
             givenSupporters(List.of(rowA, rowB), 2L);
             when(userRepository.findAllWithDetailsByIdIn(List.of(DONOR_A_ID, DONOR_B_ID)))
                     .thenReturn(List.of(donorA, donorB));
@@ -316,7 +320,7 @@ class SupporterServiceTest {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
             givenCreatorBlocked();
 
             // When & Then
@@ -352,7 +356,7 @@ class SupporterServiceTest {
             creator.setBanned(true);
             givenCreatorExists();
             givenCaller(ADMIN_ID);
-            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             givenSupporters(List.of(rowA), 1L);
             when(userRepository.findAllWithDetailsByIdIn(List.of(DONOR_A_ID))).thenReturn(List.of(donorA));
 
@@ -421,16 +425,17 @@ class SupporterServiceTest {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
             givenSupporters(List.of(), 0L);
 
             // When
             supporterService.getSupporters(CREATOR_ID, defaultPageable);
 
             // Then
-            InOrder inOrder = inOrder(userValidationService, donationValidationService, donationRepository);
+            InOrder inOrder = inOrder(userValidationService, roleValidationService, donationValidationService,
+                    donationRepository);
             inOrder.verify(userValidationService).getUserById(CREATOR_ID);
-            inOrder.verify(userValidationService).isAdmin(THIRD_PARTY_ID);
+            inOrder.verify(roleValidationService).isAdmin(THIRD_PARTY_ID);
             inOrder.verify(userValidationService).validateProfileNotBlocked(creator);
             inOrder.verify(donationValidationService).validateSupporterSort("totalAmount", false);
             inOrder.verify(donationRepository).findSupportersByCreatorId(CREATOR_ID, "totalAmount", true, 0L, 10);

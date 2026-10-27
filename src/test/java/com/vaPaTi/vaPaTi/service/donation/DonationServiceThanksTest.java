@@ -22,6 +22,7 @@ import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -71,6 +72,9 @@ class DonationServiceThanksTest {
     private GoalRepository goalRepository;
     @Mock
     private CampaignAuthorizationService campaignAuthorizationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private DonationService donationService;
@@ -735,7 +739,7 @@ class DonationServiceThanksTest {
         @DisplayName("Should show an ADMIN the private reply")
         void getDonationsByCampaign_WhenAdmin_ShouldShowPrivateThanks() {
             // Given
-            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
 
             // When
             List<DonationResponseDTO> result = listCampaignAs(ADMIN_ID);

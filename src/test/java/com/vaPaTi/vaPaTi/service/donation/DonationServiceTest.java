@@ -18,6 +18,7 @@ import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,9 @@ class DonationServiceTest {
     private GoalRepository goalRepository;
     @Mock
     private CampaignAuthorizationService campaignAuthorizationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private DonationService donationService;
@@ -686,7 +690,7 @@ class DonationServiceTest {
             // Then
             assertThat(result).extracting(DonationResponseDTO::getTransactionId).containsExactly("TXN-12345678", "TXN-OTHER");
             assertDonorsAndAmountsVisible(result);
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
@@ -694,7 +698,7 @@ class DonationServiceTest {
         void getDonationsByCampaign_WhenAdmin_ShouldShowAllTransactionIds() {
             // Given
             givenDonationsFromTwoDonors(ADMIN_ID);
-            when(campaignAuthorizationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
 
             // When
             List<DonationResponseDTO> result = donationService.getDonationsByCampaign(TEST_CAMPAIGN_ID);

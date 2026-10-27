@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,9 @@ class CommentValidationServiceVisibleTest {
 
     @Mock
     private TextValidationService textValidationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private CommentValidationService commentValidationService;
@@ -107,7 +111,7 @@ class CommentValidationServiceVisibleTest {
         void shouldThrowNotFound_whenAuthorIsBlockedAndCallerIsNotAdmin() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
             when(accountStatusValidationService.isBlocked(author)).thenReturn(true);
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
 
             assertThatThrownBy(() -> commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -120,7 +124,7 @@ class CommentValidationServiceVisibleTest {
         void shouldReturnComment_whenAuthorIsBlockedAndCallerIsAdmin() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
             when(accountStatusValidationService.isBlocked(author)).thenReturn(true);
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, CALLER_ID))
                     .thenReturn(Optional.of(publication));
 
@@ -140,7 +144,7 @@ class CommentValidationServiceVisibleTest {
 
             commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID);
 
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
@@ -195,13 +199,13 @@ class CommentValidationServiceVisibleTest {
         @DisplayName("Should return false for an anonymous caller, without querying the role")
         void shouldReturnFalse_whenCallerIsAnonymous() {
             assertThat(commentValidationService.canSeeBlockedAuthors(null)).isFalse();
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
         @DisplayName("Should return true for an ADMIN")
         void shouldReturnTrue_whenCallerIsAdmin() {
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
 
             assertThat(commentValidationService.canSeeBlockedAuthors(CALLER_ID)).isTrue();
         }
@@ -209,7 +213,7 @@ class CommentValidationServiceVisibleTest {
         @Test
         @DisplayName("Should return false for a USER")
         void shouldReturnFalse_whenCallerIsUser() {
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
 
             assertThat(commentValidationService.canSeeBlockedAuthors(CALLER_ID)).isFalse();
         }

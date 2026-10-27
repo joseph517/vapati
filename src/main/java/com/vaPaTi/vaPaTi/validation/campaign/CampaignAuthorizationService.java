@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,7 @@ public class CampaignAuthorizationService {
 
     private final CampaignRepository campaignRepository;
     private final UserRepository userRepository;
+    private final RoleValidationService roleValidationService;
 
     public void validateOwnershipOrAdmin(Long campaignId, Long userId) {
         Campaign campaign = campaignRepository.findByIdWithActiveOwner(campaignId)
@@ -32,7 +34,7 @@ public class CampaignAuthorizationService {
 
         boolean isOwner = campaign.getUser().getId().equals(userId);
 
-        if (!isOwner && !hasAdminRole(user)) {
+        if (!isOwner && !roleValidationService.hasAdminRole(user)) {
             // A third party must not be able to tell a CLOSED campaign apart from a missing one
             if (isClosed(campaign)) {
                 throw new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId);

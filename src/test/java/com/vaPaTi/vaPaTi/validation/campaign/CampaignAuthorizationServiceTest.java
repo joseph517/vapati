@@ -10,6 +10,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +37,9 @@ class CampaignAuthorizationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private CampaignAuthorizationService campaignAuthorizationService;
@@ -107,6 +111,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(2L)).thenReturn(Optional.of(testAdmin));
+            when(roleValidationService.hasAdminRole(testAdmin)).thenReturn(true);
 
             // When & Then (should not throw exception)
             campaignAuthorizationService.validateOwnershipOrAdmin(1L, 2L);
@@ -122,6 +127,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(3L)).thenReturn(Optional.of(testRegularUser));
+            when(roleValidationService.hasAdminRole(testRegularUser)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 3L))
@@ -190,6 +196,7 @@ class CampaignAuthorizationServiceTest {
 
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(4L)).thenReturn(Optional.of(userWithNullRole));
+            when(roleValidationService.hasAdminRole(userWithNullRole)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 4L))
@@ -217,6 +224,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             givenCampaignWithStatus(CampaignStatus.CLOSED);
             when(userRepository.findByIdForRequest(3L)).thenReturn(Optional.of(testRegularUser));
+            when(roleValidationService.hasAdminRole(testRegularUser)).thenReturn(false);
 
             // When & Then: same message as a missing campaign, so the CLOSED campaign is not revealed
             assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 3L))
@@ -231,6 +239,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             givenCampaignWithStatus(status);
             when(userRepository.findByIdForRequest(3L)).thenReturn(Optional.of(testRegularUser));
+            when(roleValidationService.hasAdminRole(testRegularUser)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> campaignAuthorizationService.validateOwnershipOrAdmin(1L, 3L))
@@ -257,6 +266,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             givenCampaignWithStatus(status);
             when(userRepository.findByIdForRequest(2L)).thenReturn(Optional.of(testAdmin));
+            when(roleValidationService.hasAdminRole(testAdmin)).thenReturn(true);
 
             // When & Then (should not throw exception)
             campaignAuthorizationService.validateOwnershipOrAdmin(1L, 2L);
@@ -341,6 +351,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(2L)).thenReturn(Optional.of(testAdmin));
+            when(roleValidationService.hasAdminRole(testAdmin)).thenReturn(true);
 
             // When
             boolean result = campaignAuthorizationService.canCloseCampaign(1L, 2L);
@@ -359,6 +370,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(3L)).thenReturn(Optional.of(testRegularUser));
+            when(roleValidationService.hasAdminRole(testRegularUser)).thenReturn(false);
 
             // When
             boolean result = campaignAuthorizationService.canCloseCampaign(1L, 3L);
@@ -417,6 +429,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(2L)).thenReturn(Optional.of(testAdmin));
+            when(roleValidationService.hasAdminRole(testAdmin)).thenReturn(true);
 
             // When
             Campaign result = campaignAuthorizationService.getCampaignIfAuthorized(1L, 2L);
@@ -437,6 +450,7 @@ class CampaignAuthorizationServiceTest {
             // Given
             when(campaignRepository.findByIdWithActiveOwner(1L)).thenReturn(Optional.of(testCampaign));
             when(userRepository.findByIdForRequest(3L)).thenReturn(Optional.of(testRegularUser));
+            when(roleValidationService.hasAdminRole(testRegularUser)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> campaignAuthorizationService.getCampaignIfAuthorized(1L, 3L))

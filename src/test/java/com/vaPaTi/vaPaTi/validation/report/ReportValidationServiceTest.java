@@ -17,6 +17,7 @@ import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -60,6 +61,9 @@ class ReportValidationServiceTest {
     private CampaignValidationService campaignValidationService;
     @Spy
     private AccountStatusValidationService accountStatusValidationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private ReportValidationService reportValidationService;
@@ -386,7 +390,7 @@ class ReportValidationServiceTest {
             // Given
             testUser.setBanned(true);
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
-            when(userRepository.existsByIdAndRole_Name(REPORTER_ID, "ADMIN")).thenReturn(false);
+            when(roleValidationService.isAdmin(REPORTER_ID)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
@@ -402,7 +406,7 @@ class ReportValidationServiceTest {
             // Given
             testUser.setSuspendedUntil(LocalDateTime.now().plusDays(1));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
-            when(userRepository.existsByIdAndRole_Name(REPORTER_ID, "ADMIN")).thenReturn(true);
+            when(roleValidationService.isAdmin(REPORTER_ID)).thenReturn(true);
 
             // When
             Long ownerId = reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, REPORTER_ID);
@@ -423,7 +427,7 @@ class ReportValidationServiceTest {
 
             // Then
             assertThat(ownerId).isEqualTo(2L);
-            verify(userRepository, never()).existsByIdAndRole_Name(any(), any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
     }
 

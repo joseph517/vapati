@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +64,9 @@ class SupporterServiceSupportFeedTest {
     private UserValidationService userValidationService;
     @Mock
     private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private SupporterService supporterService;
@@ -140,7 +144,7 @@ class SupporterServiceSupportFeedTest {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
             givenCreatorBlocked();
 
             // When & Then
@@ -157,7 +161,7 @@ class SupporterServiceSupportFeedTest {
             // Given
             givenCreatorExists();
             givenCaller(ADMIN_ID);
-            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             givenFeed(List.of(donation(100L)), 1L);
 
             // When
@@ -263,9 +267,9 @@ class SupporterServiceSupportFeedTest {
             givenCreatorExists();
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(
                     Optional.empty(), Optional.of(THIRD_PARTY_ID), Optional.of(CREATOR_ID), Optional.of(ADMIN_ID));
-            when(userValidationService.isAdmin(null)).thenReturn(false);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
-            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(null)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             Donation publicCampaign = campaignDonation(100L, 10L, "Visible campaign");
             publicCampaign.setMessage("Public message");
             publicCampaign.setThanksMessage("Private reply");
@@ -471,7 +475,7 @@ class SupporterServiceSupportFeedTest {
     private void givenVisibleCreator() {
         givenCreatorExists();
         givenCaller(THIRD_PARTY_ID);
-        when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+        when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
     }
 
     private void givenCreatorExists() {

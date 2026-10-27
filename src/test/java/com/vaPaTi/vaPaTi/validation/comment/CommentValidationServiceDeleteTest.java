@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +58,9 @@ class CommentValidationServiceDeleteTest {
     @Mock
     private TextValidationService textValidationService;
 
+    @Mock
+    private RoleValidationService roleValidationService;
+
     @InjectMocks
     private CommentValidationService commentValidationService;
 
@@ -97,7 +101,7 @@ class CommentValidationServiceDeleteTest {
             Comment result = commentValidationService.validateAndGetDeletableComment(COMMENT_ID, COMMENT_AUTHOR_ID);
 
             assertThat(result).isSameAs(comment);
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
@@ -108,14 +112,14 @@ class CommentValidationServiceDeleteTest {
             Comment result = commentValidationService.validateAndGetDeletableComment(COMMENT_ID, PUBLICATION_AUTHOR_ID);
 
             assertThat(result).isSameAs(comment);
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
         @DisplayName("Should return the comment for an ADMIN who is neither author")
         void shouldReturnComment_whenCallerIsAdmin() {
             givenVisibleComment(OTHER_USER_ID);
-            when(campaignAuthorizationService.isAdmin(OTHER_USER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(OTHER_USER_ID)).thenReturn(true);
 
             Comment result = commentValidationService.validateAndGetDeletableComment(COMMENT_ID, OTHER_USER_ID);
 
@@ -127,7 +131,7 @@ class CommentValidationServiceDeleteTest {
         void shouldReturnComment_whenAuthorIsBlockedAndCallerIsAdmin() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
             when(accountStatusValidationService.isBlocked(commentAuthor)).thenReturn(true);
-            when(campaignAuthorizationService.isAdmin(OTHER_USER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(OTHER_USER_ID)).thenReturn(true);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, OTHER_USER_ID))
                     .thenReturn(Optional.of(publication));
 
@@ -145,12 +149,12 @@ class CommentValidationServiceDeleteTest {
         @DisplayName("Should throw 403 when the caller is not an author nor an ADMIN")
         void shouldThrowForbidden_whenCallerIsThirdParty() {
             givenVisibleComment(OTHER_USER_ID);
-            when(campaignAuthorizationService.isAdmin(OTHER_USER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(OTHER_USER_ID)).thenReturn(false);
 
             assertThatThrownBy(() -> commentValidationService.validateAndGetDeletableComment(COMMENT_ID, OTHER_USER_ID))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage(FORBIDDEN_MESSAGE);
-            verify(campaignAuthorizationService).isAdmin(OTHER_USER_ID);
+            verify(roleValidationService).isAdmin(OTHER_USER_ID);
         }
 
         @Test
@@ -161,7 +165,7 @@ class CommentValidationServiceDeleteTest {
             assertThatThrownBy(() -> commentValidationService.validateAndGetDeletableComment(MISSING_COMMENT_ID, OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Comment not found with ID: " + MISSING_COMMENT_ID);
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
@@ -175,7 +179,7 @@ class CommentValidationServiceDeleteTest {
             assertThatThrownBy(() -> commentValidationService.validateAndGetDeletableComment(COMMENT_ID, OTHER_USER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(NOT_FOUND_MESSAGE);
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test

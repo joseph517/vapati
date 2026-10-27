@@ -11,6 +11,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.follower.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.follower.FollowerValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class FollowerService {
     private final FollowerMapper followerMapper;
     private final FollowerValidationService followerValidationService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final RoleValidationService roleValidationService;
 
     /**
      * Follows a user by creating a new follower relationship.
@@ -155,7 +157,7 @@ public class FollowerService {
     }
 
     private boolean callerIsAdmin() {
-        return followerValidationService.isAdmin(authenticatedUserService.getAuthenticatedUserId());
+        return roleValidationService.isAdmin(authenticatedUserService.getAuthenticatedUserId());
     }
 
 }

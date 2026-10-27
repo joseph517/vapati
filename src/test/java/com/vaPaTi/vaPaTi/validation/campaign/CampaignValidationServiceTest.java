@@ -10,6 +10,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +40,9 @@ class CampaignValidationServiceTest {
     private CategoryRepository categoryRepository;
     @Mock
     private CampaignAuthorizationService campaignAuthorizationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private CampaignValidationService campaignValidationService;
@@ -485,7 +489,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should return the campaign when it is visible to the caller")
         void findVisibleCampaignById_WhenVisible_ShouldReturnCampaign() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
             when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.of(testCampaign));
 
             // When
@@ -499,7 +503,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should return empty instead of throwing when the campaign is not visible")
         void findVisibleCampaignById_WhenNotVisible_ShouldReturnEmpty() {
             // Given: a CLOSED campaign of someone else is filtered out by the query
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
             when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.empty());
 
             // When
@@ -513,7 +517,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should return empty when an admin looks up a missing campaign")
         void findVisibleCampaignById_WhenAdminAndMissing_ShouldReturnEmpty() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
             when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.empty());
 
             // When
@@ -536,7 +540,7 @@ class CampaignValidationServiceTest {
         @DisplayName("A non-admin passes now from the JVM clock to findByIdVisibleTo")
         void findVisibleCampaignById_WhenNotAdmin_ShouldPassNowToFindByIdVisibleTo() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
             ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
             when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), nowCaptor.capture()))
                     .thenReturn(Optional.empty());
@@ -554,7 +558,7 @@ class CampaignValidationServiceTest {
         @DisplayName("An admin still uses findByIdWithActiveOwner, which doesn't hide blocked owners")
         void findVisibleCampaignById_WhenAdmin_ShouldUseFindByIdWithActiveOwner() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
             when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
 
             // When
@@ -577,7 +581,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should use the unrestricted query when the caller is an admin")
         void findVisibleCampaignByIdOrThrow_WhenAdmin_ShouldUseFindByIdWithActiveOwner() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
             when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.of(testCampaign));
 
             // When
@@ -592,7 +596,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should use the visibility query with the caller id when the caller is not an admin")
         void findVisibleCampaignByIdOrThrow_WhenNotAdmin_ShouldUseFindByIdVisibleTo() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
             when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.of(testCampaign));
 
             // When
@@ -607,7 +611,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should use the visibility query with a null caller id when the caller is anonymous")
         void findVisibleCampaignByIdOrThrow_WhenAnonymous_ShouldUseFindByIdVisibleToWithNull() {
             // Given
-            when(campaignAuthorizationService.isAdmin(null)).thenReturn(false);
+            when(roleValidationService.isAdmin(null)).thenReturn(false);
             when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), isNull(), any(LocalDateTime.class))).thenReturn(Optional.of(testCampaign));
 
             // When
@@ -622,7 +626,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should throw ResourceNotFoundException with the not-found message when the campaign is not visible")
         void findVisibleCampaignByIdOrThrow_WhenNotVisible_ShouldThrowResourceNotFoundException() {
             // Given: a CLOSED campaign of someone else is filtered out by the query
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
             when(campaignRepository.findByIdVisibleTo(eq(CAMPAIGN_ID), eq(CALLER_ID), any(LocalDateTime.class))).thenReturn(Optional.empty());
 
             // When & Then: same message as findCampaignByIdOrThrow for a missing id
@@ -635,7 +639,7 @@ class CampaignValidationServiceTest {
         @DisplayName("Should throw ResourceNotFoundException when an admin looks up a missing campaign")
         void findVisibleCampaignByIdOrThrow_WhenAdminAndMissing_ShouldThrowResourceNotFoundException() {
             // Given
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
             when(campaignRepository.findByIdWithActiveOwner(CAMPAIGN_ID)).thenReturn(Optional.empty());
 
             // When & Then

@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
@@ -36,6 +37,7 @@ public class SupporterService {
     private final UserRepository userRepository;
     private final UserValidationService userValidationService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final RoleValidationService roleValidationService;
 
     // One row per donor with the aggregates of their COMPLETED donations received by the creator, direct and to
     // their campaigns (deleted ones included). Everyone sees the donor. Only the creator and admins see the aggregates.
@@ -120,7 +122,7 @@ public class SupporterService {
         User creator = userValidationService.getUserById(userId);
 
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        boolean privileged = userId.equals(callerId) || userValidationService.isAdmin(callerId);
+        boolean privileged = userId.equals(callerId) || roleValidationService.isAdmin(callerId);
         if (!privileged) {
             userValidationService.validateProfileNotBlocked(creator);
         }

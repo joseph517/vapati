@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,9 @@ class CommentValidationServiceTextTest {
 
     @Mock
     private TextValidationService textValidationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private CommentValidationService commentValidationService;
