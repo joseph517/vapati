@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.validation.comment;
 
 import com.vaPaTi.vaPaTi.entity.comment.Comment;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
@@ -16,6 +17,8 @@ public class CommentValidationService {
 
     static final int MAX_TEXT_LENGTH = 280;
     private static final String COMMENT_NOT_FOUND = "Comment not found with ID: ";
+    private static final String DELETE_FORBIDDEN =
+            "Only the comment author, the publication author or an admin can delete this comment";
 
     private final CommentRepository commentRepository;
     private final PublicationValidationService publicationValidationService;
@@ -46,6 +49,24 @@ public class CommentValidationService {
         }
 
         return comment;
+    }
+
+    public Comment validateAndGetDeletableComment(Long commentId, Long callerId) {
+        Comment comment = validateAndGetVisibleComment(commentId, callerId);
+
+        if (callerId.equals(comment.getUser().getId())) {
+            return comment;
+        }
+
+        if (callerId.equals(comment.getPublication().getUser().getId())) {
+            return comment;
+        }
+
+        if (campaignAuthorizationService.isAdmin(callerId)) {
+            return comment;
+        }
+
+        throw new ForbiddenActionException(DELETE_FORBIDDEN);
     }
 
     public boolean canSeeBlockedAuthors(Long callerId) {
