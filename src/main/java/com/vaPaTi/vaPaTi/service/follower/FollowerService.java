@@ -39,7 +39,7 @@ public class FollowerService {
      * @return a FollowResponseDTO with the result of the follow operation
      * @throws MessageException if the current user is trying to follow themselves
      * @throws ConflictException if the current user is already following the user to follow
-     * @throws ResourceNotFoundException if the current user or the user to follow is not found, or the user to follow is blocked
+     * @throws ResourceNotFoundException if the current user or the user to follow is not found, or the user to follow is banned or suspended
      */
     @Transactional
     public FollowResponseDTO followUser(Long userToFollowId) {

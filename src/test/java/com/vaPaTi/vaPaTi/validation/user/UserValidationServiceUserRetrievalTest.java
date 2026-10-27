@@ -499,15 +499,15 @@ class UserValidationServiceUserRetrievalTest {
     }
 
     @Nested
-    @DisplayName("validateProfileNotBlocked()")
-    class ValidateProfileNotBlockedTests {
+    @DisplayName("validateProfileNotSanctioned()")
+    class ValidateProfileNotSanctionedTests {
 
         @Test
         @DisplayName("Banned user: 404 User not found")
         void bannedUser_ShouldThrowNotFound() {
             User user = User.builder().id(VALID_USER_ID).banned(true).build();
 
-            assertThatThrownBy(() -> userValidationService.validateProfileNotBlocked(user))
+            assertThatThrownBy(() -> userValidationService.validateProfileNotSanctioned(user))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(EXPECTED_ERROR_MESSAGE);
         }
@@ -517,7 +517,7 @@ class UserValidationServiceUserRetrievalTest {
         void currentlySuspendedUser_ShouldThrowNotFound() {
             User user = User.builder().id(VALID_USER_ID).suspendedUntil(LocalDateTime.now().plusDays(1)).build();
 
-            assertThatThrownBy(() -> userValidationService.validateProfileNotBlocked(user))
+            assertThatThrownBy(() -> userValidationService.validateProfileNotSanctioned(user))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(EXPECTED_ERROR_MESSAGE);
         }
@@ -527,7 +527,7 @@ class UserValidationServiceUserRetrievalTest {
         void expiredSuspension_ShouldNotThrow() {
             User user = User.builder().id(VALID_USER_ID).suspendedUntil(LocalDateTime.now().minusDays(1)).build();
 
-            assertThatCode(() -> userValidationService.validateProfileNotBlocked(user)).doesNotThrowAnyException();
+            assertThatCode(() -> userValidationService.validateProfileNotSanctioned(user)).doesNotThrowAnyException();
         }
 
         @Test
@@ -535,7 +535,7 @@ class UserValidationServiceUserRetrievalTest {
         void notSanctionedUser_ShouldNotThrow() {
             User user = User.builder().id(VALID_USER_ID).banned(false).build();
 
-            assertThatCode(() -> userValidationService.validateProfileNotBlocked(user)).doesNotThrowAnyException();
+            assertThatCode(() -> userValidationService.validateProfileNotSanctioned(user)).doesNotThrowAnyException();
         }
     }
 }

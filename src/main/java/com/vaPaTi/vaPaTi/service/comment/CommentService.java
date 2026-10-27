@@ -47,7 +47,7 @@ public class CommentService {
         publicationValidationService.validateAndGetVisiblePublication(publicationId, callerId);
 
         // An ADMIN also sees the comments of banned or suspended authors
-        Page<Comment> page = commentValidationService.canSeeBlockedAuthors(callerId)
+        Page<Comment> page = commentValidationService.canSeeSanctionedAuthors(callerId)
                 ? commentRepository.findAllByPublicationId(publicationId, pageable)
                 : commentRepository.findVisibleByPublicationId(publicationId, LocalDateTime.now(), pageable);
 

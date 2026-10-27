@@ -785,8 +785,8 @@ class FollowerServiceTest {
     }
 
     @Nested
-    @DisplayName("Blocked users are hidden from non-admins (spec 45)")
-    class BlockedUsersVisibilityTests {
+    @DisplayName("Sanctioned users are hidden from non-admins (spec 45)")
+    class SanctionedUsersVisibilityTests {
 
         private static final Long ADMIN_ID = 9L;
 
@@ -893,8 +893,8 @@ class FollowerServiceTest {
         }
 
         @Test
-        @DisplayName("A blocked user's lists are not found for a non-admin")
-        void getFollowers_WhenUserBlockedAndNotAdmin_ShouldThrowNotFound() {
+        @DisplayName("A sanctioned user's lists are not found for a non-admin")
+        void getFollowers_WhenUserSanctionedAndNotAdmin_ShouldThrowNotFound() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
             when(roleValidationService.isAdmin(CURRENT_USER_ID)).thenReturn(false);
             when(followerValidationService.validateAndGetVisibleUser(OTHER_USER_ID, false))

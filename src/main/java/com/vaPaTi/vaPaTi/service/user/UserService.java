@@ -174,7 +174,7 @@ public class UserService {
         if (id.equals(callerId) || roleValidationService.isAdmin(callerId)) {
             return userMapper.toUserDTO(user);
         }
-        userValidationService.validateProfileNotBlocked(user);
+        userValidationService.validateProfileNotSanctioned(user);
         return userMapper.toPublicUserProfileDTO(user);
     }
 

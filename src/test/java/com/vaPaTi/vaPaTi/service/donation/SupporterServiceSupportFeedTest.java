@@ -119,16 +119,16 @@ class SupporterServiceSupportFeedTest {
     }
 
     @Nested
-    @DisplayName("Blocked creator")
-    class BlockedCreatorTests {
+    @DisplayName("Sanctioned creator")
+    class SanctionedCreatorTests {
 
         @Test
         @DisplayName("An anonymous caller should get 404 for a banned or suspended creator")
-        void getSupportFeed_BlockedCreatorAsAnonymous_ShouldThrowResourceNotFoundException() {
+        void getSupportFeed_SanctionedCreatorAsAnonymous_ShouldThrowResourceNotFoundException() {
             // Given
             givenCreatorExists();
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
-            givenCreatorBlocked();
+            givenCreatorSanctioned();
 
             // When & Then
             assertThatThrownBy(() -> supporterService.getSupportFeed(CREATOR_ID, defaultPageable))
@@ -140,12 +140,12 @@ class SupporterServiceSupportFeedTest {
 
         @Test
         @DisplayName("Another USER should get 404 for a banned or suspended creator")
-        void getSupportFeed_BlockedCreatorAsThirdParty_ShouldThrowResourceNotFoundException() {
+        void getSupportFeed_SanctionedCreatorAsThirdParty_ShouldThrowResourceNotFoundException() {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
             when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
-            givenCreatorBlocked();
+            givenCreatorSanctioned();
 
             // When & Then
             assertThatThrownBy(() -> supporterService.getSupportFeed(CREATOR_ID, defaultPageable))
@@ -157,7 +157,7 @@ class SupporterServiceSupportFeedTest {
 
         @Test
         @DisplayName("An ADMIN should get the feed of a banned or suspended creator")
-        void getSupportFeed_BlockedCreatorAsAdmin_ShouldReturnFeed() {
+        void getSupportFeed_SanctionedCreatorAsAdmin_ShouldReturnFeed() {
             // Given
             givenCreatorExists();
             givenCaller(ADMIN_ID);
@@ -169,11 +169,11 @@ class SupporterServiceSupportFeedTest {
 
             // Then
             assertThat(result.getContent()).extracting(SupportFeedItemDTO::getDonationId).containsExactly(100L);
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
         @Test
-        @DisplayName("The creator should get their own feed without the blocked check")
+        @DisplayName("The creator should get their own feed without the sanction check")
         void getSupportFeed_AsCreator_ShouldReturnFeed() {
             // Given
             givenCreatorExists();
@@ -185,12 +185,12 @@ class SupporterServiceSupportFeedTest {
 
             // Then
             assertThat(result.getContent()).extracting(SupportFeedItemDTO::getDonationId).containsExactly(100L);
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
-        private void givenCreatorBlocked() {
+        private void givenCreatorSanctioned() {
             doThrow(new ResourceNotFoundException("User not found"))
-                    .when(userValidationService).validateProfileNotBlocked(creator);
+                    .when(userValidationService).validateProfileNotSanctioned(creator);
         }
     }
 
@@ -301,7 +301,7 @@ class SupporterServiceSupportFeedTest {
             assertThat(asThirdParty).isEqualTo(asAnonymous);
             assertThat(asCreator).isEqualTo(asAnonymous);
             assertThat(asAdmin).isEqualTo(asAnonymous);
-            verify(userValidationService, times(2)).validateProfileNotBlocked(creator);
+            verify(userValidationService, times(2)).validateProfileNotSanctioned(creator);
         }
 
         @Test

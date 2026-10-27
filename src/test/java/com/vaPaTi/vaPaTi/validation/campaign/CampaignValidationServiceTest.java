@@ -527,8 +527,8 @@ class CampaignValidationServiceTest {
     }
 
     @Nested
-    @DisplayName("findVisibleCampaignById hides campaigns of blocked owners (spec 45)")
-    class BlockedOwnerVisibilityTests {
+    @DisplayName("findVisibleCampaignById hides campaigns of sanctioned owners (spec 45)")
+    class SanctionedOwnerVisibilityTests {
 
         private static final Long CAMPAIGN_ID = 1L;
         private static final Long CALLER_ID = 3L;
@@ -546,13 +546,13 @@ class CampaignValidationServiceTest {
             // When
             campaignValidationService.findVisibleCampaignById(CAMPAIGN_ID, CALLER_ID);
 
-            // Then: the blocked-owner filter itself is JPQL, checked with curl
+            // Then: the sanctioned-owner filter itself is JPQL, checked with curl
             assertThat(nowCaptor.getValue()).isBetween(before, LocalDateTime.now());
             verify(campaignRepository, never()).findByIdWithActiveOwner(any());
         }
 
         @Test
-        @DisplayName("An admin still uses findByIdWithActiveOwner, which doesn't hide blocked owners")
+        @DisplayName("An admin still uses findByIdWithActiveOwner, which doesn't hide sanctioned owners")
         void findVisibleCampaignById_WhenAdmin_ShouldUseFindByIdWithActiveOwner() {
             // Given
             when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);

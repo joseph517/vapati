@@ -385,8 +385,8 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should throw ResourceNotFoundException (404) when a USER reports a blocked user")
-        void validateEntityExists_WithBlockedUserAndUserReporter_ShouldThrowNotFound() {
+        @DisplayName("Should throw ResourceNotFoundException (404) when a USER reports a sanctioned user")
+        void validateEntityExists_WithSanctionedUserAndUserReporter_ShouldThrowNotFound() {
             // Given
             testUser.setBanned(true);
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
@@ -401,8 +401,8 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should return the user id when an ADMIN reports a blocked user")
-        void validateEntityExists_WithBlockedUserAndAdminReporter_ShouldReturnUserId() {
+        @DisplayName("Should return the user id when an ADMIN reports a sanctioned user")
+        void validateEntityExists_WithSanctionedUserAndAdminReporter_ShouldReturnUserId() {
             // Given
             testUser.setSuspendedUntil(LocalDateTime.now().plusDays(1));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
@@ -416,8 +416,8 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should return the user id without checking the reporter's role when the user is not blocked")
-        void validateEntityExists_WithNotBlockedUser_ShouldNotCheckRole() {
+        @DisplayName("Should return the user id without checking the reporter's role when the user is not sanctioned")
+        void validateEntityExists_WithNotSanctionedUser_ShouldNotCheckRole() {
             // Given
             testUser.setSuspendedUntil(LocalDateTime.now().minusDays(1));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));

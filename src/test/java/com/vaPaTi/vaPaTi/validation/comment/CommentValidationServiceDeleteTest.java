@@ -80,7 +80,7 @@ class CommentValidationServiceDeleteTest {
 
     private void givenVisibleComment(Long callerId) {
         when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-        when(accountStatusValidationService.isBlocked(commentAuthor)).thenReturn(false);
+        when(accountStatusValidationService.isSanctioned(commentAuthor)).thenReturn(false);
         when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, callerId))
                 .thenReturn(Optional.of(publication));
     }
@@ -123,10 +123,10 @@ class CommentValidationServiceDeleteTest {
         }
 
         @Test
-        @DisplayName("Should return the comment of a blocked author for an ADMIN")
-        void shouldReturnComment_whenAuthorIsBlockedAndCallerIsAdmin() {
+        @DisplayName("Should return the comment of a sanctioned author for an ADMIN")
+        void shouldReturnComment_whenAuthorIsSanctionedAndCallerIsAdmin() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(commentAuthor)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(commentAuthor)).thenReturn(true);
             when(roleValidationService.isAdmin(OTHER_USER_ID)).thenReturn(true);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, OTHER_USER_ID))
                     .thenReturn(Optional.of(publication));
@@ -168,7 +168,7 @@ class CommentValidationServiceDeleteTest {
         @DisplayName("Should throw the comment's 404, not the 403, when the publication is not visible")
         void shouldThrowNotFound_whenPublicationIsNotVisible() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(commentAuthor)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(commentAuthor)).thenReturn(false);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, OTHER_USER_ID))
                     .thenReturn(Optional.empty());
 
@@ -182,7 +182,7 @@ class CommentValidationServiceDeleteTest {
         @DisplayName("Should throw the comment's 404 even for the comment author when the publication is not visible")
         void shouldThrowNotFound_whenCommentAuthorCannotSeePublication() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(commentAuthor)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(commentAuthor)).thenReturn(false);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, COMMENT_AUTHOR_ID))
                     .thenReturn(Optional.empty());
 

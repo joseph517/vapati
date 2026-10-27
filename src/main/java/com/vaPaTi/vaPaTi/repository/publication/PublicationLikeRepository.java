@@ -23,19 +23,19 @@ public interface PublicationLikeRepository extends JpaRepository<PublicationLike
 
     // Likes of one publication, without deleted users nor banned or currently suspended ones, for every caller
     @Query("SELECT COUNT(pl) FROM PublicationLike pl JOIN pl.user u " +
-            "WHERE pl.publication.id = :publicationId AND u.deletedAt IS NULL AND " + UserRepository.NOT_BLOCKED)
+            "WHERE pl.publication.id = :publicationId AND u.deletedAt IS NULL AND " + UserRepository.NOT_SANCTIONED)
     long countVisibleByPublicationId(@Param("publicationId") Long publicationId, @Param("now") LocalDateTime now);
 
     // Same rule, for every publication of a campaign in one query: the listing doesn't grow with its size.
     // Publications without visible likes don't come back (count 0)
     @Query("SELECT p.id AS publicationId, COUNT(pl) AS likesCount FROM PublicationLike pl " +
             "JOIN pl.publication p JOIN pl.user u " +
-            "WHERE p.campaignId = :campaignId AND u.deletedAt IS NULL AND " + UserRepository.NOT_BLOCKED +
+            "WHERE p.campaignId = :campaignId AND u.deletedAt IS NULL AND " + UserRepository.NOT_SANCTIONED +
             "GROUP BY p.id")
     List<PublicationLikeCountProjection> countVisibleByCampaignIdGroupedByPublication(
             @Param("campaignId") Long campaignId, @Param("now") LocalDateTime now);
 
-    // Publications of a campaign the caller liked. The caller is never blocked (the JWT filter stops them first)
+    // Publications of a campaign the caller liked. The caller is never sanctioned (the JWT filter stops them first)
     @Query("SELECT p.id FROM PublicationLike pl JOIN pl.publication p " +
             "WHERE p.campaignId = :campaignId AND pl.user.id = :userId")
     List<Long> findLikedPublicationIdsByCampaignIdAndUserId(@Param("campaignId") Long campaignId,

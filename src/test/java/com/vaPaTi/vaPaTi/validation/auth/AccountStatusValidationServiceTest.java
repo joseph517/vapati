@@ -28,15 +28,15 @@ class AccountStatusValidationServiceTest {
     }
 
     @Nested
-    @DisplayName("validateNotBlocked()")
-    class ValidateNotBlockedTests {
+    @DisplayName("validateNotSanctioned()")
+    class ValidateNotSanctionedTests {
 
         @Test
         @DisplayName("Does not throw for a user that is neither banned nor suspended")
         void shouldPassForRegularUser() {
             user.setBanned(false);
 
-            assertThatCode(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatCode(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .doesNotThrowAnyException();
         }
 
@@ -45,7 +45,7 @@ class AccountStatusValidationServiceTest {
         void shouldPassWhenBannedIsNull() {
             user.setBanned(null);
 
-            assertThatCode(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatCode(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .doesNotThrowAnyException();
         }
 
@@ -55,7 +55,7 @@ class AccountStatusValidationServiceTest {
             user.setBanned(true);
             user.setBannedReason("Spam");
 
-            assertThatThrownBy(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatThrownBy(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Your account has been banned. Reason: Spam");
         }
@@ -65,7 +65,7 @@ class AccountStatusValidationServiceTest {
         void shouldThrowForBannedUserWithoutReason() {
             user.setBanned(true);
 
-            assertThatThrownBy(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatThrownBy(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Your account has been banned. Reason: Violation of terms");
         }
@@ -77,7 +77,7 @@ class AccountStatusValidationServiceTest {
             user.setSuspendedUntil(until);
             user.setBannedReason("Abuse");
 
-            assertThatThrownBy(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatThrownBy(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Your account is suspended until " + until + ". Reason: Abuse");
         }
@@ -88,17 +88,17 @@ class AccountStatusValidationServiceTest {
             LocalDateTime until = LocalDateTime.now().plusDays(3);
             user.setSuspendedUntil(until);
 
-            assertThatThrownBy(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatThrownBy(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessage("Your account is suspended until " + until + ". Reason: Violation of terms");
         }
 
         @Test
-        @DisplayName("Expired suspension (suspendedUntil in the past) does not block")
+        @DisplayName("Expired suspension (suspendedUntil in the past) is not a sanction")
         void shouldPassForExpiredSuspension() {
             user.setSuspendedUntil(LocalDateTime.now().minusDays(1));
 
-            assertThatCode(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatCode(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .doesNotThrowAnyException();
         }
 
@@ -108,7 +108,7 @@ class AccountStatusValidationServiceTest {
             user.setBanned(true);
             user.setSuspendedUntil(LocalDateTime.now().plusDays(3));
 
-            assertThatThrownBy(() -> accountStatusValidationService.validateNotBlocked(user))
+            assertThatThrownBy(() -> accountStatusValidationService.validateNotSanctioned(user))
                     .isInstanceOf(ForbiddenActionException.class)
                     .hasMessageStartingWith("Your account has been banned");
         }
@@ -116,15 +116,15 @@ class AccountStatusValidationServiceTest {
     }
 
     @Nested
-    @DisplayName("isBlocked()")
-    class IsBlockedTests {
+    @DisplayName("isSanctioned()")
+    class IsSanctionedTests {
 
         @Test
         @DisplayName("Returns true for a banned user")
         void shouldReturnTrueForBannedUser() {
             user.setBanned(true);
 
-            assertThat(accountStatusValidationService.isBlocked(user)).isTrue();
+            assertThat(accountStatusValidationService.isSanctioned(user)).isTrue();
         }
 
         @Test
@@ -132,7 +132,7 @@ class AccountStatusValidationServiceTest {
         void shouldReturnTrueForActiveSuspension() {
             user.setSuspendedUntil(LocalDateTime.now().plusDays(3));
 
-            assertThat(accountStatusValidationService.isBlocked(user)).isTrue();
+            assertThat(accountStatusValidationService.isSanctioned(user)).isTrue();
         }
 
         @Test
@@ -140,7 +140,7 @@ class AccountStatusValidationServiceTest {
         void shouldReturnFalseForExpiredSuspension() {
             user.setSuspendedUntil(LocalDateTime.now().minusDays(1));
 
-            assertThat(accountStatusValidationService.isBlocked(user)).isFalse();
+            assertThat(accountStatusValidationService.isSanctioned(user)).isFalse();
         }
 
         @Test
@@ -148,7 +148,7 @@ class AccountStatusValidationServiceTest {
         void shouldReturnFalseWhenBannedIsNull() {
             user.setBanned(null);
 
-            assertThat(accountStatusValidationService.isBlocked(user)).isFalse();
+            assertThat(accountStatusValidationService.isSanctioned(user)).isFalse();
         }
 
         @Test
@@ -156,7 +156,7 @@ class AccountStatusValidationServiceTest {
         void shouldReturnFalseForRegularUser() {
             user.setBanned(false);
 
-            assertThat(accountStatusValidationService.isBlocked(user)).isFalse();
+            assertThat(accountStatusValidationService.isSanctioned(user)).isFalse();
         }
     }
 }

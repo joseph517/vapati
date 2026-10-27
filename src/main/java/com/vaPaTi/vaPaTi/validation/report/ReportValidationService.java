@@ -94,8 +94,8 @@ public class ReportValidationService {
                     throw new MessageException("Cannot report a deleted user");
                 }
                 // A banned or suspended user is hidden like a missing one, except for an ADMIN.
-                // isBlocked goes first so the role is only queried for a blocked user
-                if (accountStatusValidationService.isBlocked(user.get())
+                // isSanctioned goes first so the role is only queried for a sanctioned user
+                if (accountStatusValidationService.isSanctioned(user.get())
                         && !roleValidationService.isAdmin(reporterId)) {
                     throw new ResourceNotFoundException(USER_NOT_FOUND);
                 }
@@ -119,7 +119,7 @@ public class ReportValidationService {
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
             case CAMPAIGN -> ownerIdOf(campaignValidationService.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
-            // A hidden comment (blocked author for a non-admin, or a publication the reporter can't see) answers the same 404 as a missing one
+            // A hidden comment (sanctioned author for a non-admin, or a publication the reporter can't see) answers the same 404 as a missing one
             case COMMENT -> ownerIdOf(commentValidationService.validateAndGetVisibleComment(entityId, reporterId).getUser());
             default -> throw new MessageException("Invalid entity type");
         };

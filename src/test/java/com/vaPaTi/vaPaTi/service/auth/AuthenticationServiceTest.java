@@ -421,7 +421,7 @@ class AuthenticationServiceTest {
             // Restores only after validating the password and the account status
             InOrder inOrder = inOrder(authenticationManager, accountStatusValidationService, userRepository, jwtService);
             inOrder.verify(authenticationManager).authenticate(ArgumentMatchers.any(UsernamePasswordAuthenticationToken.class));
-            inOrder.verify(accountStatusValidationService).validateNotBlocked(deletedUser);
+            inOrder.verify(accountStatusValidationService).validateNotSanctioned(deletedUser);
             inOrder.verify(userRepository).save(deletedUser);
             inOrder.verify(jwtService).generateToken(deletedUser);
         }

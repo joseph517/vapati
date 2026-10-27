@@ -95,7 +95,7 @@ public class DonationValidationService {
     // ADMIN donor, so a sanction is not revealed. The role is LAZY: read it inside the caller's transaction
     public User validateAndGetRecipient(Long recipientUserId) {
         User recipient = userValidationService.getUserById(recipientUserId);
-        userValidationService.validateProfileNotBlocked(recipient);
+        userValidationService.validateProfileNotSanctioned(recipient);
 
         if (!RECIPIENT_ROLE.equals(recipient.getRole().getName())) {
             throw new MessageException("Cannot donate to an admin");

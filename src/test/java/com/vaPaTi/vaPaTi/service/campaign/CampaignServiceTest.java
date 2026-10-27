@@ -911,10 +911,10 @@ class CampaignServiceTest {
     }
 
     @Nested
-    @DisplayName("Listings hide campaigns of blocked owners (spec 45)")
-    class BlockedOwnerListingTests {
+    @DisplayName("Listings hide campaigns of sanctioned owners (spec 45)")
+    class SanctionedOwnerListingTests {
 
-        // The blocked-owner filter is JPQL; here we check that a non-admin passes the JVM clock as :now
+        // The sanctioned-owner filter is JPQL; here we check that a non-admin passes the JVM clock as :now
         private void assertIsNow(LocalDateTime captured, LocalDateTime before) {
             assertThat(captured).isBetween(before, LocalDateTime.now());
         }

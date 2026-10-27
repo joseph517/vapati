@@ -425,12 +425,12 @@ class UserServiceGetUserByIdTest {
         }
 
         @Test
-        @DisplayName("A third party asking for a blocked user gets 404, without mapping the public profile")
-        void thirdPartyCaller_BlockedUser_ShouldThrowNotFound() {
+        @DisplayName("A third party asking for a sanctioned user gets 404, without mapping the public profile")
+        void thirdPartyCaller_SanctionedUser_ShouldThrowNotFound() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
             when(roleValidationService.isAdmin(otherUserId)).thenReturn(false);
             doThrow(new ResourceNotFoundException("User not found"))
-                    .when(userValidationService).validateProfileNotBlocked(existingUser);
+                    .when(userValidationService).validateProfileNotSanctioned(existingUser);
 
             ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                     () -> userService.getUserById(validUserId));
@@ -441,8 +441,8 @@ class UserServiceGetUserByIdTest {
         }
 
         @Test
-        @DisplayName("An ADMIN asking for a blocked user gets the UserDTO, without the blocked check")
-        void adminCaller_BlockedUser_ShouldReturnUserDTO() {
+        @DisplayName("An ADMIN asking for a sanctioned user gets the UserDTO, without the sanction check")
+        void adminCaller_SanctionedUser_ShouldReturnUserDTO() {
             existingUser.setBanned(true);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
             when(roleValidationService.isAdmin(otherUserId)).thenReturn(true);
@@ -451,7 +451,7 @@ class UserServiceGetUserByIdTest {
             Object result = userService.getUserById(validUserId);
 
             assertSame(expectedUserDTO, result);
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
     }
 }

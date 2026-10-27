@@ -179,7 +179,7 @@ public class AuthenticationService {
     }
 
     private void validateUserStatus(User user) {
-        accountStatusValidationService.validateNotBlocked(user);
+        accountStatusValidationService.validateNotSanctioned(user);
     }
 
     private AuthResponse generateAuthResponse(User user) {

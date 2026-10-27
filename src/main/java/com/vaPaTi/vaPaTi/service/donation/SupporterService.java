@@ -124,7 +124,7 @@ public class SupporterService {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
         boolean privileged = userId.equals(callerId) || roleValidationService.isAdmin(callerId);
         if (!privileged) {
-            userValidationService.validateProfileNotBlocked(creator);
+            userValidationService.validateProfileNotSanctioned(creator);
         }
         return privileged;
     }

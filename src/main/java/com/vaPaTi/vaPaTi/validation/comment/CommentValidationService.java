@@ -30,7 +30,7 @@ public class CommentValidationService {
         return textValidationService.normalizeRequiredText(text, "Text", MAX_TEXT_LENGTH);
     }
 
-    // A comment is visible when its author is active (or blocked, for an ADMIN) and its publication is visible. Anything hidden gets the same 404 as a missing comment, never the publication's (it would reveal the comment exists)
+    // A comment is visible when its author is active (or sanctioned, for an ADMIN) and its publication is visible. Anything hidden gets the same 404 as a missing comment, never the publication's (it would reveal the comment exists)
     public Comment validateAndGetVisibleComment(Long commentId, Long callerId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException(COMMENT_NOT_FOUND + commentId));
@@ -39,7 +39,7 @@ public class CommentValidationService {
             throw new ResourceNotFoundException(COMMENT_NOT_FOUND + commentId);
         }
 
-        if (accountStatusValidationService.isBlocked(comment.getUser())
+        if (accountStatusValidationService.isSanctioned(comment.getUser())
                 && !roleValidationService.isAdmin(callerId)) {
             throw new ResourceNotFoundException(COMMENT_NOT_FOUND + commentId);
         }
@@ -69,7 +69,7 @@ public class CommentValidationService {
         throw new ForbiddenActionException(DELETE_FORBIDDEN);
     }
 
-    public boolean canSeeBlockedAuthors(Long callerId) {
+    public boolean canSeeSanctionedAuthors(Long callerId) {
         return callerId != null && roleValidationService.isAdmin(callerId);
     }
 }

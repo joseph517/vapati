@@ -235,8 +235,8 @@ public class UserValidationService {
     }
 
     // A banned or currently suspended user is hidden like a missing one: 404 without revealing the sanction
-    public void validateProfileNotBlocked(User user) {
-        if (accountStatusValidationService.isBlocked(user)) {
+    public void validateProfileNotSanctioned(User user) {
+        if (accountStatusValidationService.isSanctioned(user)) {
             throw new ResourceNotFoundException(USER_NOT_FOUND);
         }
     }

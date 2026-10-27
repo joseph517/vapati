@@ -85,7 +85,7 @@ class CommentServiceListTest {
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.empty());
             when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, null))
                     .thenReturn(publication);
-            when(commentValidationService.canSeeBlockedAuthors(null)).thenReturn(false);
+            when(commentValidationService.canSeeSanctionedAuthors(null)).thenReturn(false);
             when(commentRepository.findVisibleByPublicationId(eq(PUBLICATION_ID), any(), any()))
                     .thenReturn(Page.empty(pageable));
 
@@ -106,7 +106,7 @@ class CommentServiceListTest {
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(USER_ID));
             when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, USER_ID))
                     .thenReturn(publication);
-            when(commentValidationService.canSeeBlockedAuthors(USER_ID)).thenReturn(false);
+            when(commentValidationService.canSeeSanctionedAuthors(USER_ID)).thenReturn(false);
             when(commentRepository.findVisibleByPublicationId(eq(PUBLICATION_ID), any(), eq(pageable)))
                     .thenReturn(Page.empty(pageable));
 
@@ -122,7 +122,7 @@ class CommentServiceListTest {
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(ADMIN_ID));
             when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, ADMIN_ID))
                     .thenReturn(publication);
-            when(commentValidationService.canSeeBlockedAuthors(ADMIN_ID)).thenReturn(true);
+            when(commentValidationService.canSeeSanctionedAuthors(ADMIN_ID)).thenReturn(true);
             when(commentRepository.findAllByPublicationId(PUBLICATION_ID, pageable)).thenReturn(Page.empty(pageable));
 
             commentService.getCommentsByPublicationId(PUBLICATION_ID, pageable);
@@ -147,7 +147,7 @@ class CommentServiceListTest {
             when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.of(USER_ID));
             when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, USER_ID))
                     .thenReturn(publication);
-            when(commentValidationService.canSeeBlockedAuthors(USER_ID)).thenReturn(false);
+            when(commentValidationService.canSeeSanctionedAuthors(USER_ID)).thenReturn(false);
             when(commentRepository.findVisibleByPublicationId(eq(PUBLICATION_ID), any(), any())).thenReturn(page);
             when(commentMapper.toDTO(first)).thenReturn(firstDto);
             when(commentMapper.toDTO(second)).thenReturn(secondDto);

@@ -43,19 +43,19 @@ public interface FollowerRepository extends JpaRepository<Follower, Long> {
     // *Visible* queries are for non-admins: same as the ones above, without banned or currently suspended users
 
     @Query("SELECT f FROM Follower f JOIN FETCH f.follower u JOIN FETCH u.userInfo " +
-            "LEFT JOIN FETCH u.verificationRequest WHERE f.user = :user AND " + UserRepository.NOT_BLOCKED)
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.user = :user AND " + UserRepository.NOT_SANCTIONED)
     List<Follower> findVisibleFollowersByUser(@Param("user") User user, @Param("now") LocalDateTime now);
 
     @Query("SELECT f FROM Follower f JOIN FETCH f.user u JOIN FETCH u.userInfo " +
-            "LEFT JOIN FETCH u.verificationRequest WHERE f.follower = :follower AND " + UserRepository.NOT_BLOCKED)
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.follower = :follower AND " + UserRepository.NOT_SANCTIONED)
     List<Follower> findVisibleFollowingsByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(f) FROM Follower f JOIN f.follower u WHERE f.user = :user AND u.deletedAt IS NULL AND " +
-            UserRepository.NOT_BLOCKED)
+            UserRepository.NOT_SANCTIONED)
     long countVisibleByUser(@Param("user") User user, @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(f) FROM Follower f JOIN f.user u WHERE f.follower = :follower AND u.deletedAt IS NULL AND " +
-            UserRepository.NOT_BLOCKED)
+            UserRepository.NOT_SANCTIONED)
     long countVisibleByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
 
 }

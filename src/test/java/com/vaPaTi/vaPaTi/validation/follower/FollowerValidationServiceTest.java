@@ -392,14 +392,14 @@ class FollowerValidationServiceTest {
     }
 
     @Nested
-    @DisplayName("Blocked users (spec 45)")
-    class BlockedUserTests {
+    @DisplayName("Sanctioned users (spec 45)")
+    class SanctionedUserTests {
 
         @Test
-        @DisplayName("validateAndGetVisibleUser with a blocked user and a non-admin: 404")
-        void validateAndGetVisibleUser_WhenBlockedAndNotAdmin_ShouldThrow() {
+        @DisplayName("validateAndGetVisibleUser with a sanctioned user and a non-admin: 404")
+        void validateAndGetVisibleUser_WhenSanctionedAndNotAdmin_ShouldThrow() {
             when(userRepository.findByIdForRequest(otherUserId)).thenReturn(Optional.of(otherUser));
-            when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(otherUser)).thenReturn(true);
 
             assertThatThrownBy(() -> followerValidationService.validateAndGetVisibleUser(otherUserId, false))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -407,19 +407,19 @@ class FollowerValidationServiceTest {
         }
 
         @Test
-        @DisplayName("validateAndGetVisibleUser with a blocked user and an ADMIN: returns the user")
-        void validateAndGetVisibleUser_WhenBlockedAndAdmin_ShouldReturnUser() {
+        @DisplayName("validateAndGetVisibleUser with a sanctioned user and an ADMIN: returns the user")
+        void validateAndGetVisibleUser_WhenSanctionedAndAdmin_ShouldReturnUser() {
             when(userRepository.findByIdForRequest(otherUserId)).thenReturn(Optional.of(otherUser));
 
             assertThat(followerValidationService.validateAndGetVisibleUser(otherUserId, true)).isSameAs(otherUser);
-            verify(accountStatusValidationService, never()).isBlocked(any());
+            verify(accountStatusValidationService, never()).isSanctioned(any());
         }
 
         @Test
-        @DisplayName("validateAndGetUserToFollow with a blocked user: 404, for anyone")
-        void validateAndGetUserToFollow_WhenBlocked_ShouldThrow() {
+        @DisplayName("validateAndGetUserToFollow with a sanctioned user: 404, for anyone")
+        void validateAndGetUserToFollow_WhenSanctioned_ShouldThrow() {
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
-            when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(otherUser)).thenReturn(true);
 
             assertThatThrownBy(() -> followerValidationService.validateAndGetUserToFollow(otherUserId))
                     .isExactlyInstanceOf(ResourceNotFoundException.class)
@@ -427,10 +427,10 @@ class FollowerValidationServiceTest {
         }
 
         @Test
-        @DisplayName("validateAndGetUserToUnfollow with a blocked user: 404, for anyone")
-        void validateAndGetUserToUnfollow_WhenBlocked_ShouldThrow() {
+        @DisplayName("validateAndGetUserToUnfollow with a sanctioned user: 404, for anyone")
+        void validateAndGetUserToUnfollow_WhenSanctioned_ShouldThrow() {
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
-            when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(otherUser)).thenReturn(true);
 
             assertThatThrownBy(() -> followerValidationService.validateAndGetUserToUnfollow(otherUserId))
                     .isExactlyInstanceOf(ResourceNotFoundException.class)
@@ -438,10 +438,10 @@ class FollowerValidationServiceTest {
         }
 
         @Test
-        @DisplayName("isFollowing with the current user blocked and a non-admin: 404")
-        void isFollowing_WhenCurrentUserBlockedAndNotAdmin_ShouldThrow() {
+        @DisplayName("isFollowing with the current user sanctioned and a non-admin: 404")
+        void isFollowing_WhenCurrentUserSanctionedAndNotAdmin_ShouldThrow() {
             when(userRepository.findById(currentUserId)).thenReturn(Optional.of(currentUser));
-            when(accountStatusValidationService.isBlocked(currentUser)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(currentUser)).thenReturn(true);
 
             assertThatThrownBy(() -> followerValidationService.isFollowing(currentUserId, otherUserId, false))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -450,12 +450,12 @@ class FollowerValidationServiceTest {
         }
 
         @Test
-        @DisplayName("isFollowing with the other user blocked and a non-admin: 404")
-        void isFollowing_WhenOtherUserBlockedAndNotAdmin_ShouldThrow() {
+        @DisplayName("isFollowing with the other user sanctioned and a non-admin: 404")
+        void isFollowing_WhenOtherUserSanctionedAndNotAdmin_ShouldThrow() {
             when(userRepository.findById(currentUserId)).thenReturn(Optional.of(currentUser));
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
-            when(accountStatusValidationService.isBlocked(currentUser)).thenReturn(false);
-            when(accountStatusValidationService.isBlocked(otherUser)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(currentUser)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(otherUser)).thenReturn(true);
 
             assertThatThrownBy(() -> followerValidationService.isFollowing(currentUserId, otherUserId, false))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -464,14 +464,14 @@ class FollowerValidationServiceTest {
         }
 
         @Test
-        @DisplayName("isFollowing with a blocked user and an ADMIN: returns the boolean")
-        void isFollowing_WhenBlockedAndAdmin_ShouldReturnResult() {
+        @DisplayName("isFollowing with a sanctioned user and an ADMIN: returns the boolean")
+        void isFollowing_WhenSanctionedAndAdmin_ShouldReturnResult() {
             when(userRepository.findById(currentUserId)).thenReturn(Optional.of(currentUser));
             when(userRepository.findById(otherUserId)).thenReturn(Optional.of(otherUser));
             when(followerRepository.existsByUserAndFollower(otherUser, currentUser)).thenReturn(true);
 
             assertThat(followerValidationService.isFollowing(currentUserId, otherUserId, true)).isTrue();
-            verify(accountStatusValidationService, never()).isBlocked(any());
+            verify(accountStatusValidationService, never()).isSanctioned(any());
         }
     }
 
