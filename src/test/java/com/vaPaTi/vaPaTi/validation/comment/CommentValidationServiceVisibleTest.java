@@ -6,7 +6,7 @@ import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,13 +46,13 @@ class CommentValidationServiceVisibleTest {
     private PublicationValidationService publicationValidationService;
 
     @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
-
-    @Mock
     private AccountStatusValidationService accountStatusValidationService;
 
     @Mock
     private TextValidationService textValidationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private CommentValidationService commentValidationService;
@@ -98,16 +98,16 @@ class CommentValidationServiceVisibleTest {
             assertThatThrownBy(() -> commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(NOT_FOUND_MESSAGE);
-            verify(accountStatusValidationService, never()).isBlocked(any());
+            verify(accountStatusValidationService, never()).isSanctioned(any());
             verify(publicationValidationService, never()).findVisiblePublication(any(), any());
         }
 
         @Test
-        @DisplayName("Should throw the same 404 when the author is blocked and the caller is not an ADMIN")
-        void shouldThrowNotFound_whenAuthorIsBlockedAndCallerIsNotAdmin() {
+        @DisplayName("Should throw the same 404 when the author is sanctioned and the caller is not an ADMIN")
+        void shouldThrowNotFound_whenAuthorIsSanctionedAndCallerIsNotAdmin() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(author)).thenReturn(true);
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(author)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
 
             assertThatThrownBy(() -> commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
@@ -116,11 +116,11 @@ class CommentValidationServiceVisibleTest {
         }
 
         @Test
-        @DisplayName("Should return the comment when the author is blocked and the caller is an ADMIN")
-        void shouldReturnComment_whenAuthorIsBlockedAndCallerIsAdmin() {
+        @DisplayName("Should return the comment when the author is sanctioned and the caller is an ADMIN")
+        void shouldReturnComment_whenAuthorIsSanctionedAndCallerIsAdmin() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(author)).thenReturn(true);
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(accountStatusValidationService.isSanctioned(author)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, CALLER_ID))
                     .thenReturn(Optional.of(publication));
 
@@ -134,20 +134,20 @@ class CommentValidationServiceVisibleTest {
         @DisplayName("Should not query the role when the author is active")
         void shouldNotQueryRole_whenAuthorIsActive() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(author)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(author)).thenReturn(false);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, CALLER_ID))
                     .thenReturn(Optional.of(publication));
 
             commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID);
 
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
 
         @Test
         @DisplayName("Should throw the comment's 404, never the publication's, when the publication is not visible")
         void shouldThrowCommentNotFound_whenPublicationIsNotVisible() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(author)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(author)).thenReturn(false);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, CALLER_ID))
                     .thenReturn(Optional.empty());
 
@@ -161,7 +161,7 @@ class CommentValidationServiceVisibleTest {
         @DisplayName("Should pass the comment's publicationId and the callerId to findVisiblePublication")
         void shouldPassPublicationIdAndCallerId() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(author)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(author)).thenReturn(false);
             when(publicationValidationService.findVisiblePublication(any(), any())).thenReturn(Optional.of(publication));
 
             commentValidationService.validateAndGetVisibleComment(COMMENT_ID, CALLER_ID);
@@ -177,7 +177,7 @@ class CommentValidationServiceVisibleTest {
         @DisplayName("Should return the comment when it is visible")
         void shouldReturnComment_whenVisible() {
             when(commentRepository.findById(COMMENT_ID)).thenReturn(Optional.of(comment));
-            when(accountStatusValidationService.isBlocked(author)).thenReturn(false);
+            when(accountStatusValidationService.isSanctioned(author)).thenReturn(false);
             when(publicationValidationService.findVisiblePublication(PUBLICATION_ID, CALLER_ID))
                     .thenReturn(Optional.of(publication));
 
@@ -188,30 +188,32 @@ class CommentValidationServiceVisibleTest {
     }
 
     @Nested
-    @DisplayName("canSeeBlockedAuthors")
-    class CanSeeBlockedAuthors {
+    @DisplayName("canSeeSanctionedAuthors")
+    class CanSeeSanctionedAuthors {
 
         @Test
-        @DisplayName("Should return false for an anonymous caller, without querying the role")
+        @DisplayName("Should return false for an anonymous caller, leaving the null id to RoleValidationService")
         void shouldReturnFalse_whenCallerIsAnonymous() {
-            assertThat(commentValidationService.canSeeBlockedAuthors(null)).isFalse();
-            verify(campaignAuthorizationService, never()).isAdmin(any());
+            when(roleValidationService.isAdmin(null)).thenReturn(false);
+
+            assertThat(commentValidationService.canSeeSanctionedAuthors(null)).isFalse();
+            verify(roleValidationService).isAdmin(null);
         }
 
         @Test
         @DisplayName("Should return true for an ADMIN")
         void shouldReturnTrue_whenCallerIsAdmin() {
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(true);
 
-            assertThat(commentValidationService.canSeeBlockedAuthors(CALLER_ID)).isTrue();
+            assertThat(commentValidationService.canSeeSanctionedAuthors(CALLER_ID)).isTrue();
         }
 
         @Test
         @DisplayName("Should return false for a USER")
         void shouldReturnFalse_whenCallerIsUser() {
-            when(campaignAuthorizationService.isAdmin(CALLER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CALLER_ID)).thenReturn(false);
 
-            assertThat(commentValidationService.canSeeBlockedAuthors(CALLER_ID)).isFalse();
+            assertThat(commentValidationService.canSeeSanctionedAuthors(CALLER_ID)).isFalse();
         }
     }
 }

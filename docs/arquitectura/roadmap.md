@@ -42,7 +42,7 @@ flowchart LR
 - **Registro en dos pasos**, porque Google no da los datos obligatorios del registro (`userName`, `phone`, `description`, categorías):
   - `POST /auth/google`: si la cuenta existe (por `googleId`, o por email confirmado por Google), hace login. Si no existe, devuelve un token de registro corto.
   - `POST /auth/google/register`: completa los datos faltantes con ese token y crea la cuenta con el email ya confirmado.
-- Se aplican las mismas reglas del login normal: cuentas bloqueadas y cuentas borradas por el propio usuario.
+- Se aplican las mismas reglas del login normal: cuentas sancionadas y cuentas borradas por el propio usuario.
 
 ## 4. Notificaciones por email
 

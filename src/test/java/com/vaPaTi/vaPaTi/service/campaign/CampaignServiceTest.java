@@ -18,6 +18,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +69,9 @@ class CampaignServiceTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private RoleValidationService roleValidationService;
+
     @InjectMocks
     private CampaignService campaignService;
 
@@ -117,7 +121,7 @@ class CampaignServiceTest {
     // callerId null means anonymous
     private void givenCaller(Long callerId, boolean isAdmin) {
         when(authenticatedUserService.findAuthenticatedUserId()).thenReturn(Optional.ofNullable(callerId));
-        when(campaignAuthorizationService.isAdmin(callerId)).thenReturn(isAdmin);
+        when(roleValidationService.isAdmin(callerId)).thenReturn(isAdmin);
     }
 
     @Nested
@@ -907,10 +911,10 @@ class CampaignServiceTest {
     }
 
     @Nested
-    @DisplayName("Listings hide campaigns of blocked owners (spec 45)")
-    class BlockedOwnerListingTests {
+    @DisplayName("Listings hide campaigns of sanctioned owners (spec 45)")
+    class SanctionedOwnerListingTests {
 
-        // The blocked-owner filter is JPQL; here we check that a non-admin passes the JVM clock as :now
+        // The sanctioned-owner filter is JPQL; here we check that a non-admin passes the JVM clock as :now
         private void assertIsNow(LocalDateTime captured, LocalDateTime before) {
             assertThat(captured).isBetween(before, LocalDateTime.now());
         }

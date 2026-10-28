@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,9 @@ class UserServiceGetUserByIdTest {
     private RoleRepository roleRepository;
     @Mock
     private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private UserService userService;
@@ -388,7 +392,7 @@ class UserServiceGetUserByIdTest {
             Object result = userService.getUserById(validUserId);
 
             assertSame(expectedUserDTO, result);
-            verify(userValidationService, never()).isAdmin(any());
+            verify(roleValidationService, never()).isAdmin(any());
             verify(userMapper, never()).toPublicUserProfileDTO(any());
         }
 
@@ -396,7 +400,7 @@ class UserServiceGetUserByIdTest {
         @DisplayName("An ADMIN gets the full UserDTO of another user")
         void adminCaller_ShouldReturnUserDTO() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
-            when(userValidationService.isAdmin(otherUserId)).thenReturn(true);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(true);
             when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
 
             Object result = userService.getUserById(validUserId);
@@ -410,7 +414,7 @@ class UserServiceGetUserByIdTest {
         @DisplayName("A third party gets the PublicUserProfileDTO")
         void thirdPartyCaller_ShouldReturnPublicProfile() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
-            when(userValidationService.isAdmin(otherUserId)).thenReturn(false);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(false);
             when(userMapper.toPublicUserProfileDTO(existingUser)).thenReturn(publicProfile);
 
             Object result = userService.getUserById(validUserId);
@@ -421,12 +425,12 @@ class UserServiceGetUserByIdTest {
         }
 
         @Test
-        @DisplayName("A third party asking for a blocked user gets 404, without mapping the public profile")
-        void thirdPartyCaller_BlockedUser_ShouldThrowNotFound() {
+        @DisplayName("A third party asking for a sanctioned user gets 404, without mapping the public profile")
+        void thirdPartyCaller_SanctionedUser_ShouldThrowNotFound() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
-            when(userValidationService.isAdmin(otherUserId)).thenReturn(false);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(false);
             doThrow(new ResourceNotFoundException("User not found"))
-                    .when(userValidationService).validateProfileNotBlocked(existingUser);
+                    .when(userValidationService).validateProfileNotSanctioned(existingUser);
 
             ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
                     () -> userService.getUserById(validUserId));
@@ -437,17 +441,17 @@ class UserServiceGetUserByIdTest {
         }
 
         @Test
-        @DisplayName("An ADMIN asking for a blocked user gets the UserDTO, without the blocked check")
-        void adminCaller_BlockedUser_ShouldReturnUserDTO() {
+        @DisplayName("An ADMIN asking for a sanctioned user gets the UserDTO, without the sanction check")
+        void adminCaller_SanctionedUser_ShouldReturnUserDTO() {
             existingUser.setBanned(true);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
-            when(userValidationService.isAdmin(otherUserId)).thenReturn(true);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(true);
             when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
 
             Object result = userService.getUserById(validUserId);
 
             assertSame(expectedUserDTO, result);
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
     }
 }

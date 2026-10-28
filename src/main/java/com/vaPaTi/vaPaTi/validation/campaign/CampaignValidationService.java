@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,7 @@ public class CampaignValidationService {
 
     private final CampaignRepository campaignRepository;
     private final CategoryRepository categoryRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
+    private final RoleValidationService roleValidationService;
 
     public Campaign findCampaignByIdOrThrow(Long campaignId) {
         return campaignRepository.findByIdWithActiveOwner(campaignId)
@@ -35,7 +36,7 @@ public class CampaignValidationService {
     // callerId may be null (anonymous). An admin sees every campaign of an active owner; the rest don't see
     // a CLOSED campaign of someone else, nor any campaign of a banned or currently suspended owner
     public Optional<Campaign> findVisibleCampaignById(Long campaignId, Long callerId) {
-        return campaignAuthorizationService.isAdmin(callerId)
+        return roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findByIdWithActiveOwner(campaignId)
                 : campaignRepository.findByIdVisibleTo(campaignId, callerId, LocalDateTime.now());
     }

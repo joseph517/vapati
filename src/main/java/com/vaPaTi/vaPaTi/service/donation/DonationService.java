@@ -19,7 +19,7 @@ import com.vaPaTi.vaPaTi.repository.campaign.GoalRepository;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +51,7 @@ public class DonationService {
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignRepository campaignRepository;
     private final GoalRepository goalRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
+    private final RoleValidationService roleValidationService;
 
     @Transactional
     public DonationCreatedResponseDTO createDonation(@NotNull CreateDonationDTO dto) {
@@ -244,7 +244,7 @@ public class DonationService {
             return false;
         }
         boolean isOwner = campaign.getUser() != null && callerId.equals(campaign.getUser().getId());
-        return isOwner || campaignAuthorizationService.isAdmin(callerId);
+        return isOwner || roleValidationService.isAdmin(callerId);
     }
 
     public CampaignStatisticsDTO getCampaignStatistics(Long campaignId) {

@@ -34,7 +34,6 @@ public class UserValidationService {
     private static final String USER_NOT_FOUND = "User not found";
     private static final String DTO_NULL_ERROR = "DTO must not be null";
     private static final String USER_NULL_ERROR = "User must not be null";
-    private static final String ADMIN_ROLE = "ADMIN";
     private static final int MAX_AUTO_THANKS_LENGTH = 280;
     private static final Set<Character> SPECIAL_CHARS = Set.of(
             '!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
@@ -235,19 +234,9 @@ public class UserValidationService {
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
     }
 
-    // Read from the database, not from the token claim, which goes stale if the role changes
-    public boolean isAdmin(Long userId) {
-        if (userId == null) {
-            return false;
-        }
-        return userRepository.findById(userId)
-                .map(user -> user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName()))
-                .orElse(false);
-    }
-
     // A banned or currently suspended user is hidden like a missing one: 404 without revealing the sanction
-    public void validateProfileNotBlocked(User user) {
-        if (accountStatusValidationService.isBlocked(user)) {
+    public void validateProfileNotSanctioned(User user) {
+        if (accountStatusValidationService.isSanctioned(user)) {
             throw new ResourceNotFoundException(USER_NOT_FOUND);
         }
     }

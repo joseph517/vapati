@@ -74,7 +74,7 @@ Este dominio no tiene estados.
 - **Lectura:** el listado es público y devuelve todo el catálogo. No hay nada oculto: las categorías no tienen dueño, soft delete ni estado.
 - **Escritura:** crear, editar y borrar requieren rol `ADMIN` con `@PreAuthorize("hasRole('ADMIN')")` en `controller/category/CategoryController.java`. El rol sale de la base en cada request (el filtro JWT carga el usuario y `service/auth/CustomUserDetailsService.java` arma la autoridad `ROLE_<rol>`), no de un claim del token. El service no consulta quién llama.
 - **403 vs 404:** no hay ocultamiento. Un usuario sin rol `ADMIN` recibe `403` y una categoría inexistente responde `404` con su id; como el catálogo es público, no hay nada que esconder.
-- **Usuarios bloqueados:** el filtro JWT corta con `403` a un usuario baneado o suspendido que manda su token, incluso en el listado público. Sin token, el mismo listado responde `200`. Ver [03-seguridad.md](../03-seguridad.md).
+- **Usuarios sancionados:** el filtro JWT corta con `403` a un usuario baneado o suspendido que manda su token, incluso en el listado público. Sin token, el mismo listado responde `200`. Ver [03-seguridad.md](../03-seguridad.md).
 
 ## Endpoints
 
@@ -124,7 +124,7 @@ Todas las rutas cuelgan de `@RequestMapping("/api/categories")`. Los errores com
   | 400 | `Malformed request body` | El JSON no se puede leer. |
   | 401 | `Full authentication is required to access this resource` | Sin token o token inválido, vencido, revocado o emitido antes del último cambio de credenciales. |
   | 403 | `You don't have permission to access this resource` | El usuario autenticado no es `ADMIN`. |
-  | 403 | `Your account has been banned. Reason: <motivo>` / `Your account is suspended until <fecha>. Reason: <motivo>` | El token es de un usuario bloqueado (corte del filtro JWT). |
+  | 403 | `Your account has been banned. Reason: <motivo>` / `Your account is suspended until <fecha>. Reason: <motivo>` | El token es de un usuario sancionado (corte del filtro JWT). |
   | 409 | `Category with name '<name>' already exists` | Ya existe una categoría con ese nombre. |
   | 415 | `Content type '<tipo>' is not supported. Use application/json` | El `Content-Type` no es JSON. |
 
@@ -159,7 +159,7 @@ Todas las rutas cuelgan de `@RequestMapping("/api/categories")`. Los errores com
   | 400 | `Request body is required` / `Malformed request body` | Falta el body o el JSON es inválido. |
   | 401 | `Full authentication is required to access this resource` | Sin token o token rechazado por el filtro. |
   | 403 | `You don't have permission to access this resource` | El usuario no es `ADMIN`. |
-  | 403 | `Your account has been banned. Reason: <motivo>` / `Your account is suspended until <fecha>. Reason: <motivo>` | El token es de un usuario bloqueado. |
+  | 403 | `Your account has been banned. Reason: <motivo>` / `Your account is suspended until <fecha>. Reason: <motivo>` | El token es de un usuario sancionado. |
   | 404 | `Category not found with id: <id>` | No existe la categoría. |
   | 409 | `Another category already has the name: <name>` | El nombre enviado es distinto del actual y ya existe en la base. |
   | 415 | `Content type '<tipo>' is not supported. Use application/json` | El `Content-Type` no es JSON. |
@@ -196,7 +196,7 @@ Todas las rutas cuelgan de `@RequestMapping("/api/categories")`. Los errores com
   | 400 | `Cannot delete category because it would leave campaigns without any category` | Alguna campaña tiene esta como única categoría. |
   | 401 | `Full authentication is required to access this resource` | Sin token o token rechazado por el filtro. |
   | 403 | `You don't have permission to access this resource` | El usuario no es `ADMIN`. |
-  | 403 | `Your account has been banned. Reason: <motivo>` / `Your account is suspended until <fecha>. Reason: <motivo>` | El token es de un usuario bloqueado. |
+  | 403 | `Your account has been banned. Reason: <motivo>` / `Your account is suspended until <fecha>. Reason: <motivo>` | El token es de un usuario sancionado. |
   | 404 | `Category not found with id: <id>` | No existe la categoría. |
 
 - **Qué hace:** todo dentro de una transacción (`@Transactional` en `CategoryService.deleteCategory`).

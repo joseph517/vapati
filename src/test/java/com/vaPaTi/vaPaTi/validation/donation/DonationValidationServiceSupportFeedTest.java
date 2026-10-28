@@ -4,8 +4,8 @@ import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.DisplayName;
@@ -40,7 +40,7 @@ class DonationValidationServiceSupportFeedTest {
     private DonationRepository donationRepository;
 
     @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
+    private RoleValidationService roleValidationService;
 
     @Mock
     private UserValidationService userValidationService;

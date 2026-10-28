@@ -30,7 +30,7 @@ Relaciones de `User` relevantes:
 
 **Borrado lógico.** `User` tiene `@SQLRestriction("deleted_at IS NULL")`: toda consulta JPA (incluidas las `@Query` en JPQL de `repository/user/UserRepository.java`) deja afuera las cuentas borradas. Para alcanzarlas hay consultas nativas: `findByEmailIncludingDeleted` (login) y `findByIdIncludingDeleted` (moderación). `UserInfo` no tiene restricción, así que el email, el `userName` y el teléfono de una cuenta borrada siguen ocupados. La entidad también declara `@SQLDelete`, pero el borrado de cuenta no pasa por ahí: `UserService.deleteUser` pone `deletedAt` a mano y guarda.
 
-**Fragmento `NOT_BLOCKED`.** `UserRepository` expone la constante `NOT_BLOCKED`, un fragmento JPQL con la misma regla que `AccountStatusValidationService.isBlocked`. Lo reusan los repositorios de campañas y seguidores para filtrar usuarios sancionados directamente en SQL; `:now` se pasa desde la JVM.
+**Fragmento `NOT_SANCTIONED`.** `UserRepository` expone la constante `NOT_SANCTIONED`, un fragmento JPQL con la misma regla que `AccountStatusValidationService.isSanctioned`. Lo reusan los repositorios de campañas y seguidores para filtrar usuarios sancionados directamente en SQL; `:now` se pasa desde la JVM.
 
 Repositorios: `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java` (chequeos de unicidad excluyendo al propio usuario), `repository/user/RoleRepository.java` y `repository/user/UserCategoryRepository.java`.
 
@@ -49,8 +49,8 @@ Casi todas viven en `validation/user/UserValidationService.java`. El chequeo de 
 | Cambiar la contraseña, o el email por uno distinto, exige `currentPassword` correcta. | Se comprueba antes de modificar ningún campo. El email se compara sin espacios y en minúsculas, así que cambiar solo las mayúsculas no cuenta como cambio de credenciales. | `validateCredentialChange` |
 | Un cambio de credenciales invalida todas las sesiones. | El service pone `tokensValidAfter = now`; el filtro JWT y el refresh rechazan los tokens emitidos antes (con precisión de segundos). El usuario tiene que volver a loguearse, incluida la sesión que hizo el cambio. | `service/user/UserService.java`, `service/auth/JwtService.java` |
 | Todo usuario nuevo se crea con rol `USER` y `verified = false`. | No hay endpoint para crear `ADMIN` ni para cambiar el rol: los administradores se crean por SQL (`scripts/create-admin-user.sql`). | `createAndSetupUser`, `UserService.createUser` |
-| "Es admin" se lee de la base, no del claim `role` del token. | El claim queda viejo si el rol cambia mientras el token sigue vigente. | `isAdmin` |
-| Un usuario baneado o con suspensión vigente se oculta como si no existiera (`404`). | El perfil de un sancionado no se distingue del de un id inexistente: el mensaje es el mismo `User not found`. Una suspensión vencida (`suspendedUntil` en el pasado) ya no bloquea. | `validateProfileNotBlocked`, `AccountStatusValidationService.isBlocked` |
+| "Es admin" se lee de la base, no del claim `role` del token. | El claim queda viejo si el rol cambia mientras el token sigue vigente. | `RoleValidationService.isAdmin` |
+| Un usuario baneado o con suspensión vigente se oculta como si no existiera (`404`). | El perfil de un sancionado no se distingue del de un id inexistente: el mensaje es el mismo `User not found`. Una suspensión vencida (`suspendedUntil` en el pasado) ya no es una sanción. | `validateProfileNotSanctioned`, `AccountStatusValidationService.isSanctioned` |
 | El borrado es lógico y cierra las campañas del usuario. | Se marca `deletedAt` y se pasan a `CLOSED` todas sus campañas que no lo estuvieran, registrando la transición en el historial (`CampaignService.closeAllByOwner`). | `UserService.deleteUser`, `service/campaign/CampaignService.java` |
 | El mensaje predeterminado es obligatorio al fijarlo, de hasta 280 caracteres. | Se guarda con `trim`. `null`, `""` o solo espacios en el `PUT` responden `400 Auto thanks message cannot be blank`: para quitarlo está el `DELETE`. El largo lo corta `@Size(max = 280)` en `UpdateAutoThanksDTO` y la validación lo repite sobre el texto recortado (`MAX_AUTO_THANKS_LENGTH`). La regla de texto es la compartida de `validation/common/TextValidationService.java`. | `validateAndNormalizeAutoThanksMessage` |
 | Loguearse con una cuenta borrada la restaura. | El login busca incluyendo borrados y, si la contraseña es correcta y la cuenta no está sancionada, pone `deletedAt = null` (ver [Auth](auth.md)). Las campañas que se cerraron al borrar siguen `CLOSED`. Una cuenta borrada y además sancionada recibe `403` y sigue borrada. | `service/auth/AuthenticationService.java` |
@@ -298,8 +298,8 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 - **Qué hace** (`UserService.getUserById`):
   1. Valida que el id sea positivo.
   2. Carga el usuario con sus datos, categorías y cuentas bancarias en una consulta (`findByIdWithFullDetails`), o `404`.
-  3. Si quien llama es el mismo usuario o es `ADMIN` (leído de la base con `isAdmin`), devuelve `UserMapper.toUserDTO`.
-  4. Si no, aplica `validateProfileNotBlocked` (`404` con el mismo mensaje que un inexistente) y devuelve `UserMapper.toPublicUserProfileDTO`.
+  3. Si quien llama es el mismo usuario o es `ADMIN` (leído de la base con `RoleValidationService.isAdmin`), devuelve `UserMapper.toUserDTO`.
+  4. Si no, aplica `validateProfileNotSanctioned` (`404` con el mismo mensaje que un inexistente) y devuelve `UserMapper.toPublicUserProfileDTO`.
 
 ### `GET /api/users/me/auto-thanks`
 
@@ -394,7 +394,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 |---|---|
 | Controller | `controller/user/UserController.java` |
 | Service | `service/user/UserService.java` (usa también `service/campaign/CampaignService.java` al borrar) |
-| Validation | `validation/user/UserValidationService.java`, `validation/auth/AccountStatusValidationService.java`, `validation/common/SortValidationService.java`, `validation/common/TextValidationService.java` |
+| Validation | `validation/user/UserValidationService.java`, `validation/auth/AccountStatusValidationService.java`, `validation/common/SortValidationService.java`, `validation/common/TextValidationService.java`, `validation/common/RoleValidationService.java` (el rol, en `getUserById`) |
 | Mapper | `mapper/user/UserMapper.java`, `mapper/user/UserInfoMapper.java` (usa `mapper/bankaccount/BankAccountMapper.java`) |
 | Repository | `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java`, `repository/user/RoleRepository.java`, `repository/user/UserCategoryRepository.java`, `repository/category/CategoryRepository.java` |
 | DTOs | `dtos/user/UserUserInfoRequestDTO.java`, `dtos/user/CreateUserDTO.java`, `dtos/user/CreateUserInfoDTO.java`, `dtos/user/UpdateUserDTO.java`, `dtos/user/UserDTO.java`, `dtos/user/UserInfoDTO.java`, `dtos/user/PublicUserProfileDTO.java`, `dtos/user/UpdateAutoThanksDTO.java`, `dtos/user/AutoThanksResponseDTO.java`, `dtos/user/UserInfoResponseDTO.java` (sin uso en el código) |

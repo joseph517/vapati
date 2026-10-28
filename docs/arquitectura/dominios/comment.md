@@ -37,7 +37,7 @@ No tiene enums propios.
 **Consultas del listado** (`repository/comment/CommentRepository.java`): un par, como en [Queries en pares](../08-decisiones-de-diseno.md#queries-en-pares-la-del-admin-y-la-del-resto).
 
 - `findAllByPublicationId`: para un ADMIN. Todos los comentarios de la publicación cuyo autor no está borrado.
-- `findVisibleByPublicationId`: para el resto. Lo mismo, sin autores baneados ni con suspensión vigente (`UserRepository.NOT_BLOCKED`, con el `:now` de la JVM).
+- `findVisibleByPublicationId`: para el resto. Lo mismo, sin autores baneados ni con suspensión vigente (`UserRepository.NOT_SANCTIONED`, con el `:now` de la JVM).
 
 Las dos traen el autor con `userInfo` y `verificationRequest` en el mismo `SELECT` (`JOIN FETCH`, todos a uno), así que Hibernate pagina en SQL y la página no crece en consultas con su tamaño. El orden está escrito en la query (`createdAt` y después `id`, ambos ascendentes) y cada una lleva su `countQuery`. Son JPQL: Hibernate las valida al arrancar, pero los tests unitarios mockean el repositorio y no las ejecutan.
 
@@ -48,13 +48,13 @@ Las dos traen el autor con `userInfo` y `verificationRequest` en el mismo `SELEC
 | El texto se recorta con `trim`, no puede quedar vacío y tiene hasta 280 caracteres. | El blanco es una regla de negocio y no una anotación del DTO; el largo se mide después del `trim`. | `CommentValidationService.validateAndNormalizeText` → `TextValidationService.normalizeRequiredText` |
 | Se comenta en toda publicación que quien llama ve: también la propia, la de un ADMIN y la de una campaña `CLOSED` que ve. No hay regla de estado ni de dueño. | Un comentario no tiene efecto económico. Quien ve la publicación participa; el ADMIN usa la visibilidad de ADMIN, como en likes y reportes. | `PublicationValidationService.validateAndGetVisiblePublication` desde `CommentService.createComment` |
 | La visibilidad de la publicación se mira antes que el texto. | Una publicación oculta responde `404` aunque el texto venga en blanco: no se revela nada por el orden de los chequeos. | `CommentService.createComment` |
-| Un comentario se ve si su autor está activo (o bloqueado, si quien llama es ADMIN) y su publicación es visible. | Un autor borrado no existe para nadie; uno baneado o con suspensión vigente se oculta a quien no es ADMIN, que sí lo ve para moderar. | `CommentValidationService.validateAndGetVisibleComment` (borrar, reportar), `CommentRepository` (listar) |
+| Un comentario se ve si su autor está activo (o sancionado, si quien llama es ADMIN) y su publicación es visible. | Un autor borrado no existe para nadie; uno baneado o con suspensión vigente se oculta a quien no es ADMIN, que sí lo ve para moderar. | `CommentValidationService.validateAndGetVisibleComment` (borrar, reportar), `CommentRepository` (listar) |
 | Todo lo oculto responde el mismo `404 Comment not found with ID: {id}` que un comentario inexistente, nunca el de la publicación. | Responder el `404` de la publicación revelaría que el comentario existe. | `CommentValidationService.validateAndGetVisibleComment` |
-| `isBlocked` se consulta antes que el rol. | El rol de quien llama solo se busca en la base si el autor está bloqueado. | `CommentValidationService.validateAndGetVisibleComment` |
+| `isSanctioned` se consulta antes que el rol. | El rol de quien llama solo se busca en la base si el autor está sancionado. | `CommentValidationService.validateAndGetVisibleComment` |
 | Borran el autor del comentario, el autor de la publicación o un ADMIN, y primero se mira la visibilidad y después el permiso. | El comentario se escribe en el espacio del creador, que puede limpiarlo; el ADMIN modera. Con la visibilidad primero, quien no ve un comentario recibe `404` y no se entera de que existe. | `CommentValidationService.validateAndGetDeletableComment` |
 | Un comentario visible que quien llama no puede borrar responde `403`. | Ya lo ve, así que no hay nada que ocultar. | `CommentValidationService.validateAndGetDeletableComment` |
 | El listado tiene orden fijo (`createdAt` y `id` ascendentes) y no admite `sortBy`. | El orden cronológico es el de una conversación. Va escrito en la query, y el controller solo valida `page` y `size`. Un `sortBy` en la URL se ignora: no es un parámetro del endpoint. | `CommentRepository`, `SortValidationService.validateAndGetPageable(int, int)` |
-| Los comentarios de autores sancionados no se ven en el listado, salvo para un ADMIN. | Es la regla de lectura de los usuarios bloqueados. Las filas se conservan y vuelven a verse cuando se restaura la cuenta o termina la sanción. | `CommentService.getCommentsByPublicationId`, `CommentValidationService.canSeeBlockedAuthors` |
+| Los comentarios de autores sancionados no se ven en el listado, salvo para un ADMIN. | Es la regla de lectura de los usuarios sancionados. Las filas se conservan y vuelven a verse cuando se restaura la cuenta o termina la sanción. | `CommentService.getCommentsByPublicationId`, `CommentValidationService.canSeeSanctionedAuthors` |
 | Borrar una publicación, una campaña o una cuenta no borra sus comentarios. | No hay cascada; la visibilidad de la publicación los oculta. | `Comment` (sin cascada) |
 
 Orden de los chequeos al borrar:
@@ -65,7 +65,7 @@ flowchart TD
     B -- "no" --> E404["404 Comment not found with ID: {commentId}"]
     B -- "sí" --> C{"¿Autor del comentario borrado?"}
     C -- "sí" --> E404
-    C -- "no" --> D{"¿Autor bloqueado y quien llama no es ADMIN?"}
+    C -- "no" --> D{"¿Autor sancionado y quien llama no es ADMIN?"}
     D -- "sí" --> E404
     D -- "no" --> F{"¿Publicación visible para quien llama?"}
     F -- "no" --> E404
@@ -80,7 +80,7 @@ Este dominio no tiene estados. Un comentario existe o está borrado (`deletedAt`
 
 ## Visibilidad y permisos
 
-Los criterios de "sancionado" (baneado, o suspendido con `suspendedUntil` en el futuro) están en [Seguridad](../03-seguridad.md). Para saber si quien llama es ADMIN, el dominio usa `CampaignAuthorizationService.isAdmin`, que consulta la base.
+Los criterios de "sancionado" (baneado, o suspendido con `suspendedUntil` en el futuro) están en [Seguridad](../03-seguridad.md). Para saber si quien llama es ADMIN, el dominio usa `RoleValidationService.isAdmin`, que consulta la base.
 
 **Quién ve qué.**
 
@@ -193,7 +193,7 @@ Los tres endpoints están en `controller/comment/CommentController.java`, con `@
   1. El controller valida la paginación con `SortValidationService.validateAndGetPageable(page, size)`, que devuelve un `Pageable` sin orden.
   2. `CommentService.getCommentsByPublicationId` obtiene el id de quien llama con `AuthenticatedUserService.findAuthenticatedUserId()`, que devuelve vacío para un anónimo; en ese caso usa `null`.
   3. `PublicationValidationService.validateAndGetVisiblePublication(publicationId, callerId)`: `404` si está oculta.
-  4. Elige la query según quién llama: si `CommentValidationService.canSeeBlockedAuthors(callerId)` (hay id y es ADMIN), `findAllByPublicationId`; si no, `findVisibleByPublicationId` con `LocalDateTime.now()`.
+  4. Elige la query según quién llama: si `CommentValidationService.canSeeSanctionedAuthors(callerId)` (es ADMIN; un id `null` da `false`), `findAllByPublicationId`; si no, `findVisibleByPublicationId` con `LocalDateTime.now()`.
   5. Mapea cada comentario con `CommentMapper.toDTO`.
 
   Cada página hace dos consultas fijas (la de la página y la de conteo), más las de visibilidad de la publicación.
@@ -227,7 +227,7 @@ Los tres endpoints están en `controller/comment/CommentController.java`, con `@
 
 - **Qué hace** (`CommentService.deleteComment`):
   1. Toma el id de quien llama del token.
-  2. `CommentValidationService.validateAndGetDeletableComment(commentId, callerId)`: primero `validateAndGetVisibleComment` (existe, autor no borrado, autor no bloqueado salvo para un ADMIN, publicación visible), después el permiso: autor del comentario, autor de la publicación (`comment.getPublication().getUser()`, que se carga por open-in-view como proxy LAZY) o ADMIN (`403` si no).
+  2. `CommentValidationService.validateAndGetDeletableComment(commentId, callerId)`: primero `validateAndGetVisibleComment` (existe, autor no borrado, autor no sancionado salvo para un ADMIN, publicación visible), después el permiso: autor del comentario, autor de la publicación (`comment.getPublication().getUser()`, que se carga por open-in-view como proxy LAZY) o ADMIN (`403` si no).
   3. `CommentRepository.delete`, que por `@SQLDelete` marca `deleted_at` en lugar de borrar la fila.
 
 ## Clases involucradas
@@ -237,10 +237,10 @@ Los tres endpoints están en `controller/comment/CommentController.java`, con `@
 | Controller | `controller/comment/CommentController.java` |
 | Service | `service/comment/CommentService.java` |
 | Validation | `validation/comment/CommentValidationService.java` |
-| Validation (de otros dominios) | `validation/publication/PublicationValidationService.java` (visibilidad de la publicación), `validation/campaign/CampaignAuthorizationService.java` (`isAdmin`), `validation/auth/AccountStatusValidationService.java` (`isBlocked`), `validation/common/TextValidationService.java` (texto) |
+| Validation (de otros dominios) | `validation/publication/PublicationValidationService.java` (visibilidad de la publicación), `validation/common/RoleValidationService.java` (`isAdmin`), `validation/auth/AccountStatusValidationService.java` (`isSanctioned`), `validation/common/TextValidationService.java` (texto) |
 | Validation (común) | `validation/common/SortValidationService.java` (`validateAndGetPageable(int, int)`, sin orden) |
 | Mapper | `mapper/comment/CommentMapper.java` |
-| Repository | `repository/comment/CommentRepository.java`, `repository/user/UserRepository.java` (`getReferenceById`, `NOT_BLOCKED`) |
+| Repository | `repository/comment/CommentRepository.java`, `repository/user/UserRepository.java` (`getReferenceById`, `NOT_SANCTIONED`) |
 | DTOs | `dtos/comment/CreateCommentDTO.java`, `dtos/comment/CommentResponseDTO.java` |
 | Entity | `entity/comment/Comment.java`; usa `entity/publication/Publication.java`, `entity/user/User.java` |
 | Seguridad | `security/SecurityConfig.java` (`PUBLIC_GET_URLS`), `security/AuthenticatedUserService.java`, `security/JwtAuthenticationFilter.java` |

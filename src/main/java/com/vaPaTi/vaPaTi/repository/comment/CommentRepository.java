@@ -27,10 +27,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     // Non-admins: same, without banned or currently suspended authors
     @Query(value = "SELECT c FROM Comment c JOIN FETCH c.user u LEFT JOIN FETCH u.userInfo " +
             "LEFT JOIN FETCH u.verificationRequest " +
-            "WHERE c.publicationId = :publicationId AND u.deletedAt IS NULL AND " + UserRepository.NOT_BLOCKED +
+            "WHERE c.publicationId = :publicationId AND u.deletedAt IS NULL AND " + UserRepository.NOT_SANCTIONED +
             "ORDER BY c.createdAt ASC, c.id ASC",
             countQuery = "SELECT COUNT(c) FROM Comment c JOIN c.user u " +
-                    "WHERE c.publicationId = :publicationId AND u.deletedAt IS NULL AND " + UserRepository.NOT_BLOCKED)
+                    "WHERE c.publicationId = :publicationId AND u.deletedAt IS NULL AND " + UserRepository.NOT_SANCTIONED)
     Page<Comment> findVisibleByPublicationId(@Param("publicationId") Long publicationId,
                                              @Param("now") LocalDateTime now, Pageable pageable);
 }

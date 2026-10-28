@@ -13,6 +13,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +45,8 @@ class CampaignServiceCloseAndSoftDeleteIntegrationTest extends AbstractIntegrati
     private CampaignValidationService campaignValidationService;
     @MockitoBean
     private CampaignAuthorizationService campaignAuthorizationService;
+    @MockitoBean
+    private RoleValidationService roleValidationService;
 
     @Autowired
     private CampaignService campaignService;

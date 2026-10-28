@@ -37,6 +37,12 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** una sanción corta todas las sesiones al instante sin revocar tokens, y vuelve a habilitarlas sola cuando vence. Un cambio de rol se aplica sin esperar a que expire el token. El claim `role` del JWT no se usa para autorizar.
 - **Dónde:** `security/JwtAuthenticationFilter.java`, `service/auth/CustomUserDetailsService.java`, `validation/auth/AccountStatusValidationService.java`.
 
+### El rol ADMIN se comprueba en un solo lugar
+
+- **Qué:** `RoleValidationService.isAdmin(userId)` lee el rol de la base para un `userId` con una sola consulta (`existsByIdAndRole_Name`), y `hasAdminRole(user)` lo lee sobre un usuario ya cargado con su rol, sin consulta extra.
+- **Por qué:** antes había cuatro copias de la comprobación, y dominios que dependían de `campaign` solo para saber el rol. Leerlo de la base evita un claim viejo en el token.
+- **Dónde:** `validation/common/RoleValidationService.java`.
+
 ### JWT stateless con revocación por lista negra
 
 - **Qué:** access y refresh tokens se distinguen por el claim `type`. Los tokens invalidados antes de vencer se guardan por su `jti`, con una restricción única. Cada refresh token sirve una sola vez (rotación). Al cambiar email o contraseña, `tokensValidAfter` invalida todos los tokens emitidos antes.
@@ -51,9 +57,9 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** un tercero no puede distinguir "no existe" de "existe pero está oculto", así que no se entera de la sanción ni del cierre. El código lo dice en sus comentarios ("hidden like a missing one", "the sanction is not revealed").
 - **Dónde:** `validation/campaign/CampaignValidationService.java`, `validation/user/UserValidationService.java`, `validation/follower/FollowerValidationService.java`.
 
-### Un criterio de "bloqueado", escrito dos veces
+### Un criterio de "sancionado", escrito dos veces
 
-- **Qué:** bloqueado = `banned` o `suspendedUntil` posterior a ahora. En Java es `AccountStatusValidationService.isBlocked`. En JPQL, la constante `UserRepository.NOT_BLOCKED`, que recibe `:now` desde la JVM.
+- **Qué:** sancionado = `banned` o `suspendedUntil` posterior a ahora. En Java es `AccountStatusValidationService.isSanctioned`. En JPQL, la constante `UserRepository.NOT_SANCTIONED`, que recibe `:now` desde la JVM. "Sancionado" es el término del proyecto para baneado o con suspensión vigente; "bloqueo" queda para el bloqueo entre usuarios.
 - **Por qué:** los listados filtran en la base y las validaciones puntuales en memoria, con la misma regla. Pasar la hora desde la JVM evita depender del reloj del servidor de base de datos.
 - **Dónde:** `validation/auth/AccountStatusValidationService.java`, `repository/user/UserRepository.java`.
 

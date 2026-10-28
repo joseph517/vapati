@@ -17,6 +17,7 @@ import com.vaPaTi.vaPaTi.repository.report.ReportRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -60,6 +61,9 @@ class ReportValidationServiceTest {
     private CampaignValidationService campaignValidationService;
     @Spy
     private AccountStatusValidationService accountStatusValidationService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private ReportValidationService reportValidationService;
@@ -381,12 +385,12 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should throw ResourceNotFoundException (404) when a USER reports a blocked user")
-        void validateEntityExists_WithBlockedUserAndUserReporter_ShouldThrowNotFound() {
+        @DisplayName("Should throw ResourceNotFoundException (404) when a USER reports a sanctioned user")
+        void validateEntityExists_WithSanctionedUserAndUserReporter_ShouldThrowNotFound() {
             // Given
             testUser.setBanned(true);
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
-            when(userRepository.existsByIdAndRole_Name(REPORTER_ID, "ADMIN")).thenReturn(false);
+            when(roleValidationService.isAdmin(REPORTER_ID)).thenReturn(false);
 
             // When & Then
             assertThatThrownBy(() -> reportValidationService.validateEntityExists(
@@ -397,12 +401,12 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should return the user id when an ADMIN reports a blocked user")
-        void validateEntityExists_WithBlockedUserAndAdminReporter_ShouldReturnUserId() {
+        @DisplayName("Should return the user id when an ADMIN reports a sanctioned user")
+        void validateEntityExists_WithSanctionedUserAndAdminReporter_ShouldReturnUserId() {
             // Given
             testUser.setSuspendedUntil(LocalDateTime.now().plusDays(1));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
-            when(userRepository.existsByIdAndRole_Name(REPORTER_ID, "ADMIN")).thenReturn(true);
+            when(roleValidationService.isAdmin(REPORTER_ID)).thenReturn(true);
 
             // When
             Long ownerId = reportValidationService.validateEntityExists(ReportedEntityType.USER, 2L, REPORTER_ID);
@@ -412,8 +416,8 @@ class ReportValidationServiceTest {
         }
 
         @Test
-        @DisplayName("Should return the user id without checking the reporter's role when the user is not blocked")
-        void validateEntityExists_WithNotBlockedUser_ShouldNotCheckRole() {
+        @DisplayName("Should return the user id without checking the reporter's role when the user is not sanctioned")
+        void validateEntityExists_WithNotSanctionedUser_ShouldNotCheckRole() {
             // Given
             testUser.setSuspendedUntil(LocalDateTime.now().minusDays(1));
             when(userRepository.findById(2L)).thenReturn(Optional.of(testUser));
@@ -423,7 +427,7 @@ class ReportValidationServiceTest {
 
             // Then
             assertThat(ownerId).isEqualTo(2L);
-            verify(userRepository, never()).existsByIdAndRole_Name(any(), any());
+            verify(roleValidationService, never()).isAdmin(any());
         }
     }
 

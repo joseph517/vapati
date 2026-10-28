@@ -19,6 +19,7 @@ import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final CampaignService campaignService;
+    private final RoleValidationService roleValidationService;
 
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
@@ -169,10 +171,10 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         Long callerId = authenticatedUserService.getAuthenticatedUserId();
-        if (id.equals(callerId) || userValidationService.isAdmin(callerId)) {
+        if (id.equals(callerId) || roleValidationService.isAdmin(callerId)) {
             return userMapper.toUserDTO(user);
         }
-        userValidationService.validateProfileNotBlocked(user);
+        userValidationService.validateProfileNotSanctioned(user);
         return userMapper.toPublicUserProfileDTO(user);
     }
 

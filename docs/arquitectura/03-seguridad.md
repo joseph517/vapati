@@ -37,7 +37,7 @@ sequenceDiagram
     C->>AC: POST /auth/login {email, password}
     AC->>AS: authenticate()
     AS->>DB: DaoAuthenticationProvider: usuario por email (incluye borrados) + BCrypt
-    AS->>AS: validateNotBlocked (403 si ban/suspensión)
+    AS->>AS: validateNotSanctioned (403 si ban/suspensión)
     AS->>DB: si estaba borrado: deletedAt = null
     AS->>J: generateToken + generateRefreshToken
     AS-->>C: 200 {accessToken (1 h), refreshToken (7 días), userInfo}
@@ -48,7 +48,7 @@ sequenceDiagram
     F->>BL: ¿jti revocado? (SELECT en revoked_tokens)
     F->>DB: findByIdForRequest(sub) (no ve borrados)
     F->>J: ¿iat anterior a tokensValidAfter?
-    F->>F: validateNotBlocked → 403 directo si está sancionado
+    F->>F: validateNotSanctioned → 403 directo si está sancionado
     F->>API: SecurityContext con ROLE_<rol> y el JWT como credencial
     API-->>C: 200 / 4xx del dominio
 
@@ -57,7 +57,7 @@ sequenceDiagram
     AC->>AS: refreshToken()
     AS->>J: firma, exp, type = refresh
     AS->>BL: ¿jti revocado?
-    AS->>DB: findByIdForRequest + tokensValidAfter + validateNotBlocked
+    AS->>DB: findByIdForRequest + tokensValidAfter + validateNotSanctioned
     AS->>BL: revokeToken(jti usado)
     AS-->>C: 200 par nuevo (cualquier rechazo → 401 Invalid or expired refresh token)
 
@@ -154,6 +154,8 @@ El resto de los endpoints autenticados no tiene `@PreAuthorize`: cualquier `USER
 
 `hasRole('ADMIN')` compara contra la autoridad `ROLE_ADMIN`, que `CustomUserDetailsService` arma con `"ROLE_" + rol.toUpperCase()` leyendo el rol **de la base**, no del claim `role` del token. Un cambio de rol se aplica en el siguiente request, sin esperar a que venza el token.
 
+Dentro de un service, para saber si quien llama es ADMIN se usa `validation/common/RoleValidationService.java`: `isAdmin(userId)` lee el rol de la base con una sola consulta (`false` para un id `null` y para un usuario borrado) y `hasAdminRole(user)` lo lee de un usuario ya cargado con su rol. Tampoco mira el claim `role` del token. Es la única implementación; ver [Decisiones de diseño](08-decisiones-de-diseno.md#el-rol-admin-se-comprueba-en-un-solo-lugar).
+
 `@Valid` sobre el body se evalúa antes que `@PreAuthorize`: un `USER` que manda un body inválido a un endpoint de ADMIN recibe `400` de validación en lugar de `403`.
 
 ## `JwtAuthenticationFilter`
@@ -239,14 +241,14 @@ Hay dos excepciones a la regla de "el usuario sale del token": las cuentas banca
 Es la única definición de "cuenta sancionada" del proyecto:
 
 - **Baneada:** `User.banned = true`.
-- **Suspendida:** `User.suspendedUntil` en el futuro. Una suspensión vencida no bloquea y no hace falta levantarla.
+- **Suspendida:** `User.suspendedUntil` en el futuro. Una suspensión vencida no es una sanción y no hace falta levantarla.
 
 Tiene dos métodos con el mismo criterio y distinto uso:
 
 | Método | Qué hace | Lo usan |
 |---|---|---|
-| `validateNotBlocked(user)` | Lanza `ForbiddenActionException` con el motivo (`bannedReason`, o `Violation of terms` si es `null`). | Login y refresh (`AuthenticationService`) y el filtro JWT. Le habla al propio titular de la cuenta. |
-| `isBlocked(user)` | Devuelve `boolean`, sin decir qué sanción aplica. | `validation/user/UserValidationService.java`, `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java`, para ocultar al usuario sancionado a terceros con `404`. |
+| `validateNotSanctioned(user)` | Lanza `ForbiddenActionException` con el motivo (`bannedReason`, o `Violation of terms` si es `null`). | Login y refresh (`AuthenticationService`) y el filtro JWT. Le habla al propio titular de la cuenta. |
+| `isSanctioned(user)` | Devuelve `boolean`, sin decir qué sanción aplica. | `validation/user/UserValidationService.java`, `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java`, `validation/comment/CommentValidationService.java`, para ocultar al usuario sancionado a terceros con `404`. |
 
 Así el titular se entera de su sanción y del motivo, y los demás no pueden distinguir a un usuario sancionado de uno inexistente. Quién banea y suspende está en [Reportes](dominios/report.md).
 

@@ -54,7 +54,7 @@ VaPaTiApplication.java
 controller/   dtos/   entity/   mapper/   repository/   service/   validation/
    └── <dominio>/   (auth, user, category, campaign, donation, follower,
                      publication, comment, bankaccount, verification, report)
-validation/common/   código de validación compartido (SortValidationService, TextValidationService)
+validation/common/   código de validación compartido (SortValidationService, TextValidationService, RoleValidationService)
 exception/           excepciones y GlobalExceptionHandler
 security/            SecurityConfig, JwtAuthenticationFilter, AuthenticatedUserService, CorsConfig, OpenAPIConfig
 utils/               ValidationUtils, PasswordHashGenerator

@@ -499,66 +499,15 @@ class UserValidationServiceUserRetrievalTest {
     }
 
     @Nested
-    @DisplayName("isAdmin()")
-    class IsAdminTests {
-
-        private User userWithRole(String roleName) {
-            return User.builder()
-                    .id(VALID_USER_ID)
-                    .role(Role.builder().id(1L).name(roleName).build())
-                    .build();
-        }
-
-        @Test
-        @DisplayName("User with ADMIN role: true")
-        void isAdmin_WithAdminRole_ShouldReturnTrue() {
-            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.of(userWithRole("ADMIN")));
-
-            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isTrue();
-        }
-
-        @Test
-        @DisplayName("User with USER role: false")
-        void isAdmin_WithUserRole_ShouldReturnFalse() {
-            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.of(userWithRole("USER")));
-
-            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isFalse();
-        }
-
-        @Test
-        @DisplayName("User without role: false")
-        void isAdmin_WithoutRole_ShouldReturnFalse() {
-            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.of(User.builder().id(VALID_USER_ID).build()));
-
-            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isFalse();
-        }
-
-        @Test
-        @DisplayName("Missing or deleted user: false")
-        void isAdmin_WithMissingUser_ShouldReturnFalse() {
-            when(userRepository.findById(VALID_USER_ID)).thenReturn(Optional.empty());
-
-            assertThat(userValidationService.isAdmin(VALID_USER_ID)).isFalse();
-        }
-
-        @Test
-        @DisplayName("Null id: false without querying")
-        void isAdmin_WithNullId_ShouldReturnFalse() {
-            assertThat(userValidationService.isAdmin(null)).isFalse();
-            verifyNoInteractions(userRepository);
-        }
-    }
-
-    @Nested
-    @DisplayName("validateProfileNotBlocked()")
-    class ValidateProfileNotBlockedTests {
+    @DisplayName("validateProfileNotSanctioned()")
+    class ValidateProfileNotSanctionedTests {
 
         @Test
         @DisplayName("Banned user: 404 User not found")
         void bannedUser_ShouldThrowNotFound() {
             User user = User.builder().id(VALID_USER_ID).banned(true).build();
 
-            assertThatThrownBy(() -> userValidationService.validateProfileNotBlocked(user))
+            assertThatThrownBy(() -> userValidationService.validateProfileNotSanctioned(user))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(EXPECTED_ERROR_MESSAGE);
         }
@@ -568,7 +517,7 @@ class UserValidationServiceUserRetrievalTest {
         void currentlySuspendedUser_ShouldThrowNotFound() {
             User user = User.builder().id(VALID_USER_ID).suspendedUntil(LocalDateTime.now().plusDays(1)).build();
 
-            assertThatThrownBy(() -> userValidationService.validateProfileNotBlocked(user))
+            assertThatThrownBy(() -> userValidationService.validateProfileNotSanctioned(user))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage(EXPECTED_ERROR_MESSAGE);
         }
@@ -578,7 +527,7 @@ class UserValidationServiceUserRetrievalTest {
         void expiredSuspension_ShouldNotThrow() {
             User user = User.builder().id(VALID_USER_ID).suspendedUntil(LocalDateTime.now().minusDays(1)).build();
 
-            assertThatCode(() -> userValidationService.validateProfileNotBlocked(user)).doesNotThrowAnyException();
+            assertThatCode(() -> userValidationService.validateProfileNotSanctioned(user)).doesNotThrowAnyException();
         }
 
         @Test
@@ -586,7 +535,7 @@ class UserValidationServiceUserRetrievalTest {
         void notSanctionedUser_ShouldNotThrow() {
             User user = User.builder().id(VALID_USER_ID).banned(false).build();
 
-            assertThatCode(() -> userValidationService.validateProfileNotBlocked(user)).doesNotThrowAnyException();
+            assertThatCode(() -> userValidationService.validateProfileNotSanctioned(user)).doesNotThrowAnyException();
         }
     }
 }

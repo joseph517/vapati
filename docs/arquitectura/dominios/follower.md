@@ -4,7 +4,7 @@
 
 Permite que un usuario siga a otro, deje de seguirlo y que cualquier usuario autenticado consulte a quién sigue y quién sigue a un usuario dado, con listas, contadores y una consulta puntual "¿A sigue a B?".
 
-Es un dominio chico y autocontenido: ningún otro dominio lee la tabla `followers`. Lo interesante está en cómo interactúa con dos reglas transversales: el **soft delete** de usuarios y el **ocultamiento de usuarios bloqueados** (baneados o con suspensión vigente), que acá se aplica distinto según quién llama sea o no `ADMIN`.
+Es un dominio chico y autocontenido: ningún otro dominio lee la tabla `followers`. Lo interesante está en cómo interactúa con dos reglas transversales: el **soft delete** de usuarios y el **ocultamiento de usuarios sancionados** (baneados o con suspensión vigente), que acá se aplica distinto según quién llama sea o no `ADMIN`.
 
 Todas las rutas cuelgan de `/api/users/{userId}`, porque el recurso es siempre "los seguidores de un usuario".
 
@@ -49,10 +49,10 @@ Todas las reglas viven en `validation/follower/FollowerValidationService.java`; 
 3. **Nadie se deja de seguir a sí mismo** (`validateNotSelfUnfollow`): mismo chequeo, mensaje `Users cannot unfollow themselves`.
 4. **No se sigue dos veces** (`validateNotAlreadyFollowing`): si la relación ya existe, `409` con `User is already being followed`. Si dos requests simultáneos pasan esta validación a la vez, la restricción única de la tabla hace fallar el segundo `INSERT` y `GlobalExceptionHandler` lo convierte en `409` con `The request conflicts with existing data`.
 5. **Solo se deja de seguir a quien se sigue** (`validateAndGetFollowRelation`): si no hay relación, `404` con `Follow relationship not found`.
-6. **No se puede seguir ni dejar de seguir a un usuario borrado o bloqueado** (`validateAndGetUserToFollow`, `validateAndGetUserToUnfollow`): responden `404` como si no existiera. Esta regla no tiene excepción para `ADMIN`. Consecuencia observable: si A sigue a B y B es sancionado, A no puede dejar de seguirlo mientras dure la sanción; la relación queda oculta (no aparece en listas ni contadores para un no-admin) y vuelve a aparecer cuando la suspensión vence o el ban se levanta.
+6. **No se puede seguir ni dejar de seguir a un usuario borrado o sancionado** (`validateAndGetUserToFollow`, `validateAndGetUserToUnfollow`): responden `404` como si no existiera. Esta regla no tiene excepción para `ADMIN`. Consecuencia observable: si A sigue a B y B es sancionado, A no puede dejar de seguirlo mientras dure la sanción; la relación queda oculta (no aparece en listas ni contadores para un no-admin) y vuelve a aparecer cuando la suspensión vence o el ban se levanta.
 7. **El usuario actual debe existir** (`validateAndGetCurrentUser`): `404` con `Current user not found with ID: {id}`. En la práctica no se alcanza, porque el filtro JWT ya rechaza con `401` a un usuario borrado o inexistente; queda como defensa.
-8. **Ocultamiento de bloqueados en lecturas, salvo para `ADMIN`** (`validateAndGetVisibleUser`, `isFollowing` y las queries `*Visible*` de `repository/follower/FollowerRepository.java`): ver la sección siguiente.
-9. **"¿Es admin?" se lee de la base, no del token** (`isAdmin`, con `UserRepository.existsByIdAndRole_Name(id, "ADMIN")`): una sola consulta, que además devuelve `false` para un admin borrado. Si el rol cambia, la regla se aplica sin esperar a que expire el token.
+8. **Ocultamiento de sancionados en lecturas, salvo para `ADMIN`** (`validateAndGetVisibleUser`, `isFollowing` y las queries `*Visible*` de `repository/follower/FollowerRepository.java`): ver la sección siguiente.
+9. **"¿Es admin?" se lee de la base, no del token** (`RoleValidationService.isAdmin`, con `UserRepository.existsByIdAndRole_Name(id, "ADMIN")`): una sola consulta, que además devuelve `false` para un admin borrado. Si el rol cambia, la regla se aplica sin esperar a que expire el token.
 
 ## Estados
 
@@ -72,20 +72,20 @@ Se excluyen siempre, también para `ADMIN`:
 - Las listas hacen `JOIN FETCH` interno hacia el otro usuario; el `@SQLRestriction` de `User` se aplica en esa unión y las filas que apuntan a un usuario borrado quedan afuera.
 - Los contadores lo dicen explícitamente con `u.deletedAt IS NULL`, para dar el mismo número que las listas.
 
-### Usuarios bloqueados (baneados o con suspensión vigente)
+### Usuarios sancionados (baneados o con suspensión vigente)
 
-El criterio de "bloqueado" es el mismo en Java y en SQL: `AccountStatusValidationService.isBlocked` (`banned = true` o `suspendedUntil` posterior a ahora) y la constante `UserRepository.NOT_BLOCKED`, que repite esa condición en JPQL con el `:now` de la JVM.
+El criterio de "sancionado" es el mismo en Java y en SQL: `AccountStatusValidationService.isSanctioned` (`banned = true` o `suspendedUntil` posterior a ahora) y la constante `UserRepository.NOT_SANCTIONED`, que repite esa condición en JPQL con el `:now` de la JVM.
 
 | Operación | Llamante no-admin | Llamante `ADMIN` |
 |---|---|---|
-| Seguir / dejar de seguir a un bloqueado | `404` (`User to follow not found…` / `User to unfollow not found…`) | `404`, igual que un no-admin |
-| Listar o contar seguidores/seguidos **de** un bloqueado | `404` `User not found with ID: {id}` | Responde normalmente |
-| Bloqueados **dentro** de una lista o contador | Se omiten (queries `findVisible*` y `countVisible*`) | Aparecen y cuentan (queries sin `NOT_BLOCKED`) |
-| `is-following` con alguno de los dos ids bloqueado | `404` (`Current user not found…` / `Other user not found…`) | Responde `true`/`false` |
+| Seguir / dejar de seguir a un sancionado | `404` (`User to follow not found…` / `User to unfollow not found…`) | `404`, igual que un no-admin |
+| Listar o contar seguidores/seguidos **de** un sancionado | `404` `User not found with ID: {id}` | Responde normalmente |
+| Sancionados **dentro** de una lista o contador | Se omiten (queries `findVisible*` y `countVisible*`) | Aparecen y cuentan (queries sin `NOT_SANCTIONED`) |
+| `is-following` con alguno de los dos ids sancionado | `404` (`Current user not found…` / `Other user not found…`) | Responde `true`/`false` |
 
-El porqué está en los comentarios del código: el usuario bloqueado "is not found, so the sanction is not revealed". El efecto es que, para un no-admin, un usuario sancionado no se distingue de uno inexistente: mismo status y mismo mensaje dentro de cada endpoint. Las lecturas exceptúan al `ADMIN`, que ve el grafo completo con los sancionados incluidos; las escrituras (seguir y dejar de seguir) no lo exceptúan.
+El porqué está en los comentarios del código: el usuario sancionado "is not found, so the sanction is not revealed". El efecto es que, para un no-admin, un usuario sancionado no se distingue de uno inexistente: mismo status y mismo mensaje dentro de cada endpoint. Las lecturas exceptúan al `ADMIN`, que ve el grafo completo con los sancionados incluidos; las escrituras (seguir y dejar de seguir) no lo exceptúan.
 
-El propio usuario bloqueado no llega a ninguno de estos endpoints: el filtro JWT corta su request con `403` (ver [Seguridad](../03-seguridad.md)).
+El propio usuario sancionado no llega a ninguno de estos endpoints: el filtro JWT corta su request con `403` (ver [Seguridad](../03-seguridad.md)).
 
 ### Cuándo `404` y cuándo `403`
 
@@ -95,11 +95,11 @@ El dominio no responde `403` por reglas propias. El único `403` posible es el d
 flowchart TD
     A["GET lista o contador de {userId}"] --> B{"¿El llamante es ADMIN?<br/>(existsByIdAndRole_Name)"}
     B -- sí --> C{"¿{userId} existe y no está borrado?"}
-    B -- no --> D{"¿{userId} existe, no está borrado<br/>y no está bloqueado?"}
+    B -- no --> D{"¿{userId} existe, no está borrado<br/>y no está sancionado?"}
     C -- no --> E["404 User not found with ID: {userId}"]
     D -- no --> E
-    C -- sí --> F["findFollowersByUser / countByUser<br/>(incluye bloqueados, excluye borrados)"]
-    D -- sí --> G["findVisibleFollowersByUser / countVisibleByUser<br/>(excluye bloqueados y borrados)"]
+    C -- sí --> F["findFollowersByUser / countByUser<br/>(incluye sancionados, excluye borrados)"]
+    D -- sí --> G["findVisibleFollowersByUser / countVisibleByUser<br/>(excluye sancionados y borrados)"]
 ```
 
 ### Paginación y orden
@@ -155,7 +155,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   |---|---|---|---|
   | `400` | `Business logic error` | `Users cannot follow themselves` | `{userId}` es el id del token. Se chequea antes que la existencia. |
   | `404` | `Resource not found` | `Current user not found with ID: {id}` | El usuario del token no existe o está borrado (en la práctica el filtro ya respondió `401`). |
-  | `404` | `Resource not found` | `User to follow not found with ID: {userId}` | El usuario a seguir no existe, está borrado o está bloqueado. También para `ADMIN`. |
+  | `404` | `Resource not found` | `User to follow not found with ID: {userId}` | El usuario a seguir no existe, está borrado o está sancionado. También para `ADMIN`. |
   | `409` | `Conflict` | `User is already being followed` | Ya lo sigue. |
   | `409` | `Conflict` | `The request conflicts with existing data` | Dos requests simultáneos crean la misma relación: la restricción única de `followers` rechaza el segundo. |
 
@@ -164,7 +164,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   1. Obtiene el id del llamante desde el token (`AuthenticatedUserService`).
   2. `validateNotSelfFollow(idToken, userId)`.
   3. `validateAndGetCurrentUser(idToken)`.
-  4. `validateAndGetUserToFollow(userId)`: lo busca y lo descarta si está bloqueado.
+  4. `validateAndGetUserToFollow(userId)`: lo busca y lo descarta si está sancionado.
   5. `validateNotAlreadyFollowing(seguido, actual)`.
   6. Crea un `Follower` con `user` = seguido, `follower` = actual y `createdAt` = ahora, y lo guarda.
   7. Mapea con `FollowerMapper.toFollowResponseDto`, que usa los datos del seguido.
@@ -193,7 +193,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   |---|---|---|---|
   | `400` | `Business logic error` | `Users cannot unfollow themselves` | `{userId}` es el id del token. |
   | `404` | `Resource not found` | `Current user not found with ID: {id}` | El usuario del token no existe o está borrado (en la práctica el filtro ya respondió `401`). |
-  | `404` | `Resource not found` | `User to unfollow not found with ID: {userId}` | El usuario no existe, está borrado o está bloqueado. También para `ADMIN`. |
+  | `404` | `Resource not found` | `User to unfollow not found with ID: {userId}` | El usuario no existe, está borrado o está sancionado. También para `ADMIN`. |
   | `404` | `Resource not found` | `Follow relationship not found` | El llamante no sigue a ese usuario. |
 
   Más los [errores comunes](#errores-comunes-a-todos-los-endpoints).
@@ -201,7 +201,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   1. Obtiene el id del llamante desde el token.
   2. `validateNotSelfUnfollow(idToken, userId)`.
   3. `validateAndGetCurrentUser(idToken)`.
-  4. `validateAndGetUserToUnfollow(userId)`: lo busca y lo descarta si está bloqueado.
+  4. `validateAndGetUserToUnfollow(userId)`: lo busca y lo descarta si está sancionado.
   5. `validateAndGetFollowRelation(seguido, actual)`.
   6. Borra la fila de `followers` (borrado físico).
   7. Mapea con `FollowerMapper.toUnfollowResponseDto`.
@@ -222,18 +222,18 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   |---|---|---|
   | `userId` | `Long` | El `{userId}` de la ruta. |
   | `totalFollowers` | `int` | Cantidad de elementos de `followers`. |
-  | `followers` | lista de `FollowerUserDTO` | Cada seguidor: `id`, `firstName`, `lastName`, `userName`, `profilePicture`, `followedAt`. Sin borrados; sin bloqueados salvo para `ADMIN`. |
+  | `followers` | lista de `FollowerUserDTO` | Cada seguidor: `id`, `firstName`, `lastName`, `userName`, `profilePicture`, `followedAt`. Sin borrados; sin sancionados salvo para `ADMIN`. |
 
 - **Errores:**
 
   | Status | `error` | Mensaje | Cuándo |
   |---|---|---|---|
-  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está bloqueado y el llamante no es `ADMIN`. |
+  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está sancionado y el llamante no es `ADMIN`. |
 
   Más los [errores comunes](#errores-comunes-a-todos-los-endpoints).
 - **Qué hace:**
-  1. Decide si el llamante es `ADMIN` (`isAdmin` contra la base, con el id del token).
-  2. `validateAndGetVisibleUser(userId, esAdmin)`: carga el usuario con `findByIdForRequest` y, si no es admin, lo descarta si está bloqueado.
+  1. Decide si el llamante es `ADMIN` (`RoleValidationService.isAdmin` contra la base, con el id del token).
+  2. `validateAndGetVisibleUser(userId, esAdmin)`: carga el usuario con `findByIdForRequest` y, si no es admin, lo descarta si está sancionado.
   3. Si es `ADMIN`, `findFollowersByUser`; si no, `findVisibleFollowersByUser` con la hora actual.
   4. Mapea con `FollowerMapper.toFollowersListResponseDto`, tomando los datos del lado `follower` de cada relación.
 
@@ -253,13 +253,13 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   |---|---|---|
   | `userId` | `Long` | El `{userId}` de la ruta. |
   | `totalFollowers` | `int` | Cantidad de **seguidos** (el nombre del campo es compartido con la otra lista). |
-  | `followers` | lista de `FollowerUserDTO` | Cada usuario **seguido**: `id`, `firstName`, `lastName`, `userName`, `profilePicture`, `followedAt`. Sin borrados; sin bloqueados salvo para `ADMIN`. |
+  | `followers` | lista de `FollowerUserDTO` | Cada usuario **seguido**: `id`, `firstName`, `lastName`, `userName`, `profilePicture`, `followedAt`. Sin borrados; sin sancionados salvo para `ADMIN`. |
 
 - **Errores:**
 
   | Status | `error` | Mensaje | Cuándo |
   |---|---|---|---|
-  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está bloqueado y el llamante no es `ADMIN`. |
+  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está sancionado y el llamante no es `ADMIN`. |
 
   Más los [errores comunes](#errores-comunes-a-todos-los-endpoints).
 - **Qué hace:**
@@ -285,7 +285,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
 
   | Status | `error` | Mensaje | Cuándo |
   |---|---|---|---|
-  | `404` | `Resource not found` | `Current user not found with ID: {userId}` | `userId` no existe o está borrado; o está bloqueado y el llamante no es `ADMIN`. |
+  | `404` | `Resource not found` | `Current user not found with ID: {userId}` | `userId` no existe o está borrado; o está sancionado y el llamante no es `ADMIN`. |
   | `404` | `Resource not found` | `Other user not found with ID: {otherUserId}` | Lo mismo para `otherUserId`. |
 
   Más los [errores comunes](#errores-comunes-a-todos-los-endpoints).
@@ -293,7 +293,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   1. Decide si el llamante es `ADMIN`.
   2. `FollowerValidationService.isFollowing(userId, otherUserId, esAdmin)`:
      1. Si los dos ids son iguales, devuelve `false` sin consultar la base (nadie se sigue a sí mismo). Por eso un id repetido inexistente también da `200 false`.
-     2. Busca `userId` y `otherUserId` con `findById`; si no es admin, descarta los bloqueados.
+     2. Busca `userId` y `otherUserId` con `findById`; si no es admin, descarta los sancionados.
      3. Devuelve `existsByUserAndFollower(otherUser, user)`.
 
 ### `GET /api/users/{userId}/followers/count`
@@ -306,12 +306,12 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
   | `userId` | path | `Long` | sí | Usuario cuyos seguidores se cuentan. |
 
 - **Body:** sin body.
-- **Respuesta:** `200 OK` con un número JSON plano (`long`), sin envoltorio. Coincide con `totalFollowers` de `GET /api/users/{userId}/followers` para el mismo llamante: excluye seguidores borrados y, salvo para `ADMIN`, bloqueados.
+- **Respuesta:** `200 OK` con un número JSON plano (`long`), sin envoltorio. Coincide con `totalFollowers` de `GET /api/users/{userId}/followers` para el mismo llamante: excluye seguidores borrados y, salvo para `ADMIN`, sancionados.
 - **Errores:**
 
   | Status | `error` | Mensaje | Cuándo |
   |---|---|---|---|
-  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está bloqueado y el llamante no es `ADMIN`. |
+  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está sancionado y el llamante no es `ADMIN`. |
 
   Más los [errores comunes](#errores-comunes-a-todos-los-endpoints).
 - **Qué hace:**
@@ -334,7 +334,7 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
 
   | Status | `error` | Mensaje | Cuándo |
   |---|---|---|---|
-  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está bloqueado y el llamante no es `ADMIN`. |
+  | `404` | `Resource not found` | `User not found with ID: {userId}` | El usuario no existe o está borrado; o está sancionado y el llamante no es `ADMIN`. |
 
   Más los [errores comunes](#errores-comunes-a-todos-los-endpoints).
 - **Qué hace:**
@@ -348,14 +348,15 @@ Los cuerpos de error tienen la forma `{error, message, timestamp}` (más `path` 
 |---|---|---|
 | controller | `controller/follower/FollowerController.java` | Los 7 endpoints bajo `/api/users/{userId}`. Delega directo en el service. |
 | service | `service/follower/FollowerService.java` | Obtiene el llamante del token, decide si es admin, encadena validaciones, elige la query (completa o `*Visible*`) y mapea. |
-| validation | `validation/follower/FollowerValidationService.java` | Auto-seguimiento, existencia y visibilidad de usuarios, relación duplicada o inexistente, `isFollowing`, `isAdmin`. |
-| validation | `validation/auth/AccountStatusValidationService.java` | `isBlocked`: criterio de ban o suspensión vigente. |
+| validation | `validation/follower/FollowerValidationService.java` | Auto-seguimiento, existencia y visibilidad de usuarios, relación duplicada o inexistente, `isFollowing`. |
+| validation | `validation/common/RoleValidationService.java` | `isAdmin`: el rol de quien llama, leído de la base. |
+| validation | `validation/auth/AccountStatusValidationService.java` | `isSanctioned`: criterio de ban o suspensión vigente. |
 | mapper | `mapper/follower/FollowerMapper.java` | `Follower` → `FollowerUserDTO` desde el lado seguidor o el lado seguido, y armado de las respuestas. |
 | repository | `repository/follower/FollowerRepository.java` | Existencia y búsqueda de una relación, listas y contadores completos y `*Visible*`. |
-| repository | `repository/user/UserRepository.java` | `findById`, `findByIdForRequest`, `existsByIdAndRole_Name` y la constante `NOT_BLOCKED`. |
+| repository | `repository/user/UserRepository.java` | `findById`, `findByIdForRequest`, `existsByIdAndRole_Name` y la constante `NOT_SANCTIONED`. |
 | security | `security/AuthenticatedUserService.java` | `getAuthenticatedUserId()`: id del llamante a partir del JWT. |
 | entity | `entity/follower/Follower.java` | La relación. |
 | entity | `entity/user/User.java` | Ambos extremos de la relación; soft delete y campos de sanción. |
 | DTOs | `dtos/follower/FollowerUserDTO.java`, `dtos/follower/FollowResponseDTO.java`, `dtos/follower/UnfollowResponseDTO.java`, `dtos/follower/FollowersListResponseDTO.java` | Respuestas. |
 
-Los perfiles de usuario, que aplican el mismo ocultamiento de bloqueados, están en [User](user.md).
+Los perfiles de usuario, que aplican el mismo ocultamiento de sancionados, están en [User](user.md).

@@ -13,8 +13,8 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +32,8 @@ public class DonationValidationService {
     private final UserRepository userRepository;
     private final TextValidationService textValidationService;
     private final DonationRepository donationRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
     private final UserValidationService userValidationService;
+    private final RoleValidationService roleValidationService;
 
     // Exactly one destination: a campaign or a user (direct donation). Checked before the amount
     public void validateInput(@NotNull CreateDonationDTO dto) {
@@ -95,7 +95,7 @@ public class DonationValidationService {
     // ADMIN donor, so a sanction is not revealed. The role is LAZY: read it inside the caller's transaction
     public User validateAndGetRecipient(Long recipientUserId) {
         User recipient = userValidationService.getUserById(recipientUserId);
-        userValidationService.validateProfileNotBlocked(recipient);
+        userValidationService.validateProfileNotSanctioned(recipient);
 
         if (!RECIPIENT_ROLE.equals(recipient.getRole().getName())) {
             throw new MessageException("Cannot donate to an admin");
@@ -144,7 +144,7 @@ public class DonationValidationService {
     }
 
     public void validateIsRecipientOrAdmin(Donation donation, Long callerId) {
-        if (!isRecipient(donation, callerId) && !campaignAuthorizationService.isAdmin(callerId)) {
+        if (!isRecipient(donation, callerId) && !roleValidationService.isAdmin(callerId)) {
             throw new ForbiddenActionException(isCampaignDonation(donation)
                     ? "Only the campaign owner or an admin can delete this reply"
                     : "Only the recipient or an admin can delete this reply");

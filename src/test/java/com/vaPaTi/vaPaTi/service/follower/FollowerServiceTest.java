@@ -13,6 +13,7 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.follower.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.follower.FollowerValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,9 @@ class FollowerServiceTest {
     private FollowerValidationService followerValidationService;
     @Mock
     private AuthenticatedUserService authenticatedUserService;
+
+    @Mock
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private FollowerService followerService;
@@ -781,14 +785,14 @@ class FollowerServiceTest {
     }
 
     @Nested
-    @DisplayName("Blocked users are hidden from non-admins (spec 45)")
-    class BlockedUsersVisibilityTests {
+    @DisplayName("Sanctioned users are hidden from non-admins (spec 45)")
+    class SanctionedUsersVisibilityTests {
 
         private static final Long ADMIN_ID = 9L;
 
         private void givenCaller(Long callerId, boolean isAdmin) {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(callerId);
-            when(followerValidationService.isAdmin(callerId)).thenReturn(isAdmin);
+            when(roleValidationService.isAdmin(callerId)).thenReturn(isAdmin);
             when(followerValidationService.validateAndGetVisibleUser(OTHER_USER_ID, isAdmin)).thenReturn(userToFollow);
         }
 
@@ -889,10 +893,10 @@ class FollowerServiceTest {
         }
 
         @Test
-        @DisplayName("A blocked user's lists are not found for a non-admin")
-        void getFollowers_WhenUserBlockedAndNotAdmin_ShouldThrowNotFound() {
+        @DisplayName("A sanctioned user's lists are not found for a non-admin")
+        void getFollowers_WhenUserSanctionedAndNotAdmin_ShouldThrowNotFound() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(followerValidationService.isAdmin(CURRENT_USER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CURRENT_USER_ID)).thenReturn(false);
             when(followerValidationService.validateAndGetVisibleUser(OTHER_USER_ID, false))
                     .thenThrow(new ResourceNotFoundException(USER_NOT_FOUND + OTHER_USER_ID));
 
@@ -907,7 +911,7 @@ class FollowerServiceTest {
         @DisplayName("isFollowing passes whether the caller is an ADMIN to the validation")
         void isFollowing_WhenAdmin_ShouldPassCallerIsAdmin() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(ADMIN_ID);
-            when(followerValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             when(followerValidationService.isFollowing(CURRENT_USER_ID, OTHER_USER_ID, true)).thenReturn(true);
 
             assertThat(followerService.isFollowing(CURRENT_USER_ID, OTHER_USER_ID)).isTrue();

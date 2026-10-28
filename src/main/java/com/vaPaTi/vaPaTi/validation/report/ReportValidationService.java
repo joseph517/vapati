@@ -16,6 +16,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.comment.CommentValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +33,6 @@ public class ReportValidationService {
     private static final int MAX_REPORTS_PER_DAY = 10;
     private static final String USER_NOT_FOUND = "User not found";
     private static final String PUBLICATION_NOT_FOUND = "Publication not found";
-    private static final String ADMIN_ROLE = "ADMIN";
 
     // Actions a RESOLVED report can take on each entity type. NO_ACTION is not listed: RESOLVED does not accept it.
     private static final Map<ReportedEntityType, Set<ActionTaken>> ALLOWED_ACTIONS = Map.of(
@@ -52,6 +52,7 @@ public class ReportValidationService {
     private final CampaignValidationService campaignValidationService;
     private final AccountStatusValidationService accountStatusValidationService;
     private final CommentValidationService commentValidationService;
+    private final RoleValidationService roleValidationService;
 
     /**
      * Validate the input DTO
@@ -93,9 +94,9 @@ public class ReportValidationService {
                     throw new MessageException("Cannot report a deleted user");
                 }
                 // A banned or suspended user is hidden like a missing one, except for an ADMIN.
-                // isBlocked goes first so the role is only queried for a blocked user
-                if (accountStatusValidationService.isBlocked(user.get())
-                        && !userRepository.existsByIdAndRole_Name(reporterId, ADMIN_ROLE)) {
+                // isSanctioned goes first so the role is only queried for a sanctioned user
+                if (accountStatusValidationService.isSanctioned(user.get())
+                        && !roleValidationService.isAdmin(reporterId)) {
                     throw new ResourceNotFoundException(USER_NOT_FOUND);
                 }
                 yield entityId;
@@ -118,7 +119,7 @@ public class ReportValidationService {
             }
             // A CLOSED campaign of someone else is reported as not found, same as a missing one
             case CAMPAIGN -> ownerIdOf(campaignValidationService.findVisibleCampaignByIdOrThrow(entityId, reporterId).getUser());
-            // A hidden comment (blocked author for a non-admin, or a publication the reporter can't see) answers the same 404 as a missing one
+            // A hidden comment (sanctioned author for a non-admin, or a publication the reporter can't see) answers the same 404 as a missing one
             case COMMENT -> ownerIdOf(commentValidationService.validateAndGetVisibleComment(entityId, reporterId).getUser());
             default -> throw new MessageException("Invalid entity type");
         };

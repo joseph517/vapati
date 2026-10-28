@@ -9,6 +9,7 @@ import com.vaPaTi.vaPaTi.mapper.donation.DonationMapper;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,9 @@ class SupporterServiceTest {
     @Mock
     private AuthenticatedUserService authenticatedUserService;
 
+    @Mock
+    private RoleValidationService roleValidationService;
+
     @InjectMocks
     private SupporterService supporterService;
 
@@ -109,7 +113,7 @@ class SupporterServiceTest {
 
             // Then
             assertFullRows(result);
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
         @Test
@@ -118,7 +122,7 @@ class SupporterServiceTest {
             // Given
             givenCreatorExists();
             givenCaller(ADMIN_ID);
-            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             givenSupporters(List.of(rowA, rowB), 2L);
             when(userRepository.findAllWithDetailsByIdIn(List.of(DONOR_A_ID, DONOR_B_ID)))
                     .thenReturn(List.of(donorA, donorB));
@@ -128,7 +132,7 @@ class SupporterServiceTest {
 
             // Then
             assertFullRows(result);
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
         @Test
@@ -137,7 +141,7 @@ class SupporterServiceTest {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
             givenSupporters(List.of(rowA, rowB), 2L);
             when(userRepository.findAllWithDetailsByIdIn(List.of(DONOR_A_ID, DONOR_B_ID)))
                     .thenReturn(List.of(donorA, donorB));
@@ -147,7 +151,7 @@ class SupporterServiceTest {
 
             // Then
             assertPublicRows(result);
-            verify(userValidationService).validateProfileNotBlocked(creator);
+            verify(userValidationService).validateProfileNotSanctioned(creator);
         }
 
         @Test
@@ -165,7 +169,7 @@ class SupporterServiceTest {
 
             // Then
             assertPublicRows(result);
-            verify(userValidationService).validateProfileNotBlocked(creator);
+            verify(userValidationService).validateProfileNotSanctioned(creator);
         }
 
         private void assertFullRows(Page<SupporterResponseDTO> result) {
@@ -311,13 +315,13 @@ class SupporterServiceTest {
         }
 
         @Test
-        @DisplayName("A blocked creator should give 404 to another USER")
-        void getSupporters_BlockedCreatorAsThirdParty_ShouldThrowResourceNotFoundException() {
+        @DisplayName("A sanctioned creator should give 404 to another USER")
+        void getSupporters_SanctionedCreatorAsThirdParty_ShouldThrowResourceNotFoundException() {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
-            givenCreatorBlocked();
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            givenCreatorSanctioned();
 
             // When & Then
             assertThatThrownBy(() -> supporterService.getSupporters(CREATOR_ID, defaultPageable))
@@ -329,12 +333,12 @@ class SupporterServiceTest {
         }
 
         @Test
-        @DisplayName("A blocked creator should give 404 to an anonymous caller")
-        void getSupporters_BlockedCreatorAsAnonymous_ShouldThrowResourceNotFoundException() {
+        @DisplayName("A sanctioned creator should give 404 to an anonymous caller")
+        void getSupporters_SanctionedCreatorAsAnonymous_ShouldThrowResourceNotFoundException() {
             // Given
             givenCreatorExists();
             givenAnonymousCaller();
-            givenCreatorBlocked();
+            givenCreatorSanctioned();
 
             // When & Then
             assertThatThrownBy(() -> supporterService.getSupporters(CREATOR_ID, defaultPageable))
@@ -346,13 +350,13 @@ class SupporterServiceTest {
         }
 
         @Test
-        @DisplayName("A blocked creator should give 200 to an ADMIN, without checking the block")
-        void getSupporters_BlockedCreatorAsAdmin_ShouldReturnPage() {
+        @DisplayName("A sanctioned creator should give 200 to an ADMIN, without checking the sanction")
+        void getSupporters_SanctionedCreatorAsAdmin_ShouldReturnPage() {
             // Given
             creator.setBanned(true);
             givenCreatorExists();
             givenCaller(ADMIN_ID);
-            when(userValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             givenSupporters(List.of(rowA), 1L);
             when(userRepository.findAllWithDetailsByIdIn(List.of(DONOR_A_ID))).thenReturn(List.of(donorA));
 
@@ -362,12 +366,12 @@ class SupporterServiceTest {
             // Then
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getTotalAmount()).isEqualByComparingTo("75.50");
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
         @Test
-        @DisplayName("A blocked creator should give 200 to himself (not reachable through the API: the JWT filter answers 403)")
-        void getSupporters_BlockedCreatorAsHimself_ShouldReturnPage() {
+        @DisplayName("A sanctioned creator should give 200 to himself (not reachable through the API: the JWT filter answers 403)")
+        void getSupporters_SanctionedCreatorAsHimself_ShouldReturnPage() {
             // Given
             creator.setBanned(true);
             givenCreatorExists();
@@ -381,12 +385,12 @@ class SupporterServiceTest {
             // Then
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getTotalAmount()).isEqualByComparingTo("75.50");
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
-        private void givenCreatorBlocked() {
+        private void givenCreatorSanctioned() {
             doThrow(new ResourceNotFoundException("User not found"))
-                    .when(userValidationService).validateProfileNotBlocked(creator);
+                    .when(userValidationService).validateProfileNotSanctioned(creator);
         }
     }
 
@@ -416,22 +420,23 @@ class SupporterServiceTest {
         }
 
         @Test
-        @DisplayName("Should call validateSupporterSort with fullView = false after validateProfileNotBlocked")
+        @DisplayName("Should call validateSupporterSort with fullView = false after validateProfileNotSanctioned")
         void getSupporters_AsThirdParty_ShouldValidateSortWithoutFullViewAfterBlockCheck() {
             // Given
             givenCreatorExists();
             givenCaller(THIRD_PARTY_ID);
-            when(userValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(THIRD_PARTY_ID)).thenReturn(false);
             givenSupporters(List.of(), 0L);
 
             // When
             supporterService.getSupporters(CREATOR_ID, defaultPageable);
 
             // Then
-            InOrder inOrder = inOrder(userValidationService, donationValidationService, donationRepository);
+            InOrder inOrder = inOrder(userValidationService, roleValidationService, donationValidationService,
+                    donationRepository);
             inOrder.verify(userValidationService).getUserById(CREATOR_ID);
-            inOrder.verify(userValidationService).isAdmin(THIRD_PARTY_ID);
-            inOrder.verify(userValidationService).validateProfileNotBlocked(creator);
+            inOrder.verify(roleValidationService).isAdmin(THIRD_PARTY_ID);
+            inOrder.verify(userValidationService).validateProfileNotSanctioned(creator);
             inOrder.verify(donationValidationService).validateSupporterSort("totalAmount", false);
             inOrder.verify(donationRepository).findSupportersByCreatorId(CREATOR_ID, "totalAmount", true, 0L, 10);
         }

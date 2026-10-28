@@ -380,9 +380,9 @@ Consecuencias que se ven en el código:
 
 Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `PublicationLike.user`, `PublicationLike.publication`, `Comment.publication`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados, y las queries de conteo de likes hacen `JOIN` con `user` y con `publication` y filtran `u.deletedAt IS NULL`). Ver [Deuda técnica](deuda-tecnica.md) para los casos en que eso no alcanza.
 
-### Usuarios borrados frente a usuarios bloqueados
+### Usuarios borrados frente a usuarios sancionados
 
-Borrado y bloqueo son cosas distintas en el modelo. Un usuario **borrado** tiene `deleted_at`; un usuario **bloqueado** tiene `banned = true` o un `suspended_until` en el futuro. `@SQLRestriction` solo resuelve el primero. El segundo lo filtran las queries con la constante `UserRepository.NOT_BLOCKED`:
+Borrado y sanción son cosas distintas en el modelo. Un usuario **borrado** tiene `deleted_at`; un usuario **sancionado** tiene `banned = true` o un `suspended_until` en el futuro. `@SQLRestriction` solo resuelve el primero. El segundo lo filtran las queries con la constante `UserRepository.NOT_SANCTIONED`:
 
 ```
 (u.banned IS NULL OR u.banned = false) AND (u.suspendedUntil IS NULL OR u.suspendedUntil <= :now)
@@ -499,5 +499,5 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 ## Clases involucradas
 
 - Entidades: todo `entity/` (18 entidades y 7 enums).
-- Repositorios con queries de soft delete, bloqueo o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
+- Repositorios con queries de soft delete, sanción o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
 - Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`, `scripts/update-report-entity-type-check.sql`.

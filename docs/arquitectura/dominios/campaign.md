@@ -8,7 +8,7 @@ El dominio resuelve cuatro cosas:
 
 - **Ciclo de vida:** crear, editar, cerrar, reactivar y borrar (borrado lógico) una campaña, con un historial de cada cambio de estado.
 - **Meta y estado:** el estado vive en la meta y se recalcula con los montos (`ACTIVE` ↔ `COMPLETED`), salvo cuando alguien la cerró (`CLOSED`).
-- **Visibilidad:** quién ve qué campaña. Una campaña `CLOSED` solo la ve su dueño o un ADMIN, y las campañas de un dueño bloqueado (baneado o suspendido) no las ve nadie salvo un ADMIN.
+- **Visibilidad:** quién ve qué campaña. Una campaña `CLOSED` solo la ve su dueño o un ADMIN, y las campañas de un dueño sancionado (baneado o suspendido) no las ve nadie salvo un ADMIN.
 - **Listados públicos:** las campañas se pueden listar y consultar sin token.
 
 ## Entidades y datos
@@ -51,7 +51,7 @@ El modelo completo, con el resto de las entidades, está en [Modelo de datos](..
 | Una campaña tiene entre 1 y 5 categorías, todas existentes. | Se valida en el DTO (`@NotEmpty`, `@Size(min = 1, max = 5)`) y de nuevo en el service, que además carga todas las categorías en un solo `SELECT` y responde con el primer id inexistente en el orden del request. Los ids repetidos se guardan una sola vez, porque se guardan las categorías que devuelve `findAllById`. | `validation/campaign/CampaignValidationService.java` (`validateAndGetCategories`) |
 | Al editar, las categorías se reemplazan completas. | `categoryIds` es obligatorio también en `UpdateCampaignRequestDTO`; el service borra todas las filas de `campaign_category` con un `DELETE` masivo y vuelve a insertar las nuevas. | `service/campaign/CampaignService.java` (`updateCampaign`), `repository/campaign/CampaignCategoryRepository.java` (`deleteByCampaignId`) |
 | Nombre, descripción y meta se editan parcialmente: un campo ausente (`null`) no cambia. | `updateCampaignFields` y `updateGoalFields` solo aplican los valores presentes. Un `name` presente no puede estar en blanco (`@Pattern`). | `validation/campaign/CampaignValidationService.java` |
-| Solo el dueño o un ADMIN pueden editar, cerrar, reactivar, borrar o ver el historial. | El dueño se compara con el id del token; el rol ADMIN se lee del usuario cargado. | `validation/campaign/CampaignAuthorizationService.java` (`validateOwnershipOrAdmin`) |
+| Solo el dueño o un ADMIN pueden editar, cerrar, reactivar, borrar o ver el historial. | El dueño se compara con el id del token; el rol ADMIN se lee del usuario cargado (`RoleValidationService.hasAdminRole`). | `validation/campaign/CampaignAuthorizationService.java` (`validateOwnershipOrAdmin`) |
 | Una campaña nace `ACTIVE`, con `amountRaised = 0`, y la creación queda en el historial (`null → ACTIVE`). | El mapper arma la meta inicial; el service registra la transición con el creador como `changedBy`. | `mapper/campaign/CampaignMapper.java` (`toEntity`), `service/campaign/CampaignService.java` (`createCampaign`) |
 | Una meta no cerrada tiene el estado que dicen sus montos: `COMPLETED` si lo recaudado alcanza o supera la meta, `ACTIVE` si no. | Es la única fuente del cálculo para editar y reactivar. | `validation/campaign/CampaignValidationService.java` (`statusForAmounts`) |
 | Cambiar `amountGoal` recalcula el estado, salvo que la meta esté `CLOSED`. | Una meta cerrada sigue cerrada aunque se edite; el recálculo queda para `/activate`. Si el estado cambia, la transición se registra con quien editó (dueño o ADMIN). Antes de decidir, la fila de la meta se relee con bloqueo pesimista (`PESSIMISTIC_WRITE`, `UPDLOCK` en SQL Server) para usar el estado y el monto reales y no intercalarse con una donación. | `service/campaign/CampaignService.java` (`updateGoalAndRecalculateStatus`, `lockGoal`) |
@@ -105,10 +105,10 @@ Las lecturas resuelven al usuario que llama como opcional (`AuthenticatedUserSer
 | Quien llama | Ve |
 |---|---|
 | ADMIN | Todas las campañas cuyo dueño no borró su cuenta, en cualquier estado, también las de dueños baneados o suspendidos (`findAllWithActiveOwner`, `findByIdWithActiveOwner` y variantes). |
-| Usuario autenticado no ADMIN | Las campañas `ACTIVE` y `COMPLETED` de dueños activos y no bloqueados, más sus propias campañas `CLOSED` (`*VisibleTo`). |
+| Usuario autenticado no ADMIN | Las campañas `ACTIVE` y `COMPLETED` de dueños activos y no sancionados, más sus propias campañas `CLOSED` (`*VisibleTo`). |
 | Anónimo | Lo mismo, sin campañas `CLOSED`: un `callerId` nulo nunca coincide con `u.id`. |
 
-Las queries `*VisibleTo` de `repository/campaign/CampaignRepository.java` combinan tres condiciones: dueño no borrado (`u.deletedAt IS NULL`), estado (`c.goal.status <> CLOSED OR u.id = :callerId`) y dueño no bloqueado (`UserRepository.NOT_BLOCKED`, que considera bloqueado a un usuario con `banned = true` o con `suspendedUntil` en el futuro; el `now` lo pasa el service desde la JVM). Las sanciones están explicadas en [Seguridad](../03-seguridad.md).
+Las queries `*VisibleTo` de `repository/campaign/CampaignRepository.java` combinan tres condiciones: dueño no borrado (`u.deletedAt IS NULL`), estado (`c.goal.status <> CLOSED OR u.id = :callerId`) y dueño no sancionado (`UserRepository.NOT_SANCTIONED`, que considera sancionado a un usuario con `banned = true` o con `suspendedUntil` en el futuro; el `now` lo pasa el service desde la JVM). Las sanciones están explicadas en [Seguridad](../03-seguridad.md).
 
 Esta misma decisión la reutilizan otros dominios a través de `CampaignValidationService.findVisibleCampaignById` y `findVisibleCampaignByIdOrThrow`: las donaciones ([donation](donation.md)), las publicaciones de una campaña ([publication](publication.md)) y los reportes ([report](report.md)). Así, una campaña oculta responde igual en todos los endpoints que la leen.
 
@@ -116,10 +116,10 @@ Esta misma decisión la reutilizan otros dominios a través de `CampaignValidati
 
 El criterio es que un tercero no pueda distinguir una campaña oculta de una inexistente:
 
-- **Lecturas** (`GET /api/campaigns/{campaignId}` y los dominios que reutilizan la visibilidad): una campaña `CLOSED` ajena, una campaña de un dueño bloqueado, una de un dueño borrado, una borrada y una inexistente responden todas `404 Campaign not found with id: {id}`.
+- **Lecturas** (`GET /api/campaigns/{campaignId}` y los dominios que reutilizan la visibilidad): una campaña `CLOSED` ajena, una campaña de un dueño sancionado, una de un dueño borrado, una borrada y una inexistente responden todas `404 Campaign not found with id: {id}`.
 - **Operaciones de dueño o ADMIN** (`PUT`, `DELETE`, `close`, `activate` y la lectura de `status-history`): `validateOwnershipOrAdmin` busca la campaña con `findByIdWithActiveOwner` (solo filtra dueño borrado) y, si quien llama no es dueño ni ADMIN, responde `404` cuando la campaña está `CLOSED` y `403 You are not authorized to perform this action` en cualquier otro caso. El comentario del código lo explica: un tercero no tiene que poder distinguir una campaña `CLOSED` de una que no existe.
 
-Este segundo grupo no aplica el filtro de dueño bloqueado: un tercero que intenta editar una campaña `ACTIVE` de un dueño baneado recibe `403`, mientras que la lectura de esa misma campaña da `404`.
+Este segundo grupo no aplica el filtro de dueño sancionado: un tercero que intenta editar una campaña `ACTIVE` de un dueño baneado recibe `403`, mientras que la lectura de esa misma campaña da `404`.
 
 ### Quién puede modificar
 
@@ -128,7 +128,7 @@ Este segundo grupo no aplica el filtro de dueño bloqueado: un tercero que inten
 | Crear | Cualquier usuario autenticado crea campañas propias. | Igual. | No aplica. |
 | Editar, borrar, cerrar, reactivar, ver historial | Sí. | Sí, sobre campañas de cualquiera cuyo dueño no esté borrado. | `403`, o `404` si la campaña está `CLOSED`. |
 
-No hay `@PreAuthorize` en `controller/campaign/CampaignController.java`: la autorización es la de `security/SecurityConfig.java` (rutas públicas de solo lectura y el resto autenticado) más la de `validation/campaign/CampaignAuthorizationService.java`. El ADMIN se detecta de dos maneras dentro de esa clase: `isAdmin(Long)` consulta `UserRepository.existsByIdAndRole_Name(id, "ADMIN")` (usado en lecturas y listados) y `validateOwnershipOrAdmin` compara el nombre del rol del usuario cargado con `findByIdForRequest`.
+No hay `@PreAuthorize` en `controller/campaign/CampaignController.java`: la autorización es la de `security/SecurityConfig.java` (rutas públicas de solo lectura y el resto autenticado) más la de `validation/campaign/CampaignAuthorizationService.java`. El ADMIN se detecta con `validation/common/RoleValidationService.java`, de dos maneras: `isAdmin(Long)` consulta `UserRepository.existsByIdAndRole_Name(id, "ADMIN")` (lo usan `CampaignService` en los listados y `CampaignValidationService.findVisibleCampaignById` en la lectura) y `hasAdminRole(User)` compara el nombre del rol del usuario ya cargado con `findByIdForRequest`, sin consulta extra (lo usa `validateOwnershipOrAdmin`).
 
 ## Endpoints
 
@@ -217,7 +217,7 @@ El motivo es `bannedReason` o `Violation of terms` si no tiene.
   |---|---|---|
   | 400 | `Invalid campaign status: {status}` | `status` no es un valor de `CampaignStatus`. |
   | 400 | `Invalid value '{valor}' for parameter 'categoryId'` | `categoryId` no es numérico. |
-  | 403 | mensajes de baneo o suspensión | Token de una cuenta bloqueada (ver tabla común). |
+  | 403 | mensajes de baneo o suspensión | Token de una cuenta sancionada (ver tabla común). |
 
 - **Qué hace:**
   1. Si hay `status`, lo convierte con `parseStatus`; si no, y hay `categoryId`, filtra por categoría; si no, lista todo.
@@ -236,9 +236,9 @@ El motivo es `bannedReason` o `Violation of terms` si no tiene.
 
   | Status | Mensaje | Cuándo |
   |---|---|---|
-  | 404 | `Campaign not found with id: {campaignId}` | No existe, está borrada, su dueño borró la cuenta, su dueño está bloqueado (salvo para ADMIN) o está `CLOSED` y quien llama no es el dueño ni ADMIN. |
+  | 404 | `Campaign not found with id: {campaignId}` | No existe, está borrada, su dueño borró la cuenta, su dueño está sancionado (salvo para ADMIN) o está `CLOSED` y quien llama no es el dueño ni ADMIN. |
   | 400 | `Invalid value '{valor}' for parameter 'campaignId'` | `campaignId` no es numérico. |
-  | 403 | mensajes de baneo o suspensión | Token de una cuenta bloqueada. |
+  | 403 | mensajes de baneo o suspensión | Token de una cuenta sancionada. |
 
 - **Qué hace:**
   1. Resuelve a quien llama como opcional.
@@ -258,7 +258,7 @@ El motivo es `bannedReason` o `Violation of terms` si no tiene.
   | `campaigns` | lista de `CampaignResponseDTO` del usuario, en todos los estados (incluidas las `CLOSED`) |
   | `total` | cantidad de campañas |
 
-- **Errores:** solo los comunes del filtro (401 sin token, 403 por cuenta bloqueada).
+- **Errores:** solo los comunes del filtro (401 sin token, 403 por cuenta sancionada).
 - **Qué hace:**
   1. Obtiene el id del usuario desde el token.
   2. `findByUserIdWithDetails` trae todas sus campañas no borradas, con los mismos `JOIN FETCH` que los listados.
@@ -422,7 +422,7 @@ Las publicaciones de una campaña (`/api/campaigns/{campaignId}/publications`) e
 | Service | `service/campaign/CampaignService.java` | Casos de uso, recálculo de estado, bloqueo de la meta, cierre y borrado lógico (también para baja de cuenta y moderación), carga de categorías por bloques. |
 | Service | `service/campaign/CampaignStatusHistoryService.java` | `recordTransition`: guarda cada transición (la usan también donaciones y moderación). |
 | Validation | `validation/campaign/CampaignValidationService.java` | Existencia, visibilidad (`findVisibleCampaignById*`), categorías, cálculo de estado por montos, parseo del estado, aplicación de cambios parciales. |
-| Validation | `validation/campaign/CampaignAuthorizationService.java` | Dueño o ADMIN (`validateOwnershipOrAdmin`, `getCampaignIfAuthorized`) e `isAdmin`. |
+| Validation | `validation/campaign/CampaignAuthorizationService.java` | Dueño o ADMIN (`validateOwnershipOrAdmin`, `getCampaignIfAuthorized`). El rol lo lee de `RoleValidationService.hasAdminRole`. |
 | Mapper | `mapper/campaign/CampaignMapper.java` | DTO de creación → entidad con meta inicial; entidad + categorías → `CampaignResponseDTO`. |
 | Mapper | `mapper/campaign/CampaignStatusHistoryMapper.java` | Historial → `CampaignStatusHistoryResponseDTO`. |
 | DTO | `dtos/campaign/CreateCampaignRequestDTO.java`, `dtos/campaign/UpdateCampaignRequestDTO.java` | Entrada, con Bean Validation. |
@@ -432,5 +432,5 @@ Las publicaciones de una campaña (`/api/campaigns/{campaignId}/publications`) e
 | Repository | `repository/campaign/GoalRepository.java` | `UPDATE` atómicos de las donaciones: sumar al recaudado y completar la meta. |
 | Repository | `repository/campaign/CampaignCategoryRepository.java` | Categorías por campaña o por bloque de campañas; borrados masivos. |
 | Repository | `repository/campaign/CampaignStatusHistoryRepository.java` | Historial ordenado por fecha. |
-| Otros paquetes | `security/AuthenticatedUserService.java`, `repository/user/UserRepository.java` (`NOT_BLOCKED`, `existsByIdAndRole_Name`, `findByIdForRequest`), `repository/category/CategoryRepository.java`, `exception/ResourceNotFoundException.java`, `exception/ForbiddenActionException.java`, `exception/ConflictException.java`, `exception/MessageException.java` | Quién llama, criterio de bloqueo y de admin, categorías y errores. |
-| Usan este dominio | `service/donation/DonationService.java`, `validation/donation/DonationValidationService.java`, `validation/publication/PublicationValidationService.java`, `validation/report/ReportValidationService.java`, `service/report/ReportActionService.java`, `service/user/UserService.java`, `service/category/CategoryService.java` | Visibilidad (donaciones, publicaciones y reportes), `UPDATE` atómicos de la meta e `isAdmin` para mostrar los `transactionId` (donaciones), cierre y borrado (moderación), cierre por baja de cuenta (usuarios) y borrado de las filas de `campaign_category` al borrar una categoría. |
+| Otros paquetes | `security/AuthenticatedUserService.java`, `repository/user/UserRepository.java` (`NOT_SANCTIONED`, `findByIdForRequest`), `validation/common/RoleValidationService.java` (`isAdmin`, `hasAdminRole`), `repository/category/CategoryRepository.java`, `exception/ResourceNotFoundException.java`, `exception/ForbiddenActionException.java`, `exception/ConflictException.java`, `exception/MessageException.java` | Quién llama, criterio de sanción y de admin, categorías y errores. |
+| Usan este dominio | `service/donation/DonationService.java`, `validation/donation/DonationValidationService.java`, `validation/publication/PublicationValidationService.java`, `validation/report/ReportValidationService.java`, `service/report/ReportActionService.java`, `service/user/UserService.java`, `service/category/CategoryService.java` | Visibilidad (donaciones, publicaciones y reportes), `UPDATE` atómicos de la meta (donaciones), cierre y borrado (moderación), cierre por baja de cuenta (usuarios) y borrado de las filas de `campaign_category` al borrar una categoría. |
