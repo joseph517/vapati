@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +36,9 @@ class UserServiceAutoThanksTest {
 
     @Mock
     private UserValidationService userValidationService;
+
+    @Mock
+    private UserAccountValidationService userAccountValidationService;
 
     @Mock
     private UserRepository userRepository;
@@ -109,7 +113,7 @@ class UserServiceAutoThanksTest {
             // Then
             assertThat(result.getAutoThanksMessage()).isEqualTo("¡Gracias por tu apoyo!");
             assertThat(userInfo.getAutoThanksMessage()).isEqualTo("¡Gracias por tu apoyo!");
-            verify(userValidationService).updateUserInfoTimestamp(userInfo);
+            verify(userAccountValidationService).updateUserInfoTimestamp(userInfo);
             verify(userRepository).save(user);
         }
 
@@ -149,7 +153,7 @@ class UserServiceAutoThanksTest {
             // Then
             assertThat(result.getAutoThanksMessage()).isNull();
             assertThat(userInfo.getAutoThanksMessage()).isNull();
-            verify(userValidationService).updateUserInfoTimestamp(userInfo);
+            verify(userAccountValidationService).updateUserInfoTimestamp(userInfo);
             verify(userRepository).save(user);
         }
     }

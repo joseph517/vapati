@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,8 @@ class UserServiceUpdateUserTest {
     private UserValidationService userValidationService;
     @Mock
     private UserCategoryValidationService userCategoryValidationService;
+    @Mock
+    private UserAccountValidationService userAccountValidationService;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -85,6 +88,7 @@ class UserServiceUpdateUserTest {
                 authenticatedUserService,
                 userValidationService,
                 userCategoryValidationService,
+                userAccountValidationService,
                 userRepository,
                 userMapper
         );
@@ -104,7 +108,7 @@ class UserServiceUpdateUserTest {
         assertEquals("DTO cannot be null", exception.getMessage());
 
         // Verify no interactions with dependencies
-        verifyNoInteractions(authenticatedUserService, userValidationService, userRepository, userMapper);
+        verifyNoInteractions(authenticatedUserService, userValidationService, userAccountValidationService, userRepository, userMapper);
     }
 
     @Test
@@ -128,7 +132,7 @@ class UserServiceUpdateUserTest {
         inOrder.verify(authenticatedUserService).getAuthenticatedUserId();
         inOrder.verify(userValidationService).getUserById(authenticatedUserId);
         inOrder.verify(userValidationService).updateTimestamp(mockUser);
-        inOrder.verify(userValidationService).updateUserInfo(mockUser, updateUserDTO);
+        inOrder.verify(userAccountValidationService).updateUserInfo(mockUser, updateUserDTO);
         inOrder.verify(userCategoryValidationService).validateCategoryLimit(updateUserDTO.getCategoryIds());
         inOrder.verify(userCategoryValidationService).processCategories(updateUserDTO.getCategoryIds());
         inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, mockCategories);
@@ -168,7 +172,7 @@ class UserServiceUpdateUserTest {
         verify(authenticatedUserService).getAuthenticatedUserId();
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, dtoWithoutCategories);
+        verify(userAccountValidationService).updateUserInfo(mockUser, dtoWithoutCategories);
         verify(userRepository).save(mockUser);
         verify(userMapper).toUserDTO(mockUser);
     }
@@ -193,7 +197,7 @@ class UserServiceUpdateUserTest {
         verify(authenticatedUserService).getAuthenticatedUserId();
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService, never()).updateTimestamp(any());
-        verify(userValidationService, never()).updateUserInfo(any(), any());
+        verify(userAccountValidationService, never()).updateUserInfo(any(), any());
         verify(userRepository, never()).save(any());
         verify(userMapper, never()).toUserDTO(any());
     }
@@ -224,7 +228,7 @@ class UserServiceUpdateUserTest {
         verify(authenticatedUserService).getAuthenticatedUserId();
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, dtoWithEmptyCategories);
+        verify(userAccountValidationService).updateUserInfo(mockUser, dtoWithEmptyCategories);
         verify(userCategoryValidationService).validateCategoryLimit(List.of());
 
         // Verify no calls after validation failure
@@ -260,7 +264,7 @@ class UserServiceUpdateUserTest {
         verify(authenticatedUserService).getAuthenticatedUserId();
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, dtoWithTooManyCategories);
+        verify(userAccountValidationService).updateUserInfo(mockUser, dtoWithTooManyCategories);
         verify(userCategoryValidationService).validateCategoryLimit(tooManyCategoryIds);
 
         // Verify no calls after validation failure
@@ -296,7 +300,7 @@ class UserServiceUpdateUserTest {
         verify(authenticatedUserService).getAuthenticatedUserId();
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, dtoWithInvalidCategories);
+        verify(userAccountValidationService).updateUserInfo(mockUser, dtoWithInvalidCategories);
         verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
         verify(userCategoryValidationService).processCategories(categoryIds);
 
@@ -313,7 +317,7 @@ class UserServiceUpdateUserTest {
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         doThrow(new MessageException("Email already exists"))
-                .when(userValidationService).updateUserInfo(mockUser, updateUserDTO);
+                .when(userAccountValidationService).updateUserInfo(mockUser, updateUserDTO);
 
         // When & Then
         MessageException exception = assertThrows(
@@ -327,7 +331,7 @@ class UserServiceUpdateUserTest {
         verify(authenticatedUserService).getAuthenticatedUserId();
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
-        verify(userValidationService).updateUserInfo(mockUser, updateUserDTO);
+        verify(userAccountValidationService).updateUserInfo(mockUser, updateUserDTO);
 
         // Verify no calls after updateUserInfo failure
         verify(userCategoryValidationService, never()).validateCategoryLimit(any());
@@ -365,7 +369,7 @@ class UserServiceUpdateUserTest {
         inOrder.verify(authenticatedUserService).getAuthenticatedUserId();
         inOrder.verify(userValidationService).getUserById(authenticatedUserId);
         inOrder.verify(userValidationService).updateTimestamp(mockUser);
-        inOrder.verify(userValidationService).updateUserInfo(mockUser, dtoWithSingleCategory);
+        inOrder.verify(userAccountValidationService).updateUserInfo(mockUser, dtoWithSingleCategory);
         inOrder.verify(userCategoryValidationService).validateCategoryLimit(singleCategoryId);
         inOrder.verify(userCategoryValidationService).processCategories(singleCategoryId);
         inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, singleCategory);
@@ -419,16 +423,16 @@ class UserServiceUpdateUserTest {
         @DisplayName("Without credential change: tokensValidAfter stays null")
         void withoutCredentialChange_ShouldNotSetTokensValidAfter() {
             UpdateUserDTO dto = UpdateUserDTO.builder().description("New description").build();
-            when(userValidationService.validateCredentialChange(mockUser, dto)).thenReturn(false);
+            when(userAccountValidationService.validateCredentialChange(mockUser, dto)).thenReturn(false);
             when(userRepository.save(mockUser)).thenReturn(mockUser);
             when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
 
             userService.updateUser(dto);
 
             assertNull(mockUser.getTokensValidAfter());
-            inOrder.verify(userValidationService).validateCredentialChange(mockUser, dto);
+            inOrder.verify(userAccountValidationService).validateCredentialChange(mockUser, dto);
             inOrder.verify(userValidationService).updateTimestamp(mockUser);
-            inOrder.verify(userValidationService).updateUserInfo(mockUser, dto);
+            inOrder.verify(userAccountValidationService).updateUserInfo(mockUser, dto);
             inOrder.verify(userRepository).save(mockUser);
         }
 
@@ -436,7 +440,7 @@ class UserServiceUpdateUserTest {
         @DisplayName("With credential change: sets tokensValidAfter before saving")
         void withCredentialChange_ShouldSetTokensValidAfter() {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("Passw0rd!").build();
-            when(userValidationService.validateCredentialChange(mockUser, dto)).thenReturn(true);
+            when(userAccountValidationService.validateCredentialChange(mockUser, dto)).thenReturn(true);
             when(userRepository.save(mockUser)).thenReturn(mockUser);
             when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
             LocalDateTime before = LocalDateTime.now();
@@ -445,7 +449,7 @@ class UserServiceUpdateUserTest {
 
             assertNotNull(mockUser.getTokensValidAfter());
             assertFalse(mockUser.getTokensValidAfter().isBefore(before));
-            verify(userValidationService).updateUserInfo(mockUser, dto);
+            verify(userAccountValidationService).updateUserInfo(mockUser, dto);
             verify(userRepository).save(mockUser);
         }
 
@@ -454,7 +458,7 @@ class UserServiceUpdateUserTest {
         void withoutCurrentPassword_ShouldNotModifyAnything() {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").description("x").build();
             LocalDateTime originalUpdatedAt = mockUser.getUpdatedAt();
-            when(userValidationService.validateCredentialChange(mockUser, dto))
+            when(userAccountValidationService.validateCredentialChange(mockUser, dto))
                     .thenThrow(new MessageException("Current password is required to change email or password"));
 
             MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
@@ -463,7 +467,7 @@ class UserServiceUpdateUserTest {
             assertNull(mockUser.getTokensValidAfter());
             assertEquals(originalUpdatedAt, mockUser.getUpdatedAt());
             verify(userValidationService, never()).updateTimestamp(any());
-            verify(userValidationService, never()).updateUserInfo(any(), any());
+            verify(userAccountValidationService, never()).updateUserInfo(any(), any());
             verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
             verify(userRepository, never()).save(any());
         }
@@ -472,14 +476,14 @@ class UserServiceUpdateUserTest {
         @DisplayName("Wrong currentPassword: 400 incorrect and no field is modified")
         void withWrongCurrentPassword_ShouldNotModifyAnything() {
             UpdateUserDTO dto = UpdateUserDTO.builder().email("new@example.com").currentPassword("wrong").build();
-            when(userValidationService.validateCredentialChange(mockUser, dto))
+            when(userAccountValidationService.validateCredentialChange(mockUser, dto))
                     .thenThrow(new MessageException("Current password is incorrect"));
 
             MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
 
             assertEquals("Current password is incorrect", exception.getMessage());
             assertNull(mockUser.getTokensValidAfter());
-            verify(userValidationService, never()).updateUserInfo(any(), any());
+            verify(userAccountValidationService, never()).updateUserInfo(any(), any());
             verify(userRepository, never()).save(any());
         }
     }

@@ -7,7 +7,6 @@ import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserInfoRepository;
-import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,7 +27,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Timestamp Update Service Tests")
-class UserValidationServiceUserUpdateTest {
+class UserAccountValidationServiceUpdateTest {
 
     @Mock
     private UserInfoRepository userInfoRepository;
@@ -36,14 +35,11 @@ class UserValidationServiceUserUpdateTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    @Mock
-    private UserRepository userRepository;
+    @InjectMocks
+    private UserAccountValidationService timestampUpdateService;
 
     @InjectMocks
-    private UserValidationService timestampUpdateService;
-
-    @InjectMocks
-    private UserValidationService userValidationService;
+    private UserAccountValidationService userValidationService;
 
     private User testUser;
     private UserInfo testUserInfo;
@@ -126,43 +122,6 @@ class UserValidationServiceUserUpdateTest {
     }
 
     @Test
-    @DisplayName("Should update User timestamp successfully when User is provided")
-    void updateTimestamp_WithValidUser_ShouldUpdateTimestamp() {
-        // Given
-        LocalDateTime originalTimestamp = testUser.getUpdatedAt();
-
-        try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
-            mockedLocalDateTime.when(LocalDateTime::now).thenReturn(fixedDateTime);
-
-            // When
-            timestampUpdateService.updateTimestamp(testUser);
-
-            // Then
-            assertThat(testUser.getUpdatedAt()).isEqualTo(fixedDateTime);
-            assertThat(testUser.getUpdatedAt()).isNotEqualTo(originalTimestamp);
-
-            // Verify LocalDateTime.now() was called exactly once
-            mockedLocalDateTime.verify(LocalDateTime::now, times(1));
-        }
-    }
-
-    @Test
-    @DisplayName("Should throw NullPointerException when User is null")
-    void updateTimestamp_WithNullUser_ShouldThrowNullPointerException() {
-        // Given
-        User nullUser = null;
-
-        // When & Then
-        assertThatThrownBy(() -> timestampUpdateService.updateTimestamp(nullUser))
-                .isInstanceOf(MessageException.class);
-
-        // Verify LocalDateTime.now() was never called due to early validation failure
-        try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
-            mockedLocalDateTime.verifyNoInteractions();
-        }
-    }
-
-    @Test
     @DisplayName("Should handle UserInfo with null initial timestamp")
     void updateUserInfoTimestamp_WithNullInitialTimestamp_ShouldSetTimestamp() {
         // Given
@@ -177,26 +136,6 @@ class UserValidationServiceUserUpdateTest {
             // Then
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(fixedDateTime);
             assertThat(testUserInfo.getUpdatedAt()).isNotNull();
-
-            mockedLocalDateTime.verify(LocalDateTime::now, times(1));
-        }
-    }
-
-    @Test
-    @DisplayName("Should handle User with null initial timestamp")
-    void updateTimestamp_WithNullInitialTimestamp_ShouldSetTimestamp() {
-        // Given
-        testUser.setUpdatedAt(null);
-
-        try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
-            mockedLocalDateTime.when(LocalDateTime::now).thenReturn(fixedDateTime);
-
-            // When
-            timestampUpdateService.updateTimestamp(testUser);
-
-            // Then
-            assertThat(testUser.getUpdatedAt()).isEqualTo(fixedDateTime);
-            assertThat(testUser.getUpdatedAt()).isNotNull();
 
             mockedLocalDateTime.verify(LocalDateTime::now, times(1));
         }
@@ -219,29 +158,6 @@ class UserValidationServiceUserUpdateTest {
             mockedLocalDateTime.when(LocalDateTime::now).thenReturn(secondTimestamp);
             timestampUpdateService.updateUserInfoTimestamp(testUserInfo);
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(secondTimestamp);
-
-            // Verify LocalDateTime.now() was called twice
-            mockedLocalDateTime.verify(LocalDateTime::now, times(2));
-        }
-    }
-
-    @Test
-    @DisplayName("Should update timestamp multiple times for User with different values")
-    void updateTimestamp_CalledMultipleTimes_ShouldUpdateWithDifferentTimestamps() {
-        // Given
-        LocalDateTime firstTimestamp = LocalDateTime.of(2024, 1, 15, 10, 0, 0);
-        LocalDateTime secondTimestamp = LocalDateTime.of(2024, 1, 15, 11, 0, 0);
-
-        try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
-            // First call
-            mockedLocalDateTime.when(LocalDateTime::now).thenReturn(firstTimestamp);
-            timestampUpdateService.updateTimestamp(testUser);
-            assertThat(testUser.getUpdatedAt()).isEqualTo(firstTimestamp);
-
-            // Second call
-            mockedLocalDateTime.when(LocalDateTime::now).thenReturn(secondTimestamp);
-            timestampUpdateService.updateTimestamp(testUser);
-            assertThat(testUser.getUpdatedAt()).isEqualTo(secondTimestamp);
 
             // Verify LocalDateTime.now() was called twice
             mockedLocalDateTime.verify(LocalDateTime::now, times(2));
@@ -275,30 +191,6 @@ class UserValidationServiceUserUpdateTest {
             assertThat(testUserInfo.getPhone()).isEqualTo(originalPhone);
             assertThat(testUserInfo.getDescription()).isEqualTo(originalDescription);
             assertThat(testUserInfo.getCreatedAt()).isEqualTo(originalCreatedAt);
-        }
-    }
-
-    @Test
-    @DisplayName("Should not affect other User properties when updating timestamp")
-    void updateTimestamp_ShouldOnlyUpdateTimestamp() {
-        // Given
-        Long originalId = testUser.getId();
-        boolean originalVerified = testUser.isVerified();
-        LocalDateTime originalCreatedAt = testUser.getCreatedAt();
-        LocalDateTime originalDeletedAt = testUser.getDeletedAt();
-
-        try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
-            mockedLocalDateTime.when(LocalDateTime::now).thenReturn(fixedDateTime);
-
-            // When
-            timestampUpdateService.updateTimestamp(testUser);
-
-            // Then - verify only updatedAt changed
-            assertThat(testUser.getUpdatedAt()).isEqualTo(fixedDateTime);
-            assertThat(testUser.getId()).isEqualTo(originalId);
-            assertThat(testUser.isVerified()).isEqualTo(originalVerified);
-            assertThat(testUser.getCreatedAt()).isEqualTo(originalCreatedAt);
-            assertThat(testUser.getDeletedAt()).isEqualTo(originalDeletedAt);
         }
     }
 

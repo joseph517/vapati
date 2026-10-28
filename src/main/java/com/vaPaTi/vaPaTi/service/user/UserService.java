@@ -20,6 +20,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
@@ -46,6 +47,7 @@ public class UserService {
     private final AuthenticatedUserService authenticatedUserService;
     private final CampaignService campaignService;
     private final UserCategoryValidationService userCategoryValidationService;
+    private final UserAccountValidationService userAccountValidationService;
     private final RoleValidationService roleValidationService;
 
     public List<UserDTO> listUsers() {
@@ -89,13 +91,13 @@ public class UserService {
         List<Category> categories =  userCategoryValidationService.processCategories(userDTO.getCategoryIds());
 
         // Create user and set up
-        User user = userValidationService.createAndSetupUser(userDTO);
+        User user = userAccountValidationService.createAndSetupUser(userDTO);
 
         // Create user category relations
         userCategoryValidationService.createUserCategoryRelations(user, categories);
 
         // Set user info
-        UserInfo userInfo = userValidationService.createUserInfo(userInfoDTO);
+        UserInfo userInfo = userAccountValidationService.createUserInfo(userInfoDTO);
 
         // Role
         Role userRole = roleRepository.findByName("USER").orElseThrow(() -> new ResourceNotFoundException("Role not found"));
@@ -120,12 +122,12 @@ public class UserService {
         User user = userValidationService.getUserById(userId);
 
         // Before any field is modified: changing the email or password requires the current password
-        boolean credentialsChanged = userValidationService.validateCredentialChange(user, dto);
+        boolean credentialsChanged = userAccountValidationService.validateCredentialChange(user, dto);
 
         userValidationService.updateTimestamp(user);
 
         // Update user info with full validations (only fields sent)
-        userValidationService.updateUserInfo(user, dto);
+        userAccountValidationService.updateUserInfo(user, dto);
 
         // Update categories only if explicitly provided
         if (dto.getCategoryIds() != null) {
@@ -201,7 +203,7 @@ public class UserService {
         User user = userValidationService.getUserById(userId);
 
         UserInfo userInfo = user.getUserInfo();
-        userValidationService.updateUserInfoTimestamp(userInfo);
+        userAccountValidationService.updateUserInfoTimestamp(userInfo);
         userInfo.setAutoThanksMessage(autoThanksMessage);
 
         userRepository.save(user);
@@ -214,7 +216,7 @@ public class UserService {
         User user = userValidationService.getUserById(userId);
 
         UserInfo userInfo = user.getUserInfo();
-        userValidationService.updateUserInfoTimestamp(userInfo);
+        userAccountValidationService.updateUserInfoTimestamp(userInfo);
         userInfo.setAutoThanksMessage(null);
 
         userRepository.save(user);

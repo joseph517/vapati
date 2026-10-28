@@ -30,8 +30,8 @@ import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserValidationService - User Creation Tests")
-class UserValidationServiceUserCreationTest {
+@DisplayName("UserAccountValidationService - User Creation Tests")
+class UserAccountValidationServiceCreationTest {
 
     @Mock
     private UserInfoRepository userInfoRepository;
@@ -40,7 +40,7 @@ class UserValidationServiceUserCreationTest {
     @Mock
     private PasswordEncoder passwordEncoder;
     @InjectMocks
-    private UserValidationService userValidationService;
+    private UserAccountValidationService userValidationService;
 
     private CreateUserDTO createUserDTO;
     private CreateUserInfoDTO createUserInfoDTO;

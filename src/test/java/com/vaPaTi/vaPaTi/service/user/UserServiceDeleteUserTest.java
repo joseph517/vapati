@@ -17,6 +17,7 @@ import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.persistence.EntityManager;
@@ -58,6 +59,8 @@ class UserServiceDeleteUserTest {
     private CampaignService campaignService;
     @Mock
     private UserCategoryValidationService userCategoryValidationService;
+    @Mock
+    private UserAccountValidationService userAccountValidationService;
 
     @InjectMocks
     private UserService userService;
@@ -321,7 +324,7 @@ class UserServiceDeleteUserTest {
             );
             service = new UserService(userRepository, userValidationService, userMapper, roleRepository,
                     authenticatedUserService, realCampaignService, userCategoryValidationService,
-                    mock(RoleValidationService.class));
+                    userAccountValidationService, mock(RoleValidationService.class));
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
             when(userRepository.findById(authenticatedUserId)).thenReturn(Optional.of(activeUser));

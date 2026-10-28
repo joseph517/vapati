@@ -21,16 +21,16 @@ public class CreateUserInfoDTO {
     @Size(max = 255)
     private String lastName;
 
-    // The format is checked in UserValidationService
+    // The format is checked in UserAccountValidationService
     @NotBlank
     @Size(max = 254)
     private String email;
 
-    // Length and allowed characters are checked in UserValidationService
+    // Length and allowed characters are checked in UserAccountValidationService
     @NotBlank
     private String userName;
 
-    // Password rules are checked in UserValidationService
+    // Password rules are checked in UserAccountValidationService
     @NotBlank
     private String password;
 
