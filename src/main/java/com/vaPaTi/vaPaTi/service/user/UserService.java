@@ -20,6 +20,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final CampaignService campaignService;
+    private final UserCategoryValidationService userCategoryValidationService;
     private final RoleValidationService roleValidationService;
 
     public List<UserDTO> listUsers() {
@@ -81,16 +83,16 @@ public class UserService {
         CreateUserInfoDTO userInfoDTO = request.getUserInfo();
 
         // Validate category limit
-        userValidationService.validateCategoryLimit(userDTO.getCategoryIds());
+        userCategoryValidationService.validateCategoryLimit(userDTO.getCategoryIds());
 
         // get categories in a single query
-        List<Category> categories =  userValidationService.processCategories(userDTO.getCategoryIds());
+        List<Category> categories =  userCategoryValidationService.processCategories(userDTO.getCategoryIds());
 
         // Create user and set up
         User user = userValidationService.createAndSetupUser(userDTO);
 
         // Create user category relations
-        userValidationService.createUserCategoryRelations(user, categories);
+        userCategoryValidationService.createUserCategoryRelations(user, categories);
 
         // Set user info
         UserInfo userInfo = userValidationService.createUserInfo(userInfoDTO);
@@ -128,11 +130,11 @@ public class UserService {
         // Update categories only if explicitly provided
         if (dto.getCategoryIds() != null) {
             // Validate category limit (minimum 1, maximum 6)
-            userValidationService.validateCategoryLimit(dto.getCategoryIds());
+            userCategoryValidationService.validateCategoryLimit(dto.getCategoryIds());
 
             // Process categories (validate that they exist)
-            List<Category> categories = userValidationService.processCategories(dto.getCategoryIds());
-            userValidationService.updateUserCategories(user, categories);
+            List<Category> categories = userCategoryValidationService.processCategories(dto.getCategoryIds());
+            userCategoryValidationService.updateUserCategories(user, categories);
         }
 
         // Invalidates every access and refresh token issued so far, including the current session

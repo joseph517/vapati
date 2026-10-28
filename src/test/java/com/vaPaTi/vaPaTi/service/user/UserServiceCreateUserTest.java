@@ -19,6 +19,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +36,8 @@ class UserServiceCreateUserTest {
 
     @Mock
     private UserValidationService userValidationService;
+    @Mock
+    private UserCategoryValidationService userCategoryValidationService;
     @Mock
     private RoleRepository roleRepository;
     @Mock
@@ -137,7 +140,7 @@ class UserServiceCreateUserTest {
     @DisplayName("Should create user successfully with valid request")
     void shouldCreateUserSuccessfullyWithValidRequest() {
         // Given
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
         when(userValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
         when(roleRepository.findByName("USER")).thenReturn(Optional.of(mockRole));
@@ -153,12 +156,12 @@ class UserServiceCreateUserTest {
         assertEquals(expectedUserDTO.getVerified(), result.getVerified());
 
         // Verify interaction order and calls
-        InOrder inOrder = inOrder(userValidationService, roleRepository, userRepository, userMapper);
+        InOrder inOrder = inOrder(userValidationService, userCategoryValidationService, roleRepository, userRepository, userMapper);
 
-        inOrder.verify(userValidationService).validateCategoryLimit(categoryIds);
-        inOrder.verify(userValidationService).processCategories(categoryIds);
+        inOrder.verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
+        inOrder.verify(userCategoryValidationService).processCategories(categoryIds);
         inOrder.verify(userValidationService).createAndSetupUser(createUserDTO);
-        inOrder.verify(userValidationService).createUserCategoryRelations(mockUser, categories);
+        inOrder.verify(userCategoryValidationService).createUserCategoryRelations(mockUser, categories);
         inOrder.verify(userValidationService).createUserInfo(createUserInfoDTO);
         inOrder.verify(roleRepository).findByName("USER");
         inOrder.verify(userRepository).save(any(User.class));
@@ -175,7 +178,7 @@ class UserServiceCreateUserTest {
     @DisplayName("Should throw MessageException when USER role is not found")
     void shouldThrowMessageExceptionWhenUserRoleNotFound() {
         // Given
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
         when(userValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
         when(roleRepository.findByName("USER")).thenReturn(Optional.empty());
@@ -193,11 +196,11 @@ class UserServiceCreateUserTest {
         verify(userMapper, never()).toUserDTO(any(User.class));
 
         // Verify correct execution order up to the failure point
-        InOrder inOrder = inOrder(userValidationService, roleRepository);
-        inOrder.verify(userValidationService).validateCategoryLimit(categoryIds);
-        inOrder.verify(userValidationService).processCategories(categoryIds);
+        InOrder inOrder = inOrder(userValidationService, userCategoryValidationService, roleRepository);
+        inOrder.verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
+        inOrder.verify(userCategoryValidationService).processCategories(categoryIds);
         inOrder.verify(userValidationService).createAndSetupUser(createUserDTO);
-        inOrder.verify(userValidationService).createUserCategoryRelations(mockUser, categories);
+        inOrder.verify(userCategoryValidationService).createUserCategoryRelations(mockUser, categories);
         inOrder.verify(userValidationService).createUserInfo(createUserInfoDTO);
         inOrder.verify(roleRepository).findByName("USER");
     }
@@ -207,7 +210,7 @@ class UserServiceCreateUserTest {
     void shouldPropagateMessageExceptionFromValidateCategoryLimit() {
         // Given
         MessageException expectedException = new MessageException("Category limit exceeded");
-        doThrow(expectedException).when(userValidationService).validateCategoryLimit(categoryIds);
+        doThrow(expectedException).when(userCategoryValidationService).validateCategoryLimit(categoryIds);
 
         // When & Then
         MessageException exception = assertThrows(
@@ -219,8 +222,8 @@ class UserServiceCreateUserTest {
         assertSame(expectedException, exception);
 
         // Verify that only validateCategoryLimit was called
-        verify(userValidationService, only()).validateCategoryLimit(categoryIds);
-        verifyNoInteractions(roleRepository, userRepository, userMapper);
+        verify(userCategoryValidationService, only()).validateCategoryLimit(categoryIds);
+        verifyNoInteractions(userValidationService, roleRepository, userRepository, userMapper);
     }
 
     @Test
@@ -228,7 +231,7 @@ class UserServiceCreateUserTest {
     void shouldPropagateRuntimeExceptionFromProcessCategories() {
         // Given
         RuntimeException expectedException = new RuntimeException("Database connection error");
-        when(userValidationService.processCategories(categoryIds)).thenThrow(expectedException);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenThrow(expectedException);
 
         // When & Then
         RuntimeException exception = assertThrows(
@@ -240,8 +243,8 @@ class UserServiceCreateUserTest {
         assertSame(expectedException, exception);
 
         // Verify execution stopped at processCategories
-        verify(userValidationService).validateCategoryLimit(categoryIds);
-        verify(userValidationService).processCategories(categoryIds);
+        verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
+        verify(userCategoryValidationService).processCategories(categoryIds);
         verify(userValidationService, never()).createAndSetupUser(any());
         verifyNoInteractions(roleRepository, userRepository, userMapper);
     }
@@ -251,7 +254,7 @@ class UserServiceCreateUserTest {
     void shouldPropagateExceptionFromCreateAndSetupUser() {
         // Given
         RuntimeException expectedException = new RuntimeException("User creation failed");
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenThrow(expectedException);
 
         // When & Then
@@ -263,10 +266,10 @@ class UserServiceCreateUserTest {
         assertEquals("User creation failed", exception.getMessage());
 
         // Verify execution order up to failure point
-        verify(userValidationService).validateCategoryLimit(categoryIds);
-        verify(userValidationService).processCategories(categoryIds);
+        verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
+        verify(userCategoryValidationService).processCategories(categoryIds);
         verify(userValidationService).createAndSetupUser(createUserDTO);
-        verify(userValidationService, never()).createUserCategoryRelations(any(), any());
+        verify(userCategoryValidationService, never()).createUserCategoryRelations(any(), any());
     }
 
     @Test
@@ -274,9 +277,9 @@ class UserServiceCreateUserTest {
     void shouldPropagateExceptionFromCreateUserCategoryRelations() {
         // Given
         RuntimeException expectedException = new RuntimeException("Category relation creation failed");
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
-        doThrow(expectedException).when(userValidationService)
+        doThrow(expectedException).when(userCategoryValidationService)
                 .createUserCategoryRelations(mockUser, categories);
 
         // When & Then
@@ -288,11 +291,11 @@ class UserServiceCreateUserTest {
         assertEquals("Category relation creation failed", exception.getMessage());
 
         // Verify execution order
-        InOrder inOrder = inOrder(userValidationService);
-        inOrder.verify(userValidationService).validateCategoryLimit(categoryIds);
-        inOrder.verify(userValidationService).processCategories(categoryIds);
+        InOrder inOrder = inOrder(userValidationService, userCategoryValidationService);
+        inOrder.verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
+        inOrder.verify(userCategoryValidationService).processCategories(categoryIds);
         inOrder.verify(userValidationService).createAndSetupUser(createUserDTO);
-        inOrder.verify(userValidationService).createUserCategoryRelations(mockUser, categories);
+        inOrder.verify(userCategoryValidationService).createUserCategoryRelations(mockUser, categories);
 
         verify(userValidationService, never()).createUserInfo(any());
     }
@@ -302,7 +305,7 @@ class UserServiceCreateUserTest {
     void shouldPropagateExceptionFromCreateUserInfo() {
         // Given
         RuntimeException expectedException = new RuntimeException("User info creation failed");
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
         when(userValidationService.createUserInfo(createUserInfoDTO)).thenThrow(expectedException);
 
@@ -323,7 +326,7 @@ class UserServiceCreateUserTest {
     void shouldPropagateExceptionFromUserRepositorySave() {
         // Given
         RuntimeException expectedException = new RuntimeException("Database save failed");
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
         when(userValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
         when(roleRepository.findByName("USER")).thenReturn(Optional.of(mockRole));
@@ -352,7 +355,7 @@ class UserServiceCreateUserTest {
         requestWithEmptyCategories.setUser(userDTOWithEmptyCategories);
         requestWithEmptyCategories.setUserInfo(createUserInfoDTO);
 
-        when(userValidationService.processCategories(any())).thenReturn(new ArrayList<>());
+        when(userCategoryValidationService.processCategories(any())).thenReturn(new ArrayList<>());
         when(userValidationService.createAndSetupUser(userDTOWithEmptyCategories)).thenReturn(mockUser);
         when(userValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
         when(roleRepository.findByName("USER")).thenReturn(Optional.of(mockRole));
@@ -366,16 +369,16 @@ class UserServiceCreateUserTest {
         assertNotNull(result);
 
         // Verify that empty list was passed to validation
-        verify(userValidationService).validateCategoryLimit(Collections.emptyList());
-        verify(userValidationService).processCategories(Collections.emptyList());
-        verify(userValidationService).createUserCategoryRelations(mockUser, Collections.emptyList());
+        verify(userCategoryValidationService).validateCategoryLimit(Collections.emptyList());
+        verify(userCategoryValidationService).processCategories(Collections.emptyList());
+        verify(userCategoryValidationService).createUserCategoryRelations(mockUser, Collections.emptyList());
     }
 
     @Test
     @DisplayName("Should ensure user and userInfo bidirectional relationship is set correctly")
     void shouldEnsureUserAndUserInfoBidirectionalRelationshipIsSetCorrectly() {
         // Given
-        when(userValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
         when(userValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
         when(userValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
         when(roleRepository.findByName("USER")).thenReturn(Optional.of(mockRole));

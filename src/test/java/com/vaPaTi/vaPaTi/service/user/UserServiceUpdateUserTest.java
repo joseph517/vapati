@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +35,8 @@ class UserServiceUpdateUserTest {
     private AuthenticatedUserService authenticatedUserService;
     @Mock
     private UserValidationService userValidationService;
+    @Mock
+    private UserCategoryValidationService userCategoryValidationService;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -81,6 +84,7 @@ class UserServiceUpdateUserTest {
         inOrder = inOrder(
                 authenticatedUserService,
                 userValidationService,
+                userCategoryValidationService,
                 userRepository,
                 userMapper
         );
@@ -109,7 +113,7 @@ class UserServiceUpdateUserTest {
         // Given
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
-        when(userValidationService.processCategories(updateUserDTO.getCategoryIds())).thenReturn(mockCategories);
+        when(userCategoryValidationService.processCategories(updateUserDTO.getCategoryIds())).thenReturn(mockCategories);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
         when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
 
@@ -125,9 +129,9 @@ class UserServiceUpdateUserTest {
         inOrder.verify(userValidationService).getUserById(authenticatedUserId);
         inOrder.verify(userValidationService).updateTimestamp(mockUser);
         inOrder.verify(userValidationService).updateUserInfo(mockUser, updateUserDTO);
-        inOrder.verify(userValidationService).validateCategoryLimit(updateUserDTO.getCategoryIds());
-        inOrder.verify(userValidationService).processCategories(updateUserDTO.getCategoryIds());
-        inOrder.verify(userValidationService).updateUserCategories(mockUser, mockCategories);
+        inOrder.verify(userCategoryValidationService).validateCategoryLimit(updateUserDTO.getCategoryIds());
+        inOrder.verify(userCategoryValidationService).processCategories(updateUserDTO.getCategoryIds());
+        inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, mockCategories);
         inOrder.verify(userRepository).save(mockUser);
         inOrder.verify(userMapper).toUserDTO(mockUser);
     }
@@ -156,9 +160,9 @@ class UserServiceUpdateUserTest {
         assertEquals(expectedUserDTO, result);
 
         // Verify category-related methods are not called
-        verify(userValidationService, never()).validateCategoryLimit(any());
-        verify(userValidationService, never()).processCategories(any());
-        verify(userValidationService, never()).updateUserCategories(any(), any());
+        verify(userCategoryValidationService, never()).validateCategoryLimit(any());
+        verify(userCategoryValidationService, never()).processCategories(any());
+        verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
 
         // Verify other methods are called
         verify(authenticatedUserService).getAuthenticatedUserId();
@@ -206,7 +210,7 @@ class UserServiceUpdateUserTest {
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         doThrow(new IllegalArgumentException("User must have at least 1 category"))
-                .when(userValidationService).validateCategoryLimit(List.of());
+                .when(userCategoryValidationService).validateCategoryLimit(List.of());
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
@@ -221,11 +225,11 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
         verify(userValidationService).updateUserInfo(mockUser, dtoWithEmptyCategories);
-        verify(userValidationService).validateCategoryLimit(List.of());
+        verify(userCategoryValidationService).validateCategoryLimit(List.of());
 
         // Verify no calls after validation failure
-        verify(userValidationService, never()).processCategories(any());
-        verify(userValidationService, never()).updateUserCategories(any(), any());
+        verify(userCategoryValidationService, never()).processCategories(any());
+        verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
         verify(userMapper, never()).toUserDTO(any());
     }
@@ -242,7 +246,7 @@ class UserServiceUpdateUserTest {
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         doThrow(new IllegalArgumentException("User cannot have more than 6 categories"))
-                .when(userValidationService).validateCategoryLimit(tooManyCategoryIds);
+                .when(userCategoryValidationService).validateCategoryLimit(tooManyCategoryIds);
 
         // When & Then
         IllegalArgumentException exception = assertThrows(
@@ -257,11 +261,11 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
         verify(userValidationService).updateUserInfo(mockUser, dtoWithTooManyCategories);
-        verify(userValidationService).validateCategoryLimit(tooManyCategoryIds);
+        verify(userCategoryValidationService).validateCategoryLimit(tooManyCategoryIds);
 
         // Verify no calls after validation failure
-        verify(userValidationService, never()).processCategories(any());
-        verify(userValidationService, never()).updateUserCategories(any(), any());
+        verify(userCategoryValidationService, never()).processCategories(any());
+        verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
         verify(userMapper, never()).toUserDTO(any());
     }
@@ -277,7 +281,7 @@ class UserServiceUpdateUserTest {
 
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
-        when(userValidationService.processCategories(categoryIds))
+        when(userCategoryValidationService.processCategories(categoryIds))
                 .thenThrow(new MessageException("Categories not found: [999]"));
 
         // When & Then
@@ -293,11 +297,11 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).getUserById(authenticatedUserId);
         verify(userValidationService).updateTimestamp(mockUser);
         verify(userValidationService).updateUserInfo(mockUser, dtoWithInvalidCategories);
-        verify(userValidationService).validateCategoryLimit(categoryIds);
-        verify(userValidationService).processCategories(categoryIds);
+        verify(userCategoryValidationService).validateCategoryLimit(categoryIds);
+        verify(userCategoryValidationService).processCategories(categoryIds);
 
         // Verify no calls after processCategories failure
-        verify(userValidationService, never()).updateUserCategories(any(), any());
+        verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
         verify(userMapper, never()).toUserDTO(any());
     }
@@ -326,9 +330,9 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).updateUserInfo(mockUser, updateUserDTO);
 
         // Verify no calls after updateUserInfo failure
-        verify(userValidationService, never()).validateCategoryLimit(any());
-        verify(userValidationService, never()).processCategories(any());
-        verify(userValidationService, never()).updateUserCategories(any(), any());
+        verify(userCategoryValidationService, never()).validateCategoryLimit(any());
+        verify(userCategoryValidationService, never()).processCategories(any());
+        verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
         verify(userMapper, never()).toUserDTO(any());
     }
@@ -346,7 +350,7 @@ class UserServiceUpdateUserTest {
 
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
-        when(userValidationService.processCategories(singleCategoryId)).thenReturn(singleCategory);
+        when(userCategoryValidationService.processCategories(singleCategoryId)).thenReturn(singleCategory);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
         when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
 
@@ -362,9 +366,9 @@ class UserServiceUpdateUserTest {
         inOrder.verify(userValidationService).getUserById(authenticatedUserId);
         inOrder.verify(userValidationService).updateTimestamp(mockUser);
         inOrder.verify(userValidationService).updateUserInfo(mockUser, dtoWithSingleCategory);
-        inOrder.verify(userValidationService).validateCategoryLimit(singleCategoryId);
-        inOrder.verify(userValidationService).processCategories(singleCategoryId);
-        inOrder.verify(userValidationService).updateUserCategories(mockUser, singleCategory);
+        inOrder.verify(userCategoryValidationService).validateCategoryLimit(singleCategoryId);
+        inOrder.verify(userCategoryValidationService).processCategories(singleCategoryId);
+        inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, singleCategory);
         inOrder.verify(userRepository).save(mockUser);
         inOrder.verify(userMapper).toUserDTO(mockUser);
     }
@@ -384,7 +388,7 @@ class UserServiceUpdateUserTest {
 
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
-        when(userValidationService.processCategories(maxCategoryIds)).thenReturn(maxCategories);
+        when(userCategoryValidationService.processCategories(maxCategoryIds)).thenReturn(maxCategories);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
         when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
 
@@ -396,9 +400,9 @@ class UserServiceUpdateUserTest {
         assertEquals(expectedUserDTO, result);
 
         // Verify all category operations are performed
-        verify(userValidationService).validateCategoryLimit(maxCategoryIds);
-        verify(userValidationService).processCategories(maxCategoryIds);
-        verify(userValidationService).updateUserCategories(mockUser, maxCategories);
+        verify(userCategoryValidationService).validateCategoryLimit(maxCategoryIds);
+        verify(userCategoryValidationService).processCategories(maxCategoryIds);
+        verify(userCategoryValidationService).updateUserCategories(mockUser, maxCategories);
     }
 
     @Nested
@@ -460,7 +464,7 @@ class UserServiceUpdateUserTest {
             assertEquals(originalUpdatedAt, mockUser.getUpdatedAt());
             verify(userValidationService, never()).updateTimestamp(any());
             verify(userValidationService, never()).updateUserInfo(any(), any());
-            verify(userValidationService, never()).updateUserCategories(any(), any());
+            verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
             verify(userRepository, never()).save(any());
         }
 
