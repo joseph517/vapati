@@ -17,4 +17,7 @@ public class UserInfoDTO {
     private String phone;
     private String description;
     private String profilePicture;
+    private String coverImageUrl;
+    private String introVideoUrl;
+    private String website;
 }

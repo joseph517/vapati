@@ -57,7 +57,8 @@ class UserMapperTest {
     @DisplayName("PublicUserProfileDTO has no private fields (email, phone, verified, active, bankAccounts, userInfo)")
     void publicUserProfileDTO_ShouldNotExposePrivateFields() {
         assertThat(Arrays.stream(PublicUserProfileDTO.class.getDeclaredFields()).map(Field::getName))
-                .containsExactlyInAnyOrder("id", "categories", "firstName", "lastName", "userName", "description", "profilePicture");
+                .containsExactlyInAnyOrder("id", "categories", "firstName", "lastName", "userName", "description", "profilePicture",
+                        "coverImageUrl", "introVideoUrl", "website", "socialLinks", "tags");
     }
 
     @Test
