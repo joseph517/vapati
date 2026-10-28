@@ -112,3 +112,23 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 - **Por qué acá:** el 57 y S11 (mensajes) van a combinar los dos criterios en las mismas clases. Tener un solo punto evita que la combinación diverja.
 - **Costo y riesgo:** chico (5 o 6 llamadores, tests que cambian de mock). El riesgo es perder el atajo "no consultar el rol si no está sancionado": hay que conservarlo y probarlo con `never()`.
 - **Migración:** (1) evaluarlo en el diseño del spec 57, no antes; (2) crear el método con sus tests; (3) migrar los llamadores de un dominio por paso; (4) borrar los patrones inline.
+
+### `UserService` con 12 dependencias
+
+- **Origen:** revisión final del spec 55 (`harness/specs/55-personalizacion-del-perfil.md`), 2026-10-28.
+- **Evidencia:** `service/user/UserService.java`, 12 campos `private final`: listados, alta, edición, borrado, perfil y mensaje predeterminado.
+- **Problema:** cada dependencia nueva obliga a tocar el constructor manual de `UserServiceDeleteUserTest` y los `@Mock` de varias clases. Al crecer el perfil (S14 galería), el service sigue sumando responsabilidades.
+- **Propuesta:** service layer por caso de uso dentro del dominio, igual que la división de las validaciones de `validation/user/`: un `UserProfileService` para `getUserById`, la parte de perfil de `updateUser` y el mensaje predeterminado, y `UserService` para la cuenta (alta, edición de credenciales, borrado, listados).
+- **Por qué acá:** el dominio `user` es el que más crece con el plan Ko-fi (S8, S14), y el patrón ya se aplicó en `validation/user/`.
+- **Costo y riesgo:** medio. Cambia la inyección en `UserController` y mueve tests de `service/user`. El riesgo está en partir `updateUser`, que es una transacción.
+- **Migración:** (1) mover `getAutoThanksMessage`, `updateAutoThanksMessage` y `deleteAutoThanksMessage` con sus tests; (2) mover `getUserById`; (3) evaluar si `updateUser` se parte o delega. Cada paso con su clase de test y build verde.
+
+### Las clases `*ValidationService` de `user` también modifican entidades
+
+- **Origen:** revisión final del spec 55, 2026-10-28.
+- **Evidencia:** `UserProfileValidationService.replaceSocialLinks` y `replaceTags`, `UserCategoryValidationService.updateUserCategories`, `UserAccountValidationService.updateUserInfo`.
+- **Problema:** [Arquitectura](02-arquitectura.md#capas) define `validation` como "lanza excepciones o devuelve la entidad ya cargada", y aquí además aplica cambios. El nombre no dice que mutan.
+- **Propuesta:** documentarlo como excepción del dominio `user` (validar y aplicar en el mismo paso, para que un error no deje cambios a medias), o separar `validate*` de `apply*` cuando se toque.
+- **Por qué acá:** el patrón se copió del de categorías (consistencia) y hoy no hace daño. Es una regla de capas que conviene escribir antes de que otro dominio la imite sin saberlo.
+- **Costo y riesgo:** bajo si solo se documenta (una línea en [Arquitectura](02-arquitectura.md#capas)); medio si se separa.
+- **Migración:** primero el doc; la separación, si se hace, por método y con sus tests.

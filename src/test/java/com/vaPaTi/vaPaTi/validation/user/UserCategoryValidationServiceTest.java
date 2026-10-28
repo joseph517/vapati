@@ -28,14 +28,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserCategoryService Tests")
-class UserValidationServiceCategoryTest {
+@DisplayName("UserCategoryValidationService Tests")
+class UserCategoryValidationServiceTest {
 
     @Mock
     private CategoryRepository categoryRepository;
 
     @InjectMocks
-    private UserValidationService userValidationService;
+    private UserCategoryValidationService userCategoryValidationService;
 
     private List<Long> validCategoryIds;
     private List<Long> emptyCategoryIds;
@@ -75,7 +75,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should pass validation when category list has valid size")
         void shouldPassValidationWhenCategoryListHasValidSize() {
             // When & Then
-            assertThatCode(() -> userValidationService.validateCategoryLimit(validCategoryIds))
+            assertThatCode(() -> userCategoryValidationService.validateCategoryLimit(validCategoryIds))
                     .doesNotThrowAnyException();
         }
 
@@ -86,7 +86,7 @@ class UserValidationServiceCategoryTest {
             List<Long> maxCategoryIds = Arrays.asList(1L, 2L, 3L, 4L, 5L, 6L);
 
             // When & Then
-            assertThatCode(() -> userValidationService.validateCategoryLimit(maxCategoryIds))
+            assertThatCode(() -> userCategoryValidationService.validateCategoryLimit(maxCategoryIds))
                     .doesNotThrowAnyException();
         }
 
@@ -94,7 +94,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should throw MessageException when category list is empty")
         void shouldThrowMessageExceptionWhenCategoryListIsEmpty() {
             // When & Then
-            assertThatThrownBy(() -> userValidationService.validateCategoryLimit(emptyCategoryIds))
+            assertThatThrownBy(() -> userCategoryValidationService.validateCategoryLimit(emptyCategoryIds))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User must have at least 1 category");
         }
@@ -103,7 +103,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should throw MessageException when category list exceeds maximum limit")
         void shouldThrowMessageExceptionWhenCategoryListExceedsMaximumLimit() {
             // When & Then
-            assertThatThrownBy(() -> userValidationService.validateCategoryLimit(exceedLimitCategoryIds))
+            assertThatThrownBy(() -> userCategoryValidationService.validateCategoryLimit(exceedLimitCategoryIds))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("User cannot have more than 6 categories");
         }
@@ -112,7 +112,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should handle null list gracefully")
         void shouldHandleNullListGracefully() {
             // When & Then - This will throw NullPointerException due to @NotNull annotation
-            assertThatThrownBy(() -> userValidationService.validateCategoryLimit(null))
+            assertThatThrownBy(() -> userCategoryValidationService.validateCategoryLimit(null))
                     .isInstanceOf(NullPointerException.class);
         }
     }
@@ -128,7 +128,7 @@ class UserValidationServiceCategoryTest {
             when(categoryRepository.findAllById(validCategoryIds)).thenReturn(mockCategories);
 
             // When
-            List<Category> result = userValidationService.processCategories(validCategoryIds);
+            List<Category> result = userCategoryValidationService.processCategories(validCategoryIds);
 
             // Then
             assertThat(result).isNotNull()
@@ -148,7 +148,7 @@ class UserValidationServiceCategoryTest {
             when(categoryRepository.findAllById(requestedIds)).thenReturn(foundCategories);
 
             // When & Then
-            assertThatThrownBy(() -> userValidationService.processCategories(requestedIds))
+            assertThatThrownBy(() -> userCategoryValidationService.processCategories(requestedIds))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Categories not found: [99]");
 
@@ -165,7 +165,7 @@ class UserValidationServiceCategoryTest {
             when(categoryRepository.findAllById(requestedIds)).thenReturn(foundCategories);
 
             // When & Then
-            assertThatThrownBy(() -> userValidationService.processCategories(requestedIds))
+            assertThatThrownBy(() -> userCategoryValidationService.processCategories(requestedIds))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Categories not found: [98, 99]");
 
@@ -180,7 +180,7 @@ class UserValidationServiceCategoryTest {
             when(categoryRepository.findAllById(nonExistentIds)).thenReturn(Collections.emptyList());
 
             // When & Then
-            assertThatThrownBy(() -> userValidationService.processCategories(nonExistentIds))
+            assertThatThrownBy(() -> userCategoryValidationService.processCategories(nonExistentIds))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Categories not found: [97, 98, 99]");
 
@@ -194,7 +194,7 @@ class UserValidationServiceCategoryTest {
             when(categoryRepository.findAllById(emptyCategoryIds)).thenReturn(Collections.emptyList());
 
             // When
-            List<Category> result = userValidationService.processCategories(emptyCategoryIds);
+            List<Category> result = userCategoryValidationService.processCategories(emptyCategoryIds);
 
             // Then
             assertThat(result).isNotNull().isEmpty();
@@ -211,7 +211,7 @@ class UserValidationServiceCategoryTest {
             when(categoryRepository.findAllById(requestedIds)).thenReturn(foundCategories);
 
             // When & Then
-            assertThatThrownBy(() -> userValidationService.processCategories(requestedIds))
+            assertThatThrownBy(() -> userCategoryValidationService.processCategories(requestedIds))
                     .isInstanceOf(MessageException.class)
                     .hasMessageContaining("Categories not found:")
                     .hasMessageContaining("99")
@@ -229,7 +229,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should create user category relations for all provided categories")
         void shouldCreateUserCategoryRelationsForAllProvidedCategories() {
             // When
-            userValidationService.createUserCategoryRelations(mockUser, mockCategories);
+            userCategoryValidationService.createUserCategoryRelations(mockUser, mockCategories);
 
             // Then
             assertThat(mockUser.getUserCategories())
@@ -253,7 +253,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should handle empty category list")
         void shouldHandleEmptyCategoryList() {
             // When
-            userValidationService.createUserCategoryRelations(mockUser, Collections.emptyList());
+            userCategoryValidationService.createUserCategoryRelations(mockUser, Collections.emptyList());
 
             // Then
             assertThat(mockUser.getUserCategories()).isNotNull().isEmpty();
@@ -269,7 +269,7 @@ class UserValidationServiceCategoryTest {
             mockUser.getUserCategories().add(existingUc);
 
             // When
-            userValidationService.createUserCategoryRelations(mockUser, mockCategories);
+            userCategoryValidationService.createUserCategoryRelations(mockUser, mockCategories);
 
             // Then
             assertThat(mockUser.getUserCategories()).hasSize(3);
@@ -286,7 +286,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should create unique UserCategory instances")
         void shouldCreateUniqueUserCategoryInstances() {
             // When
-            userValidationService.createUserCategoryRelations(mockUser, mockCategories);
+            userCategoryValidationService.createUserCategoryRelations(mockUser, mockCategories);
 
             // Then
             Set<UserCategory> userCategories = mockUser.getUserCategories();
@@ -331,7 +331,7 @@ class UserValidationServiceCategoryTest {
                     .build();
 
             // When
-            userValidationService.updateUserCategories(userWithNoCategories, mockCategories);
+            userCategoryValidationService.updateUserCategories(userWithNoCategories, mockCategories);
 
             // Then
             assertThat(userWithNoCategories.getUserCategories()).hasSize(3);
@@ -350,7 +350,7 @@ class UserValidationServiceCategoryTest {
             List<Category> newCategories = Arrays.asList(category1, category2);
 
             // When
-            userValidationService.updateUserCategories(mockUser, newCategories);
+            userCategoryValidationService.updateUserCategories(mockUser, newCategories);
 
             // Then
             assertThat(mockUser.getUserCategories()).hasSize(2);
@@ -372,7 +372,7 @@ class UserValidationServiceCategoryTest {
             List<Category> newCategories = Arrays.asList(category1);
 
             // When
-            userValidationService.updateUserCategories(mockUser, newCategories);
+            userCategoryValidationService.updateUserCategories(mockUser, newCategories);
 
             // Then
             assertThat(mockUser.getUserCategories()).hasSize(1);
@@ -393,7 +393,7 @@ class UserValidationServiceCategoryTest {
             List<Category> newCategories = Arrays.asList(category1, category2, category3, newCategory);
 
             // When
-            userValidationService.updateUserCategories(mockUser, newCategories);
+            userCategoryValidationService.updateUserCategories(mockUser, newCategories);
 
             // Then
             assertThat(mockUser.getUserCategories()).hasSize(4);
@@ -414,7 +414,7 @@ class UserValidationServiceCategoryTest {
             List<Category> newCategories = Arrays.asList(newCategory1, newCategory2);
 
             // When
-            userValidationService.updateUserCategories(mockUser, newCategories);
+            userCategoryValidationService.updateUserCategories(mockUser, newCategories);
 
             // Then
             assertThat(mockUser.getUserCategories()).hasSize(2);
@@ -435,7 +435,7 @@ class UserValidationServiceCategoryTest {
         @DisplayName("Should remove all categories when new list is empty")
         void shouldRemoveAllCategoriesWhenNewListIsEmpty() {
             // When
-            userValidationService.updateUserCategories(mockUser, Collections.emptyList());
+            userCategoryValidationService.updateUserCategories(mockUser, Collections.emptyList());
 
             // Then
             assertThat(mockUser.getUserCategories()).isEmpty();
@@ -454,7 +454,7 @@ class UserValidationServiceCategoryTest {
             List<Category> newCategories = Arrays.asList(category1, category3, newCategory);
 
             // When
-            userValidationService.updateUserCategories(mockUser, newCategories);
+            userCategoryValidationService.updateUserCategories(mockUser, newCategories);
 
             // Then
             assertThat(mockUser.getUserCategories()).hasSize(3);
@@ -481,7 +481,7 @@ class UserValidationServiceCategoryTest {
             List<Category> newCategories = Arrays.asList(category1, newCategory);
 
             // When
-            userValidationService.updateUserCategories(mockUser, newCategories);
+            userCategoryValidationService.updateUserCategories(mockUser, newCategories);
 
             // Then
             mockUser.getUserCategories().forEach(uc -> {

@@ -143,7 +143,20 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** los listados traen las relaciones con `JOIN FETCH`, incluido el `@OneToOne` inverso `User.verificationRequest`, que Hibernate cargaría aparte aunque fuera `LAZY`. Las categorías de un listado de campañas se cargan en bloques de 1000 ids, porque SQL Server acepta hasta 2100 parámetros.
 - **El listado de publicaciones:** suma dos consultas fijas por `campaignId` (una sola para un anónimo): el conteo de likes agrupado por publicación y los ids que quien llama marcó. Ninguna usa `IN :ids`, así que no crecen con el listado ni tocan el límite de parámetros.
 - **El listado de comentarios:** trae el autor, su `userInfo` y su `verificationRequest` con `JOIN FETCH`, todos a uno, así que Hibernate pagina en SQL. Cada página son dos consultas fijas (la página y el conteo), más las de visibilidad.
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`, `repository/comment/CommentRepository.java`.
+- **El perfil de un usuario:** los enlaces y las etiquetas se cargan con dos consultas por `user_id` (`findByUserId`), fuera del grafo de `findByIdWithFullDetails`, que ya trae dos colecciones (categorías y cuentas bancarias); traer una tercera obligaría a un producto cartesiano. Se leen recién después de decidir la visibilidad. Los listados de usuarios no las traen.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `repository/user/UserSocialLinkRepository.java`, `repository/user/UserTagRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`, `repository/comment/CommentRepository.java`.
+
+### Perfil con URLs externas y una sola regla de URL
+
+- **Qué:** la portada, el video de presentación, el sitio web, la foto y los enlaces a redes se guardan como URLs externas, sin subir archivos. Todas pasan por `UrlValidationService.normalizeOptionalUrl` (`http` o `https` con host, 255 como máximo, en blanco guarda `null`). Las reglas de dominio van encima: `SocialPlatform` dice a qué dominios puede apuntar cada enlace, y `VIDEO_HOSTS` en `UserProfileValidationService` es la lista exacta de hosts del video (YouTube y Vimeo).
+- **Por qué:** no hay almacenamiento propio, así que una URL es todo lo que hace falta guardar. Y un embed arbitrario es un riesgo: el front incrusta el video, por eso la lista de hosts es exacta y no admite subdominios.
+- **Dónde:** `validation/common/UrlValidationService.java`, `validation/user/UserProfileValidationService.java`, `entity/user/SocialPlatform.java`.
+
+### Colecciones reemplazadas por diferencia
+
+- **Qué:** `socialLinks` y `tags` del usuario se reemplazan enteras, pero no con `clear()` más `add()`: `UserProfileValidationService` valida todo primero y después quita lo que sobra, actualiza lo que sigue y agrega lo nuevo. `UserSocialLink` y `UserTag` calculan `equals` y `hashCode` solo con su clave natural (`platform`, `tag`).
+- **Por qué:** Hibernate hace los `INSERT` antes de los `DELETE` de los huérfanos al hacer flush, así que volver a agregar una plataforma o etiqueta que ya existía chocaría con la `UNIQUE (user_id, platform)` o `(user_id, tag)`. La clave natural en `equals` permite además cambiar la `url` de un enlace sin romper el `HashSet`.
+- **Dónde:** `validation/user/UserProfileValidationService.java` (`replaceSocialLinks`, `replaceTags`), `entity/user/UserSocialLink.java`, `entity/user/UserTag.java`.
 
 ## Errores
 

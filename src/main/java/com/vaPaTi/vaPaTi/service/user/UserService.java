@@ -17,9 +17,14 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +49,12 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final AuthenticatedUserService authenticatedUserService;
     private final CampaignService campaignService;
+    private final UserCategoryValidationService userCategoryValidationService;
+    private final UserAccountValidationService userAccountValidationService;
+    private final UserProfileValidationService userProfileValidationService;
     private final RoleValidationService roleValidationService;
+    private final UserSocialLinkRepository userSocialLinkRepository;
+    private final UserTagRepository userTagRepository;
 
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
@@ -81,19 +91,20 @@ public class UserService {
         CreateUserInfoDTO userInfoDTO = request.getUserInfo();
 
         // Validate category limit
-        userValidationService.validateCategoryLimit(userDTO.getCategoryIds());
+        userCategoryValidationService.validateCategoryLimit(userDTO.getCategoryIds());
 
         // get categories in a single query
-        List<Category> categories =  userValidationService.processCategories(userDTO.getCategoryIds());
+        List<Category> categories =  userCategoryValidationService.processCategories(userDTO.getCategoryIds());
 
         // Create user and set up
-        User user = userValidationService.createAndSetupUser(userDTO);
+        User user = userAccountValidationService.createAndSetupUser(userDTO);
 
         // Create user category relations
-        userValidationService.createUserCategoryRelations(user, categories);
+        userCategoryValidationService.createUserCategoryRelations(user, categories);
 
         // Set user info
-        UserInfo userInfo = userValidationService.createUserInfo(userInfoDTO);
+        UserInfo userInfo = userAccountValidationService.createUserInfo(userInfoDTO);
+        userInfo.setProfilePicture(userProfileValidationService.validateAndNormalizeProfilePicture(userInfoDTO.getProfilePicture()));
 
         // Role
         Role userRole = roleRepository.findByName("USER").orElseThrow(() -> new ResourceNotFoundException("Role not found"));
@@ -118,21 +129,32 @@ public class UserService {
         User user = userValidationService.getUserById(userId);
 
         // Before any field is modified: changing the email or password requires the current password
-        boolean credentialsChanged = userValidationService.validateCredentialChange(user, dto);
+        boolean credentialsChanged = userAccountValidationService.validateCredentialChange(user, dto);
 
         userValidationService.updateTimestamp(user);
 
         // Update user info with full validations (only fields sent)
-        userValidationService.updateUserInfo(user, dto);
+        userAccountValidationService.updateUserInfo(user, dto);
+        userProfileValidationService.applyProfileFields(user.getUserInfo(), dto);
 
         // Update categories only if explicitly provided
         if (dto.getCategoryIds() != null) {
             // Validate category limit (minimum 1, maximum 6)
-            userValidationService.validateCategoryLimit(dto.getCategoryIds());
+            userCategoryValidationService.validateCategoryLimit(dto.getCategoryIds());
 
             // Process categories (validate that they exist)
-            List<Category> categories = userValidationService.processCategories(dto.getCategoryIds());
-            userValidationService.updateUserCategories(user, categories);
+            List<Category> categories = userCategoryValidationService.processCategories(dto.getCategoryIds());
+            userCategoryValidationService.updateUserCategories(user, categories);
+        }
+
+        // Replace social links only if explicitly provided ([] removes them all)
+        if (dto.getSocialLinks() != null) {
+            userProfileValidationService.replaceSocialLinks(user, dto.getSocialLinks());
+        }
+
+        // Replace tags only if explicitly provided ([] removes them all)
+        if (dto.getTags() != null) {
+            userProfileValidationService.replaceTags(user, dto.getTags());
         }
 
         // Invalidates every access and refresh token issued so far, including the current session
@@ -141,7 +163,10 @@ public class UserService {
         }
 
         User savedUser = userRepository.save(user);
-        return userMapper.toUserDTO(savedUser);
+        // The queries flush first, so they return the links and tags just written
+        return userMapper.toUserDTO(savedUser,
+                userSocialLinkRepository.findByUserId(savedUser.getId()),
+                userTagRepository.findByUserId(savedUser.getId()));
     }
 
     @Transactional
@@ -171,11 +196,12 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         Long callerId = authenticatedUserService.getAuthenticatedUserId();
+        // Links and tags are loaded only after the visibility is decided: a sanctioned profile gives 404 without querying them
         if (id.equals(callerId) || roleValidationService.isAdmin(callerId)) {
-            return userMapper.toUserDTO(user);
+            return userMapper.toUserDTO(user, userSocialLinkRepository.findByUserId(id), userTagRepository.findByUserId(id));
         }
         userValidationService.validateProfileNotSanctioned(user);
-        return userMapper.toPublicUserProfileDTO(user);
+        return userMapper.toPublicUserProfileDTO(user, userSocialLinkRepository.findByUserId(id), userTagRepository.findByUserId(id));
     }
 
     public AutoThanksResponseDTO getAutoThanksMessage() {
@@ -193,13 +219,13 @@ public class UserService {
         }
 
         // Before loading the user: a blank text throws without touching anything
-        String autoThanksMessage = userValidationService.validateAndNormalizeAutoThanksMessage(dto.getAutoThanksMessage());
+        String autoThanksMessage = userProfileValidationService.validateAndNormalizeAutoThanksMessage(dto.getAutoThanksMessage());
 
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         User user = userValidationService.getUserById(userId);
 
         UserInfo userInfo = user.getUserInfo();
-        userValidationService.updateUserInfoTimestamp(userInfo);
+        userAccountValidationService.updateUserInfoTimestamp(userInfo);
         userInfo.setAutoThanksMessage(autoThanksMessage);
 
         userRepository.save(user);
@@ -212,7 +238,7 @@ public class UserService {
         User user = userValidationService.getUserById(userId);
 
         UserInfo userInfo = user.getUserInfo();
-        userValidationService.updateUserInfoTimestamp(userInfo);
+        userAccountValidationService.updateUserInfoTimestamp(userInfo);
         userInfo.setAutoThanksMessage(null);
 
         userRepository.save(user);

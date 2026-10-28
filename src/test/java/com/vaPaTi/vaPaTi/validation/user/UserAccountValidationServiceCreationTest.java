@@ -30,8 +30,8 @@ import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserValidationService - User Creation Tests")
-class UserValidationServiceUserCreationTest {
+@DisplayName("UserAccountValidationService - User Creation Tests")
+class UserAccountValidationServiceCreationTest {
 
     @Mock
     private UserInfoRepository userInfoRepository;
@@ -40,7 +40,7 @@ class UserValidationServiceUserCreationTest {
     @Mock
     private PasswordEncoder passwordEncoder;
     @InjectMocks
-    private UserValidationService userValidationService;
+    private UserAccountValidationService userAccountValidationService;
 
     private CreateUserDTO createUserDTO;
     private CreateUserInfoDTO createUserInfoDTO;
@@ -87,7 +87,7 @@ class UserValidationServiceUserCreationTest {
             LocalDateTime beforeExecution = LocalDateTime.now().minusSeconds(1);
 
             // When
-            User result = userValidationService.createAndSetupUser(createUserDTO);
+            User result = userAccountValidationService.createAndSetupUser(createUserDTO);
 
             // Then
             LocalDateTime afterExecution = LocalDateTime.now().plusSeconds(1);
@@ -114,7 +114,7 @@ class UserValidationServiceUserCreationTest {
                     .build();
 
             // When
-            User result = userValidationService.createAndSetupUser(dtoWithEmptyCategories);
+            User result = userAccountValidationService.createAndSetupUser(dtoWithEmptyCategories);
 
             // Then
             assertNotNull(result);
@@ -126,7 +126,7 @@ class UserValidationServiceUserCreationTest {
         void shouldThrowMessageException_WhenDTOIsNull() {
             // When & Then
             assertThrows(MessageException.class,
-                    () -> userValidationService.createAndSetupUser(null),
+                    () -> userAccountValidationService.createAndSetupUser(null),
                     "Should throw MessageException when DTO is null");
         }
     }
@@ -150,7 +150,7 @@ class UserValidationServiceUserCreationTest {
             LocalDateTime beforeExecution = LocalDateTime.now().minusSeconds(1);
 
             // When
-            UserInfo result = userValidationService.createUserInfo(createUserInfoDTO);
+            UserInfo result = userAccountValidationService.createUserInfo(createUserInfoDTO);
 
             // Then
             LocalDateTime afterExecution = LocalDateTime.now().plusSeconds(1);
@@ -184,7 +184,7 @@ class UserValidationServiceUserCreationTest {
         void shouldThrowMessageException_WhenDTOIsNull() {
             // When & Then
             assertThrows(MessageException.class,
-                    () -> userValidationService.createUserInfo(null),
+                    () -> userAccountValidationService.createUserInfo(null),
                     "Should throw MessageException when DTO is null");
         }
 
@@ -200,7 +200,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Invalid email format", exception.getMessage());
                 verify(userInfoRepository, never()).existsByEmailAndUserIdNot(anyString(), anyLong());
@@ -216,7 +216,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Email already exists", exception.getMessage());
                 verify(userInfoRepository).existsByEmailAndUserIdNot("john.doe@example.com", -1L);
@@ -241,7 +241,7 @@ class UserValidationServiceUserCreationTest {
                 // When & Then
                 for (String email : validEmails) {
                     createUserInfoDTO.setEmail(email);
-                    assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO),
+                    assertDoesNotThrow(() -> userAccountValidationService.createUserInfo(createUserInfoDTO),
                             "Should accept valid email: " + email);
                 }
             }
@@ -265,7 +265,7 @@ class UserValidationServiceUserCreationTest {
                 for (String email : invalidEmails) {
                     createUserInfoDTO.setEmail(email);
                     MessageException exception = assertThrows(MessageException.class,
-                            () -> userValidationService.createUserInfo(createUserInfoDTO),
+                            () -> userAccountValidationService.createUserInfo(createUserInfoDTO),
                             "Should reject invalid email: " + email);
                     assertEquals("Invalid email format", exception.getMessage());
                 }
@@ -284,7 +284,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Username must be between 3 and 50 characters", exception.getMessage());
             }
@@ -298,7 +298,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Username must be between 3 and 50 characters", exception.getMessage());
             }
@@ -312,7 +312,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Username already exists", exception.getMessage());
                 verify(userInfoRepository).existsByUserNameAndUserIdNot("johndoe123", -1L);
@@ -327,7 +327,7 @@ class UserValidationServiceUserCreationTest {
                 createUserInfoDTO.setEmail("user@example.com");
 
                 // When & Then
-                assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+                assertDoesNotThrow(() -> userAccountValidationService.createUserInfo(createUserInfoDTO));
             }
 
             @Test
@@ -338,7 +338,7 @@ class UserValidationServiceUserCreationTest {
                 createUserInfoDTO.setUserName(maxLengthUsername);
 
                 // When & Then
-                assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+                assertDoesNotThrow(() -> userAccountValidationService.createUserInfo(createUserInfoDTO));
             }
         }
 
@@ -355,7 +355,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 ConflictException exception = assertThrows(ConflictException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Phone already exists", exception.getMessage());
                 verify(userInfoRepository).existsByPhoneAndUserIdNot("+1234567890", -1L);
@@ -369,7 +369,7 @@ class UserValidationServiceUserCreationTest {
                 createUserInfoDTO.setPhone(null);
 
                 // When & Then
-                assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+                assertDoesNotThrow(() -> userAccountValidationService.createUserInfo(createUserInfoDTO));
                 verify(userInfoRepository, never()).existsByPhoneAndUserIdNot(any(), anyLong());
             }
 
@@ -381,7 +381,7 @@ class UserValidationServiceUserCreationTest {
                         .thenReturn(false);
 
                 // When & Then
-                assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO));
+                assertDoesNotThrow(() -> userAccountValidationService.createUserInfo(createUserInfoDTO));
                 verify(userInfoRepository).existsByPhoneAndUserIdNot("+1234567890", -1L);
             }
         }
@@ -398,7 +398,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Password must be at least 8 characters long", exception.getMessage());
             }
@@ -411,7 +411,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Password must contain at least one uppercase letter", exception.getMessage());
             }
@@ -424,7 +424,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Password must contain at least one lowercase letter", exception.getMessage());
             }
@@ -437,7 +437,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 MessageException exception = assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 assertEquals("Password must contain at least one number", exception.getMessage());
             }
@@ -456,7 +456,7 @@ class UserValidationServiceUserCreationTest {
                 // When & Then
                 for (String password : validPasswords) {
                     createUserInfoDTO.setPassword(password);
-                    assertDoesNotThrow(() -> userValidationService.createUserInfo(createUserInfoDTO),
+                    assertDoesNotThrow(() -> userAccountValidationService.createUserInfo(createUserInfoDTO),
                             "Should accept valid password: " + password);
                 }
             }
@@ -474,7 +474,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper).fromCreateUserInfoDTO(createUserInfoDTO);
                 verify(passwordEncoder, never()).encode(anyString());
@@ -484,7 +484,7 @@ class UserValidationServiceUserCreationTest {
             @DisplayName("Should verify all validations are called in correct order")
             void shouldVerifyValidationsCalledInCorrectOrder() {
                 // When
-                userValidationService.createUserInfo(createUserInfoDTO);
+                userAccountValidationService.createUserInfo(createUserInfoDTO);
 
                 // Then
                 InOrder inOrder = inOrder(userInfoRepository);
@@ -500,7 +500,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper, never()).fromCreateUserInfoDTO(any());
                 verify(passwordEncoder, never()).encode(anyString());
@@ -514,7 +514,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper, never()).fromCreateUserInfoDTO(any());
                 verify(passwordEncoder, never()).encode(anyString());
@@ -528,7 +528,7 @@ class UserValidationServiceUserCreationTest {
 
                 // When & Then
                 assertThrows(MessageException.class,
-                        () -> userValidationService.createUserInfo(createUserInfoDTO));
+                        () -> userAccountValidationService.createUserInfo(createUserInfoDTO));
 
                 verify(userInfoMapper, never()).fromCreateUserInfoDTO(any());
                 verify(passwordEncoder, never()).encode(anyString());
@@ -538,7 +538,7 @@ class UserValidationServiceUserCreationTest {
             @DisplayName("Should encode password only after successful mapping")
             void shouldEncodePassword_OnlyAfterSuccessfulMapping() {
                 // When
-                UserInfo result = userValidationService.createUserInfo(createUserInfoDTO);
+                UserInfo result = userAccountValidationService.createUserInfo(createUserInfoDTO);
 
                 // Then
                 InOrder inOrder = inOrder(userInfoMapper, passwordEncoder);
@@ -555,7 +555,7 @@ class UserValidationServiceUserCreationTest {
                 String originalPassword = createUserInfoDTO.getPassword();
 
                 // When
-                userValidationService.createUserInfo(createUserInfoDTO);
+                userAccountValidationService.createUserInfo(createUserInfoDTO);
 
                 // Then
                 assertEquals(originalPassword, createUserInfoDTO.getPassword(),

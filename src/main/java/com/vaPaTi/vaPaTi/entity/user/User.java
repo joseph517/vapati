@@ -20,8 +20,8 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@EqualsAndHashCode(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts"})
-@ToString(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts", "role"})
+@EqualsAndHashCode(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts", "socialLinks", "tags"})
+@ToString(exclude = {"userCategories", "userInfo", "verificationRequest", "bankAccounts", "role", "socialLinks", "tags"})
 @SQLDelete(sql = "UPDATE [user] SET deleted_at = GETDATE() WHERE id = ?")
 @SQLRestriction("deleted_at IS NULL")
 public class User {
@@ -79,6 +79,14 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<BankAccount> bankAccounts = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<UserSocialLink> socialLinks = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<UserTag> tags = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)

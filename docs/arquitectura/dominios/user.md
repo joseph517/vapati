@@ -15,16 +15,22 @@ Detalle de columnas y relaciones con el resto del modelo en [Modelo de datos](..
 | Entidad | Archivo | Qué guarda |
 |---|---|---|
 | `User` | `entity/user/User.java` | La cuenta: `verified`, `role`, el estado de sanción (`banned`, `bannedAt`, `suspendedUntil`, `bannedReason`), `tokensValidAfter`, `createdAt`, `updatedAt` y `deletedAt` (borrado lógico). Tabla `[user]`. |
-| `UserInfo` | `entity/user/UserInfo.java` | Los datos personales y las credenciales: `firstName`, `lastName`, `email` (único), `userName` (único), `password` (hash BCrypt), `phone` (único), `description`, `profilePicture`, y el mensaje predeterminado `autoThanksMessage` (columna `auto_thanks_message`, `varchar(280)`, nulo). Tabla `user_info`, relación 1 a 1 con `User` (la FK `user_id` está en `user_info`). |
+| `UserInfo` | `entity/user/UserInfo.java` | Los datos personales y las credenciales: `firstName`, `lastName`, `email` (único), `userName` (único), `password` (hash BCrypt), `phone` (único), `description`, `profilePicture`, las URLs de personalización `coverImageUrl` (portada), `introVideoUrl` (video de presentación) y `website` (columnas `cover_image_url`, `intro_video_url` y `website`, nulas), y el mensaje predeterminado `autoThanksMessage` (columna `auto_thanks_message`, `varchar(280)`, nulo). Tabla `user_info`, relación 1 a 1 con `User` (la FK `user_id` está en `user_info`). |
 | `UserCategory` | `entity/user/UserCategory.java` | Tabla intermedia `user_category` entre `User` y `Category`: las categorías de interés del usuario (de 1 a 6). |
+| `UserSocialLink` | `entity/user/UserSocialLink.java` | Un enlace a red social del usuario: `platform` (`SocialPlatform`, `EnumType.STRING`, `VARCHAR(20)`) y `url`. Tabla `user_social_link`, con `UNIQUE (user_id, platform)`: una fila por plataforma. |
+| `UserTag` | `entity/user/UserTag.java` | Una etiqueta libre del usuario, ya normalizada (`tag`, `VARCHAR(30)`). Tabla `user_tag`, con `UNIQUE (user_id, tag)`. |
+| `SocialPlatform` | `entity/user/SocialPlatform.java` | Enum de nueve plataformas (`INSTAGRAM`, `X`, `TIKTOK`, `YOUTUBE`, `TWITCH`, `FACEBOOK`, `LINKEDIN`, `GITHUB`, `OTHER`), cada una con los dominios a los que puede apuntar su enlace. El orden de declaración es el orden en que se devuelven los enlaces. |
 | `Role` | `entity/user/Role.java` | Tabla `roles` con `name` único. Los valores usados son `USER` y `ADMIN`, sembrados por `src/main/resources/data.sql`. |
 
 Relaciones de `User` relevantes:
 
 - `userInfo` y `verificationRequest`: `@OneToOne` inversos (`mappedBy = "user"`), con `cascade = ALL`.
 - `userCategories` y `bankAccounts`: `@OneToMany` como `Set`, con `cascade = ALL` y `orphanRemoval`. Al ser `Set`, se pueden traer los dos en la misma consulta con `@EntityGraph` sin `MultipleBagFetchException`.
+- `socialLinks` y `tags`: `@OneToMany` como `Set`, con `cascade = ALL` y `orphanRemoval`. No entran en ningún `@EntityGraph`: se leen con una consulta por `user_id` cada una (ver `GET /api/users/{id}`).
 - `role`: `@ManyToOne` lazy, obligatorio.
 - `campaigns`: `@OneToMany` hacia `Campaign`, con `cascade = ALL` y `orphanRemoval`.
+
+**`equals` de enlaces y etiquetas.** `UserSocialLink` y `UserTag` calculan `equals` y `hashCode` solo con su clave natural dentro del set del usuario: `platform` y `tag`, respectivamente (ambas con `updatable = false`). Así, cambiar la `url` de un enlace que ya está en el `HashSet` no rompe el set, y dos filas de la misma plataforma o etiqueta se consideran la misma. Por la misma razón el reemplazo se hace por diferencia y no con `clear()` más `add()`: Hibernate emite los `INSERT` antes de los `DELETE` de huérfanos, y volver a agregar una plataforma o etiqueta chocaría con la `UNIQUE`.
 
 **Valores iniciales.** `User` usa `@Builder` de Lombok, que ignora los inicializadores de campo que no tienen `@Builder.Default`. Como el registro arma la entidad con `User.builder()`, una cuenta recién creada queda con `banned = null` (no `false`) en la base. Por eso todas las comprobaciones de sanción toleran el `null`: `Boolean.TRUE.equals(user.getBanned())` en `AccountStatusValidationService` y `u.banned IS NULL OR u.banned = false` en el fragmento `NOT_BLOCKED`.
 
@@ -32,27 +38,39 @@ Relaciones de `User` relevantes:
 
 **Fragmento `NOT_SANCTIONED`.** `UserRepository` expone la constante `NOT_SANCTIONED`, un fragmento JPQL con la misma regla que `AccountStatusValidationService.isSanctioned`. Lo reusan los repositorios de campañas y seguidores para filtrar usuarios sancionados directamente en SQL; `:now` se pasa desde la JVM.
 
-Repositorios: `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java` (chequeos de unicidad excluyendo al propio usuario), `repository/user/RoleRepository.java` y `repository/user/UserCategoryRepository.java`.
+Repositorios: `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java` (chequeos de unicidad excluyendo al propio usuario), `repository/user/RoleRepository.java`, `repository/user/UserCategoryRepository.java`, `repository/user/UserSocialLinkRepository.java` y `repository/user/UserTagRepository.java` (los dos últimos con `findByUserId`).
 
 ## Reglas de negocio
 
-Casi todas viven en `validation/user/UserValidationService.java`. El chequeo de sanción es compartido y vive en `validation/auth/AccountStatusValidationService.java`.
+Las reglas se reparten en cuatro clases de `validation/user/`, más dos compartidas:
+
+- `UserAccountValidationService`: alta y edición de los datos personales y las credenciales (email, `userName`, teléfono, contraseña, cambio de credenciales).
+- `UserCategoryValidationService`: las categorías de interés.
+- `UserProfileValidationService`: lo público del perfil (mensaje predeterminado, URLs, enlaces a redes y etiquetas).
+- `UserValidationService`: lo que queda genérico (cargar el usuario, `validateProfileNotSanctioned`, `updateTimestamp`).
+- `validation/common/UrlValidationService.java` (regla de URL) y `validation/auth/AccountStatusValidationService.java` (chequeo de sanción) son compartidas.
 
 | Regla | Por qué / consecuencia | Dónde |
 |---|---|---|
-| Un usuario tiene entre 1 y 6 categorías de interés, y todas tienen que existir. | En el registro la lista es obligatoria (vacía da error). En la edición solo se valida si se manda `categoryIds`; si no se manda, las categorías no se tocan. Los ids inexistentes se informan todos juntos en el mensaje. | `validateCategoryLimit`, `processCategories` |
-| Email con formato `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$` y único. | Bean Validation solo exige que no esté vacío y su largo; el formato se chequea en la capa de validación. La unicidad se consulta excluyendo al propio usuario, para que reenviar el mismo email en una edición no choque consigo mismo. | `validateEmail` |
-| `userName` de 3 a 50 caracteres, solo letras, números, `.`, `_` y `-`, y único. | Igual que el email: el DTO solo exige que no esté vacío. | `validateUserName` |
-| Teléfono único. | Si el teléfono viene vacío no se consulta: consultar con `null` coincidiría con usuarios sin teléfono. | `validatePhone` |
-| Contraseña de al menos 8 caracteres, con al menos un carácter especial, una mayúscula, una minúscula y un número. | Los especiales aceptados son ``! @ # $ % ^ & * ( ) , . ? " : { } \| < >``; `-` y `_` no cuentan. La contraseña se guarda con BCrypt (`PasswordEncoder` de `security/SecurityConfig.java`). | `validatePassword` |
-| Los textos se normalizan solo en la edición. | En el registro, el email y el teléfono se guardan tal como llegan. En la edición, el email se guarda sin espacios y en minúsculas, y el resto de los textos (incluido el teléfono) sin espacios al principio y al final. | `createUserInfo`, `updateUserInfo` |
-| Cambiar la contraseña, o el email por uno distinto, exige `currentPassword` correcta. | Se comprueba antes de modificar ningún campo. El email se compara sin espacios y en minúsculas, así que cambiar solo las mayúsculas no cuenta como cambio de credenciales. | `validateCredentialChange` |
+| Un usuario tiene entre 1 y 6 categorías de interés, y todas tienen que existir. | En el registro la lista es obligatoria (vacía da error). En la edición solo se valida si se manda `categoryIds`; si no se manda, las categorías no se tocan. Los ids inexistentes se informan todos juntos en el mensaje. | `UserCategoryValidationService.validateCategoryLimit`, `processCategories` |
+| Email con formato `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$` y único. | Bean Validation solo exige que no esté vacío y su largo; el formato se chequea en la capa de validación. La unicidad se consulta excluyendo al propio usuario, para que reenviar el mismo email en una edición no choque consigo mismo. | `UserAccountValidationService.validateEmail` |
+| `userName` de 3 a 50 caracteres, solo letras, números, `.`, `_` y `-`, y único. | Igual que el email: el DTO solo exige que no esté vacío. | `UserAccountValidationService.validateUserName` |
+| Teléfono único. | Si el teléfono viene vacío no se consulta: consultar con `null` coincidiría con usuarios sin teléfono. | `UserAccountValidationService.validatePhone` |
+| Contraseña de al menos 8 caracteres, con al menos un carácter especial, una mayúscula, una minúscula y un número. | Los especiales aceptados son ``! @ # $ % ^ & * ( ) , . ? " : { } \| < >``; `-` y `_` no cuentan. La contraseña se guarda con BCrypt (`PasswordEncoder` de `security/SecurityConfig.java`). | `UserAccountValidationService.validatePassword` |
+| Los textos se normalizan solo en la edición. | En el registro, el email y el teléfono se guardan tal como llegan. En la edición, el email se guarda sin espacios y en minúsculas, y el resto de los textos (incluido el teléfono) sin espacios al principio y al final. | `UserAccountValidationService.createUserInfo`, `updateUserInfo` |
+| Cambiar la contraseña, o el email por uno distinto, exige `currentPassword` correcta. | Se comprueba antes de modificar ningún campo. El email se compara sin espacios y en minúsculas, así que cambiar solo las mayúsculas no cuenta como cambio de credenciales. | `UserAccountValidationService.validateCredentialChange` |
 | Un cambio de credenciales invalida todas las sesiones. | El service pone `tokensValidAfter = now`; el filtro JWT y el refresh rechazan los tokens emitidos antes (con precisión de segundos). El usuario tiene que volver a loguearse, incluida la sesión que hizo el cambio. | `service/user/UserService.java`, `service/auth/JwtService.java` |
-| Todo usuario nuevo se crea con rol `USER` y `verified = false`. | No hay endpoint para crear `ADMIN` ni para cambiar el rol: los administradores se crean por SQL (`scripts/create-admin-user.sql`). | `createAndSetupUser`, `UserService.createUser` |
+| Todo usuario nuevo se crea con rol `USER` y `verified = false`. | No hay endpoint para crear `ADMIN` ni para cambiar el rol: los administradores se crean por SQL (`scripts/create-admin-user.sql`). | `UserAccountValidationService.createAndSetupUser`, `UserService.createUser` |
 | "Es admin" se lee de la base, no del claim `role` del token. | El claim queda viejo si el rol cambia mientras el token sigue vigente. | `RoleValidationService.isAdmin` |
-| Un usuario baneado o con suspensión vigente se oculta como si no existiera (`404`). | El perfil de un sancionado no se distingue del de un id inexistente: el mensaje es el mismo `User not found`. Una suspensión vencida (`suspendedUntil` en el pasado) ya no es una sanción. | `validateProfileNotSanctioned`, `AccountStatusValidationService.isSanctioned` |
+| Un usuario baneado o con suspensión vigente se oculta como si no existiera (`404`). | El perfil de un sancionado no se distingue del de un id inexistente: el mensaje es el mismo `User not found`. Una suspensión vencida (`suspendedUntil` en el pasado) ya no es una sanción. | `UserValidationService.validateProfileNotSanctioned`, `AccountStatusValidationService.isSanctioned` |
 | El borrado es lógico y cierra las campañas del usuario. | Se marca `deletedAt` y se pasan a `CLOSED` todas sus campañas que no lo estuvieran, registrando la transición en el historial (`CampaignService.closeAllByOwner`). | `UserService.deleteUser`, `service/campaign/CampaignService.java` |
-| El mensaje predeterminado es obligatorio al fijarlo, de hasta 280 caracteres. | Se guarda con `trim`. `null`, `""` o solo espacios en el `PUT` responden `400 Auto thanks message cannot be blank`: para quitarlo está el `DELETE`. El largo lo corta `@Size(max = 280)` en `UpdateAutoThanksDTO` y la validación lo repite sobre el texto recortado (`MAX_AUTO_THANKS_LENGTH`). La regla de texto es la compartida de `validation/common/TextValidationService.java`. | `validateAndNormalizeAutoThanksMessage` |
+| El mensaje predeterminado es obligatorio al fijarlo, de hasta 280 caracteres. | Se guarda con `trim`. `null`, `""` o solo espacios en el `PUT` responden `400 Auto thanks message cannot be blank`: para quitarlo está el `DELETE`. El largo lo corta `@Size(max = 280)` en `UpdateAutoThanksDTO` y la validación lo repite sobre el texto recortado (`MAX_AUTO_THANKS_LENGTH`). La regla de texto es la compartida de `validation/common/TextValidationService.java`. | `UserProfileValidationService.validateAndNormalizeAutoThanksMessage` |
+| Las URLs del perfil (`profilePicture`, `coverImageUrl`, `introVideoUrl`, `website`) son opcionales y, si vienen, son `http` o `https` con host, de hasta 255 caracteres. | Se guardan sin espacios en los extremos. Un valor en blanco (incluido `""`) se guarda como `null`. Aplica al `profilePicture` del alta y a las cuatro URLs de la edición. Si no cumple: `<Etiqueta> must be a valid http or https URL` (la etiqueta es `Profile picture`, `Cover image`, `Intro video` o `Website`). El largo lo corta primero el `@Size(max = 255)` del DTO, y la regla lo repite sobre el texto recortado. Un host con caracteres no ASCII sin punycode no cuenta como host válido y se rechaza. | `UrlValidationService.normalizeOptionalUrl`, `UserProfileValidationService.validateAndNormalizeProfilePicture`, `applyProfileFields` |
+| El video de presentación solo puede ser de YouTube o Vimeo. | El host tiene que estar en una lista exacta, sin subdominios: `youtube.com`, `www.youtube.com`, `m.youtube.com`, `youtu.be`, `vimeo.com` y `www.vimeo.com` (`VIDEO_HOSTS`). Si no: `Intro video must be a YouTube or Vimeo URL`. El front lo incrusta, y un embed arbitrario es un riesgo. | `UserProfileValidationService.validateAndNormalizeIntroVideoUrl` |
+| Hasta 8 enlaces a redes, uno por plataforma, y cada URL tiene que apuntar al dominio de su plataforma. | Cada enlace exige `platform` (`Social link platform is required`) y `url` no vacía (`<PLATAFORMA> link URL is required`). El host debe ser el dominio de la plataforma o un subdominio (por ejemplo `x.com` o `twitter.com` para `X`); `OTHER` acepta cualquier host. Si no: `<PLATAFORMA> link must point to <dominio> or <dominio>`. Una plataforma repetida da `400 Duplicate social link platform: <PLATAFORMA>`, y más de 8, `User cannot have more than 8 social links`. | `UserProfileValidationService.replaceSocialLinks`, `entity/user/SocialPlatform.java` |
+| Enviar `socialLinks` reemplaza el conjunto entero, por diferencia. | Primero se valida todo, sin tocar el set; así un error deja los enlaces como estaban. Después se quitan las plataformas que ya no están, se actualiza la `url` de las que siguen y se agregan las nuevas. `[]` los borra todos; `null` u omitido, no los toca. | `UserProfileValidationService.replaceSocialLinks` |
+| Hasta 10 etiquetas libres, de 1 a 30 caracteres, con letras, números, espacios y `-`. | Cada etiqueta se normaliza: sin espacios en los extremos, sin los `#` iniciales, con los espacios internos colapsados a uno y en minúsculas. Las que quedan iguales se unen sin error, y el límite cuenta las distintas. Errores: `Tag cannot be blank` (también para un elemento `null`), `Tag must be at most 30 characters`, `Tag contains invalid characters. Allowed: letters, digits, spaces and '-'` y `User cannot have more than 10 tags`. Las letras y números son de cualquier alfabeto. | `UserProfileValidationService.replaceTags` |
+| Enviar `tags` reemplaza el conjunto entero, por diferencia. | Igual que los enlaces: se valida todo antes de tocar el set. `[]` las borra todas; `null` u omitido, no las toca. | `UserProfileValidationService.replaceTags` |
 | Loguearse con una cuenta borrada la restaura. | El login busca incluyendo borrados y, si la contraseña es correcta y la cuenta no está sancionada, pone `deletedAt = null` (ver [Auth](auth.md)). Las campañas que se cerraron al borrar siguen `CLOSED`. Una cuenta borrada y además sancionada recibe `403` y sigue borrada. | `service/auth/AuthenticationService.java` |
 
 ## Estados
@@ -95,6 +113,7 @@ stateDiagram-v2
 - **`403` del dominio:** solo los listados (`/list` y `/list/paginated`), protegidos con `@PreAuthorize("hasRole('ADMIN')")`, y el corte del filtro JWT a un usuario sancionado que llama con su token.
 - **Modificar.** `PUT /update`, `DELETE /delete` y los tres verbos de `/me/auto-thanks` no reciben id: actúan siempre sobre el usuario del token (`AuthenticatedUserService.getAuthenticatedUserId`). Cada usuario solo ve y cambia su propio mensaje predeterminado; no aparece en `UserDTO`, `UserInfoDTO` ni `PublicUserProfileDTO`. No existe forma de editar ni borrar a otro usuario desde este dominio; un `ADMIN` sanciona por medio de [Reportes](report.md).
 - **Listados para `ADMIN`.** Incluyen a los usuarios sancionados (el `ADMIN` los ve) pero no a los borrados (por `@SQLRestriction`). El `UserDTO` no expone las columnas de sanción.
+- **Campos de personalización.** `coverImageUrl`, `introVideoUrl`, `website`, `socialLinks` y `tags` son públicos: los ve cualquiera que pueda ver el perfil, en el `PublicUserProfileDTO` y en el `UserDTO`. Los listados (`/list` y `/list/paginated`) incluyen las tres URLs pero omiten `socialLinks` y `tags`.
 - **Acceso por ruta.** En `security/SecurityConfig.java`, `/api/users/create` está en `PUBLIC_URLS` y `/api/users/*/supporters` y `/api/users/*/support-feed` en `PUBLIC_GET_URLS` (solo `GET`); el resto de `/api/users/**` cae en `anyRequest().authenticated()`. Los patrones terminan en los literales `/supporters` y `/support-feed`, así que `GET /api/users/{id}` no coincide y sigue pidiendo token; el `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`. No hay reglas por verbo para `/api/users/**`: la restricción a `ADMIN` está en el `@PreAuthorize` de cada método del controller.
 - **Supporters de un usuario.** `GET /api/users/{userId}/supporters` cuelga de la ruta del usuario, pero es del dominio donation (`controller/donation/SupporterController.java`); ver [Donation](donation.md#get-apiusersuseridsupporters). Aplica las mismas reglas de visibilidad que `GET /api/users/{id}` sobre el creador: `ID must be a positive number` para `id <= 0`, y `404 User not found` si no existe, está borrado o, para quien no es él mismo ni `ADMIN`, está sancionado. Los supporters suman también las donaciones directas que recibió el creador, además de las de sus campañas.
 - **Feed de apoyos de un usuario.** `GET /api/users/{userId}/support-feed` también cuelga de la ruta del usuario y es del dominio donation (mismo `SupporterController`); ver [Donation](donation.md#get-apiusersuseridsupport-feed). Aplica las mismas reglas sobre el creador que los supporters (`SupporterService.validateCreatorAndGetPrivileged`): `ID must be a positive number` para `id <= 0`, y `404 User not found` si no existe, está borrado o, para quien no es él mismo ni `ADMIN`, está sancionado. El contenido no depende de quien llama.
@@ -118,7 +137,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 - **Acceso:** solo `ADMIN` (`@PreAuthorize("hasRole('ADMIN')")`).
 - **Parámetros:** ninguno.
 - **Body:** sin body.
-- **Respuesta:** `200` con una lista de `UserDTO` (ver la tabla de `UserDTO` en `GET /api/users/{id}`), sin paginar. Incluye usuarios sancionados y excluye los borrados.
+- **Respuesta:** `200` con una lista de `UserDTO` (ver la tabla de `UserDTO` en `GET /api/users/{id}`), sin paginar. Incluye usuarios sancionados y excluye los borrados. `userInfo` trae las tres URLs de personalización, pero `socialLinks` y `tags` no aparecen.
 - **Errores:**
 
 | Status | Mensaje | Cuándo |
@@ -138,7 +157,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 
 | Campo | Tipo | Obligatorio | Validación |
 |---|---|---|---|
-| `categoryIds` | `List<Long>` | sí | Entre 1 y 6 ids de categorías existentes (en `UserValidationService`). Si se omite, vale lista vacía y falla por mínimo; si se manda `null` explícito, no hay anotación que lo frene y termina en `500`. |
+| `categoryIds` | `List<Long>` | sí | Entre 1 y 6 ids de categorías existentes (en `UserCategoryValidationService`). Si se omite, vale lista vacía y falla por mínimo; si se manda `null` explícito, no hay anotación que lo frene y termina en `500`. |
 
 `userInfo` (`CreateUserInfoDTO`):
 
@@ -146,12 +165,12 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 |---|---|---|---|
 | `firstName` | `String` | sí | `@NotBlank`, `@Size(max = 255)` |
 | `lastName` | `String` | sí | `@NotBlank`, `@Size(max = 255)` |
-| `email` | `String` | sí | `@NotBlank`, `@Size(max = 254)`; formato y unicidad en `UserValidationService` |
+| `email` | `String` | sí | `@NotBlank`, `@Size(max = 254)`; formato y unicidad en `UserAccountValidationService` |
 | `userName` | `String` | sí | `@NotBlank`; de 3 a 50 caracteres, `[a-zA-Z0-9._-]`, único |
 | `password` | `String` | sí | `@NotBlank`; reglas de contraseña de "Reglas de negocio" |
 | `phone` | `String` | sí | `@NotBlank`, `@Size(max = 20)`; único |
 | `description` | `String` | sí (puede ser `""`) | `@NotNull`, `@Size(max = 255)` |
-| `profilePicture` | `String` | no | `@Size(max = 255)` |
+| `profilePicture` | `String` | no | `@Size(max = 255)`; si viene, URL `http` o `https` (en `UserProfileValidationService`). En blanco o `""` se guarda `null`. |
 
 - **Respuesta:** `200` con el `UserDTO` del usuario creado (`verified: false`, `bankAccounts: []`).
 - **Errores:**
@@ -163,6 +182,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | 400 | `User must have at least 1 category` | `categoryIds` vacío u omitido. |
 | 400 | `User cannot have more than 6 categories` | Más de 6 ids. |
 | 404 | `Categories not found: [<ids>]` | Algún id de categoría no existe. |
+| 400 | `Profile picture must be a valid http or https URL` | `profilePicture` no es una URL `http` o `https` con host. |
 | 400 | `Invalid email format` | El email no cumple el formato. |
 | 409 | `Email already exists` | Otro usuario (incluso borrado) tiene ese email. |
 | 400 | `Username can only contain letters, numbers, '.', '_', and '-'` | Caracteres no permitidos en `userName`. |
@@ -181,7 +201,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 - **Qué hace** (`UserService.createUser`, transaccional):
   1. Valida el límite de categorías y carga las categorías en una sola consulta (`validateCategoryLimit`, `processCategories`).
   2. Construye el `User` con `verified = false` y sus relaciones `UserCategory` (`createAndSetupUser`, `createUserCategoryRelations`).
-  3. Valida email, `userName`, teléfono y contraseña, en ese orden, mapea el `UserInfo` tal como llegó (sin normalizar mayúsculas ni espacios) y le pone el hash BCrypt de la contraseña (`createUserInfo`).
+  3. Valida email, `userName`, teléfono y contraseña, en ese orden, mapea el `UserInfo` tal como llegó (sin normalizar mayúsculas ni espacios) y le pone el hash BCrypt de la contraseña (`createUserInfo`). Después normaliza `profilePicture` con `validateAndNormalizeProfilePicture`: recortada y validada como URL, o `null` si viene en blanco.
   4. Asigna el rol `USER`, vincula `UserInfo` y guarda `User` (el `UserInfo` y las categorías se guardan en cascada).
   5. Devuelve `UserMapper.toUserDTO`. No hace login: para obtener tokens hay que llamar a `POST /auth/login`.
 
@@ -189,7 +209,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 
 - **Acceso:** cualquier usuario autenticado (`USER` o `ADMIN`); actúa sobre el usuario del token.
 - **Parámetros:** ninguno.
-- **Body:** `UpdateUserDTO`. Todos los campos son opcionales; un campo omitido, `null` o en blanco no se modifica (salvo `description` y `profilePicture`, que aceptan `""`). Los textos se guardan sin espacios al principio y al final, y el email además en minúsculas.
+- **Body:** `UpdateUserDTO`. Todos los campos son opcionales. Un campo de texto omitido, `null` o en blanco no se modifica, salvo `description`, que acepta `""`, y las cuatro URLs de perfil (`profilePicture`, `coverImageUrl`, `introVideoUrl`, `website`): para ellas omitido o `null` no cambia nada y un valor en blanco las borra (quedan `null`). `socialLinks` y `tags` se tratan aparte: omitidos o `null` no se tocan, y una lista, incluso vacía, reemplaza todo el conjunto. Los textos se guardan sin espacios al principio y al final, y el email además en minúsculas.
 
 | Campo | Tipo | Obligatorio | Validación |
 |---|---|---|---|
@@ -201,7 +221,12 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | `password` | `String` | no | Reglas de contraseña. Exige `currentPassword`. |
 | `phone` | `String` | no | `@Size(max = 20)`; único. |
 | `description` | `String` | no | `@Size(max = 255)` |
-| `profilePicture` | `String` | no | `@Size(max = 255)` |
+| `profilePicture` | `String` | no | `@Size(max = 255)`; URL `http` o `https`; en blanco la borra. |
+| `coverImageUrl` | `String` | no | `@Size(max = 255)`; URL `http` o `https`; en blanco la borra. |
+| `introVideoUrl` | `String` | no | `@Size(max = 255)`; URL `http` o `https` de YouTube o Vimeo; en blanco la borra. |
+| `website` | `String` | no | `@Size(max = 255)`; URL `http` o `https`; en blanco la borra. |
+| `socialLinks` | `List<SocialLinkDTO>` | no | Hasta 8 elementos `{platform, url}`, uno por plataforma (`@Valid` en cada elemento; `url` con `@Size(max = 255)`). Reemplaza todos los enlaces; `[]` los borra. |
+| `tags` | `List<String>` | no | Hasta 10 etiquetas distintas, de 1 a 30 caracteres. Reemplaza todas las etiquetas; `[]` las borra. |
 | `currentPassword` | `String` | solo si cambia `password` o `email` | Tiene que coincidir con la contraseña actual. |
 
 - **Respuesta:** `200` con el `UserDTO` actualizado. Si cambiaron las credenciales, el token con el que se llamó ya no sirve: el siguiente request da `401` y hay que volver a loguearse.
@@ -210,8 +235,8 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | Status | Mensaje | Cuándo |
 |---|---|---|
 | 401 / 403 | (comunes, ver arriba) | Sin token válido o usuario sancionado. |
-| 400 | `One or more fields are invalid` (con `fields`) | Algún `@Size` excedido. |
-| 400 | `Request body is required` / `Malformed request body` | Sin body o JSON inválido. |
+| 400 | `One or more fields are invalid` (con `fields`) | Algún `@Size` excedido, incluida la `url` de un enlace (`Social link URL must be at most 255 characters`). |
+| 400 | `Request body is required` / `Malformed request body` | Sin body, JSON inválido o `platform` que no es una de las nueve. |
 | 400 | `Current password is required to change email or password` | Cambia `password` o `email` sin `currentPassword`. |
 | 400 | `Current password is incorrect` | `currentPassword` no coincide. |
 | 400 | `Invalid email format` | Email mal formado (los espacios al principio o al final también lo rompen). |
@@ -224,15 +249,29 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | 400 | `User must have at least 1 category` | `categoryIds: []`. |
 | 400 | `User cannot have more than 6 categories` | Más de 6 ids. |
 | 404 | `Categories not found: [<ids>]` | Algún id de categoría no existe. |
+| 400 | `<Profile picture \| Cover image \| Intro video \| Website> must be a valid http or https URL` | La URL no es `http` o `https` con host. Incluye un `profilePicture` heredado que no es URL y se reenvía tal cual: hay que mandarlo en blanco o corregirlo. |
+| 400 | `Intro video must be a YouTube or Vimeo URL` | `introVideoUrl` con un host fuera de la lista. |
+| 400 | `Social link platform is required` | Un enlace sin `platform` (o `null` en la lista). |
+| 400 | `<PLATAFORMA> link URL is required` | Un enlace con `url` ausente o en blanco. |
+| 400 | `<PLATAFORMA> link must be a valid http or https URL` | La `url` de un enlace no es `http` o `https` con host. |
+| 400 | `<PLATAFORMA> link must point to <dominio> or <dominio>` | El host no es el de la plataforma ni un subdominio. |
+| 400 | `Duplicate social link platform: <PLATAFORMA>` | Dos enlaces con la misma plataforma. |
+| 400 | `User cannot have more than 8 social links` | Más de 8 enlaces. |
+| 400 | `Tag cannot be blank` | Una etiqueta `null`, vacía o que queda vacía al normalizar. |
+| 400 | `Tag must be at most 30 characters` | Una etiqueta de más de 30 caracteres ya normalizada. |
+| 400 | `Tag contains invalid characters. Allowed: letters, digits, spaces and '-'` | Una etiqueta con otros caracteres. |
+| 400 | `User cannot have more than 10 tags` | Más de 10 etiquetas distintas. |
 | 409 | `The request conflicts with existing data` | Carrera contra una restricción única de la base. |
 
 - **Qué hace** (`UserService.updateUser`, transaccional):
   1. Obtiene el id del token y carga el usuario (`UserValidationService.getUserById`).
   2. Antes de tocar nada, decide si hay cambio de credenciales y valida `currentPassword` (`validateCredentialChange`).
-  3. Actualiza `updatedAt` y los campos de `UserInfo` que vinieron, validando cada uno: nombres, email, `userName`, contraseña (re-hasheada), teléfono, descripción y foto (`updateUserInfo`).
-  4. Si vino `categoryIds`, valida y sincroniza las categorías: quita las que ya no están y agrega las nuevas (`updateUserCategories`, con `orphanRemoval`).
-  5. Si cambiaron las credenciales, pone `tokensValidAfter = now`, lo que invalida todos los access y refresh tokens emitidos hasta ahora.
-  6. Guarda y devuelve `UserMapper.toUserDTO`. Como todo corre en una transacción, un error en cualquier paso no deja cambios a medias.
+  3. Actualiza `updatedAt` y los campos de `UserInfo` que vinieron, validando cada uno: nombres, email, `userName`, contraseña (re-hasheada), teléfono y descripción (`UserAccountValidationService.updateUserInfo`).
+  4. Aplica las cuatro URLs de perfil que vinieron (`UserProfileValidationService.applyProfileFields`): cada una se valida y, si está en blanco, queda `null`.
+  5. Si vino `categoryIds`, valida y sincroniza las categorías: quita las que ya no están y agrega las nuevas (`updateUserCategories`, con `orphanRemoval`).
+  6. Si vino `socialLinks`, reemplaza los enlaces (`replaceSocialLinks`); si vino `tags`, reemplaza las etiquetas (`replaceTags`). Los dos validan todo antes de tocar el set y aplican la diferencia, para no chocar con la `UNIQUE`.
+  7. Si cambiaron las credenciales, pone `tokensValidAfter = now`, lo que invalida todos los access y refresh tokens emitidos hasta ahora.
+  8. Guarda y lee los enlaces y las etiquetas con `findByUserId` (la consulta hace flush antes, así que devuelve lo recién escrito) y responde `UserMapper.toUserDTO(user, enlaces, etiquetas)`. Como el método es `@Transactional` y todo corre en una sola transacción, un error en cualquier paso no deja cambios a medias.
 
 ### `DELETE /api/users/delete`
 
@@ -273,8 +312,10 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | `id` | `Long` | Id del usuario. |
 | `verified` | `Boolean` | Si la cuenta fue verificada. |
 | `categories` | `List<String>` | Nombres de sus categorías de interés. |
-| `userInfo` | `UserInfoDTO` | `firstName`, `lastName`, `email`, `userName`, `phone`, `description`, `profilePicture`. Nunca la contraseña. |
+| `userInfo` | `UserInfoDTO` | `firstName`, `lastName`, `email`, `userName`, `phone`, `description`, `profilePicture`, `coverImageUrl`, `introVideoUrl`, `website`. Nunca la contraseña. |
 | `bankAccounts` | `List<BankAccountDTO>` | `id`, `userId`, `bankName`, `accountNumber`, `accountType`, `accountHolder`. Lista vacía si no tiene. |
+| `socialLinks` | `List<SocialLinkDTO>` | `platform` y `url`, en el orden de declaración de `SocialPlatform`. Lista vacía si no tiene. Solo `GET /api/users/{id}` y `PUT /api/users/update` lo llenan: en los listados y en la respuesta de `POST /create` la clave no aparece (`@JsonInclude(NON_NULL)`). |
+| `tags` | `List<String>` | Etiquetas ya normalizadas, en orden alfabético. Lista vacía si no tiene. Misma regla de presencia que `socialLinks`. |
 
 `PublicUserProfileDTO`, para cualquier otro:
 
@@ -284,6 +325,9 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | `categories` | `List<String>` | Nombres de sus categorías de interés. |
 | `firstName`, `lastName`, `userName` | `String` | Datos públicos. |
 | `description`, `profilePicture` | `String` | Datos públicos. |
+| `coverImageUrl`, `introVideoUrl`, `website` | `String` | URLs de personalización; `null` si no las configuró. |
+| `socialLinks` | `List<SocialLinkDTO>` | Igual que en `UserDTO`. Siempre presente (vacía si no tiene). |
+| `tags` | `List<String>` | Igual que en `UserDTO`. Siempre presente (vacía si no tiene). |
 
 - **Errores:**
 
@@ -298,8 +342,10 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 - **Qué hace** (`UserService.getUserById`):
   1. Valida que el id sea positivo.
   2. Carga el usuario con sus datos, categorías y cuentas bancarias en una consulta (`findByIdWithFullDetails`), o `404`.
-  3. Si quien llama es el mismo usuario o es `ADMIN` (leído de la base con `RoleValidationService.isAdmin`), devuelve `UserMapper.toUserDTO`.
-  4. Si no, aplica `validateProfileNotSanctioned` (`404` con el mismo mensaje que un inexistente) y devuelve `UserMapper.toPublicUserProfileDTO`.
+  3. Si quien llama es el mismo usuario o es `ADMIN` (leído de la base con `RoleValidationService.isAdmin`), lee los enlaces y las etiquetas (`UserSocialLinkRepository.findByUserId`, `UserTagRepository.findByUserId`) y devuelve `UserMapper.toUserDTO(user, enlaces, etiquetas)`.
+  4. Si no, aplica `validateProfileNotSanctioned` (`404` con el mismo mensaje que un inexistente) y recién entonces lee enlaces y etiquetas y devuelve `UserMapper.toPublicUserProfileDTO`. Un perfil sancionado responde `404` sin consultarlos.
+
+  Los enlaces y las etiquetas van en dos consultas por `user_id`, fuera del `@EntityGraph`, porque el grafo ya trae dos colecciones (categorías y cuentas bancarias).
 
 ### `GET /api/users/me/auto-thanks`
 
@@ -369,7 +415,7 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 | `sortDirection` | `String` | `asc` | `asc` o `desc`, sin distinguir mayúsculas. |
 
 - **Body:** sin body.
-- **Respuesta:** `200` con un `Page<UserDTO>` de Spring (`content`, `totalElements`, `totalPages`, `number`, `size`, etc.). Incluye usuarios sancionados y excluye los borrados.
+- **Respuesta:** `200` con un `Page<UserDTO>` de Spring (`content`, `totalElements`, `totalPages`, `number`, `size`, etc.). Incluye usuarios sancionados y excluye los borrados. Igual que `/list`, los `UserDTO` llevan las tres URLs pero no `socialLinks` ni `tags`.
 - **Errores:**
 
 | Status | Mensaje | Cuándo |
@@ -394,9 +440,9 @@ El resto de los errores los arma `exception/GlobalExceptionHandler.java` con la 
 |---|---|
 | Controller | `controller/user/UserController.java` |
 | Service | `service/user/UserService.java` (usa también `service/campaign/CampaignService.java` al borrar) |
-| Validation | `validation/user/UserValidationService.java`, `validation/auth/AccountStatusValidationService.java`, `validation/common/SortValidationService.java`, `validation/common/TextValidationService.java`, `validation/common/RoleValidationService.java` (el rol, en `getUserById`) |
+| Validation | `validation/user/UserValidationService.java` (cargar el usuario, sanción del perfil, `updatedAt`), `validation/user/UserAccountValidationService.java`, `validation/user/UserCategoryValidationService.java`, `validation/user/UserProfileValidationService.java`, `validation/common/UrlValidationService.java`, `validation/auth/AccountStatusValidationService.java`, `validation/common/SortValidationService.java`, `validation/common/TextValidationService.java`, `validation/common/RoleValidationService.java` (el rol, en `getUserById`) |
 | Mapper | `mapper/user/UserMapper.java`, `mapper/user/UserInfoMapper.java` (usa `mapper/bankaccount/BankAccountMapper.java`) |
-| Repository | `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java`, `repository/user/RoleRepository.java`, `repository/user/UserCategoryRepository.java`, `repository/category/CategoryRepository.java` |
-| DTOs | `dtos/user/UserUserInfoRequestDTO.java`, `dtos/user/CreateUserDTO.java`, `dtos/user/CreateUserInfoDTO.java`, `dtos/user/UpdateUserDTO.java`, `dtos/user/UserDTO.java`, `dtos/user/UserInfoDTO.java`, `dtos/user/PublicUserProfileDTO.java`, `dtos/user/UpdateAutoThanksDTO.java`, `dtos/user/AutoThanksResponseDTO.java`, `dtos/user/UserInfoResponseDTO.java` (sin uso en el código) |
-| Entity | `entity/user/User.java`, `entity/user/UserInfo.java`, `entity/user/UserCategory.java`, `entity/user/Role.java` |
+| Repository | `repository/user/UserRepository.java`, `repository/user/UserInfoRepository.java`, `repository/user/RoleRepository.java`, `repository/user/UserCategoryRepository.java`, `repository/user/UserSocialLinkRepository.java`, `repository/user/UserTagRepository.java`, `repository/category/CategoryRepository.java` |
+| DTOs | `dtos/user/UserUserInfoRequestDTO.java`, `dtos/user/CreateUserDTO.java`, `dtos/user/CreateUserInfoDTO.java`, `dtos/user/UpdateUserDTO.java`, `dtos/user/UserDTO.java`, `dtos/user/UserInfoDTO.java`, `dtos/user/PublicUserProfileDTO.java`, `dtos/user/SocialLinkDTO.java`, `dtos/user/UpdateAutoThanksDTO.java`, `dtos/user/AutoThanksResponseDTO.java`, `dtos/user/UserInfoResponseDTO.java` (sin uso en el código) |
+| Entity | `entity/user/User.java`, `entity/user/UserInfo.java`, `entity/user/UserCategory.java`, `entity/user/UserSocialLink.java`, `entity/user/UserTag.java`, `entity/user/SocialPlatform.java`, `entity/user/Role.java` |
 | Seguridad | `security/AuthenticatedUserService.java`, `security/JwtAuthenticationFilter.java`, `security/SecurityConfig.java` |

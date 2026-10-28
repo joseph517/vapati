@@ -11,7 +11,7 @@ El cobro no es real: una donación se aprueba sola en el momento (aprobación si
 | Actor | Cómo se identifica | Qué puede hacer |
 |---|---|---|
 | **Visitante** | Sin token | Registrarse, iniciar sesión, ver las categorías, listar y ver campañas visibles con sus publicaciones (y cuántos likes tiene cada una), leer los comentarios de las publicaciones, sus donaciones y sus estadísticas, ver los supporters de un creador (sin importes) y su feed de apoyos (sin importes ni datos privados). |
-| **USER** | JWT con rol `USER` | Todo lo del visitante, más: gestionar su perfil, crear y gestionar sus campañas, publicar en ellas, dar y quitar like a publicaciones, comentarlas y borrar sus comentarios y los de sus publicaciones, donar, seguir usuarios, vincular cuentas bancarias, reportar contenido y pedir la verificación de su cuenta. Ve los importes de sus propios supporters. |
+| **USER** | JWT con rol `USER` | Todo lo del visitante, más: gestionar su perfil y personalizarlo con portada, video, web, redes y etiquetas, crear y gestionar sus campañas, publicar en ellas, dar y quitar like a publicaciones, comentarlas y borrar sus comentarios y los de sus publicaciones, donar, seguir usuarios, vincular cuentas bancarias, reportar contenido y pedir la verificación de su cuenta. Ve los importes de sus propios supporters. |
 | **ADMIN** | JWT con rol `ADMIN` | Todo lo anterior, más: listar usuarios, gestionar categorías, revisar y resolver reportes (con sanciones), procesar solicitudes de verificación y ver lo que está oculto para el resto (campañas `CLOSED` ajenas y usuarios sancionados) y los importes de los supporters de cualquier creador. |
 
 Las rutas públicas están definidas en `security/SecurityConfig.java`. El detalle está en [Seguridad](03-seguridad.md).

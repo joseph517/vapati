@@ -57,11 +57,11 @@ Los tests espejan los paquetes de `src/main/java/com/vaPaTi/vaPaTi/`: un test vi
 flowchart LR
     subgraph main["src/main/java/com/vaPaTi/vaPaTi"]
         S1[service/user/UserService.java]
-        V1[validation/user/UserValidationService.java]
+        V1[validation/user/UserAccountValidationService.java<br/>UserCategoryValidationService.java<br/>UserProfileValidationService.java<br/>UserValidationService.java]
     end
     subgraph test["src/test/java/com/vaPaTi/vaPaTi"]
         T1[service/user/UserServiceCreateUserTest.java<br/>UserServiceDeleteUserTest.java<br/>UserServiceGetUserByIdTest.java<br/>UserServiceListUsersTest.java<br/>UserServiceUpdateUserTest.java]
-        T2[validation/user/UserValidationServiceCategoryTest.java<br/>UserValidationServiceUserCreationTest.java<br/>UserValidationServiceUserRetrievalTest.java<br/>UserValidationServiceUserUpdateTest.java]
+        T2[validation/user/UserAccountValidationServiceCreationTest.java<br/>UserAccountValidationServiceUpdateTest.java<br/>UserCategoryValidationServiceTest.java<br/>UserProfileValidationService*Test.java<br/>UserValidationService*Test.java]
     end
     S1 -.-> T1
     V1 -.-> T2
@@ -78,7 +78,14 @@ Los dominios con más lógica **dividen los tests por operación** en varios arc
 | `service/comment/CommentService.java` | `service/comment/CommentServiceCreateTest.java`<br>`service/comment/CommentServiceListTest.java`<br>`service/comment/CommentServiceDeleteTest.java` |
 | `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java`<br>`service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` (integración) |
 | `service/auth/AuthenticationService.java` | `service/auth/AuthenticationServiceTest.java` (login y logout)<br>`service/auth/RefreshTokenServiceTest.java` (refresh) |
-| `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceCategoryTest.java`<br>`validation/user/UserValidationServiceUserCreationTest.java`<br>`validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceUserUpdateTest.java` |
+| `validation/user/UserAccountValidationService.java` | `validation/user/UserAccountValidationServiceCreationTest.java`<br>`validation/user/UserAccountValidationServiceUpdateTest.java` |
+| `validation/user/UserCategoryValidationService.java` | `validation/user/UserCategoryValidationServiceTest.java` |
+| `validation/user/UserProfileValidationService.java` | `validation/user/UserProfileValidationServiceAutoThanksTest.java`<br>`validation/user/UserProfileValidationServiceFieldsTest.java` (URLs de perfil)<br>`validation/user/UserProfileValidationServiceSocialLinksTest.java`<br>`validation/user/UserProfileValidationServiceTagsTest.java` |
+| `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceTimestampTest.java` |
+| `validation/common/UrlValidationService.java` | `validation/common/UrlValidationServiceTest.java` |
+| `entity/user/` (`SocialPlatform`, `UserSocialLink`, `UserTag`) | `entity/user/SocialPlatformTest.java` (dominios por plataforma)<br>`entity/user/UserProfileEntitiesEqualityTest.java` (`equals` por clave natural) |
+| `mapper/user/UserMapper.java` | `mapper/user/UserMapperTest.java`<br>`mapper/user/UserMapperProfileTest.java` (URLs, enlaces y etiquetas de los DTOs) |
+| `dtos/user/UpdateUserDTO.java`, `UserDTO.java` | `dtos/user/UpdateUserDtoProfileValidationTest.java` (`@Size` de las URLs y `@Valid` de los enlaces)<br>`dtos/user/UserDtoJsonTest.java` (las claves `socialLinks` y `tags` solo aparecen si no son `null`) |
 | `validation/bankaccount/BankAccountValidationService.java` | `validation/bankaccount/BankAccountValidationServiceAccountValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceEntityBuildingTest.java`<br>`validation/bankaccount/BankAccountValidationServiceInputValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceUserVerificationTest.java` |
 | `validation/publication/PublicationValidationService.java` | `validation/publication/PublicationValidationServiceCreateTest.java`<br>`validation/publication/PublicationValidationServiceDeleteTest.java`<br>`validation/publication/PublicationValidationServiceReadTest.java`<br>`validation/publication/PublicationValidationServiceVisibleTest.java` |
 | `validation/comment/CommentValidationService.java` | `validation/comment/CommentValidationServiceTextTest.java`<br>`validation/comment/CommentValidationServiceVisibleTest.java`<br>`validation/comment/CommentValidationServiceDeleteTest.java` |

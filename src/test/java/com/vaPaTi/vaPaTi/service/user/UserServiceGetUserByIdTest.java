@@ -4,13 +4,18 @@ import com.vaPaTi.vaPaTi.dtos.user.PublicUserProfileDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.user.Role;
+import com.vaPaTi.vaPaTi.entity.user.SocialPlatform;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.UserSocialLink;
+import com.vaPaTi.vaPaTi.entity.user.UserTag;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
@@ -27,10 +32,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +57,10 @@ class UserServiceGetUserByIdTest {
 
     @Mock
     private RoleValidationService roleValidationService;
+    @Mock
+    private UserSocialLinkRepository userSocialLinkRepository;
+    @Mock
+    private UserTagRepository userTagRepository;
 
     @InjectMocks
     private UserService userService;
@@ -109,7 +120,7 @@ class UserServiceGetUserByIdTest {
         // Given
         when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.of(existingUser));
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
-        when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = (UserDTO) userService.getUserById(validUserId);
@@ -128,7 +139,7 @@ class UserServiceGetUserByIdTest {
 
         InOrder inOrder = inOrder(userRepository, userMapper);
         inOrder.verify(userRepository).findByIdWithFullDetails(validUserId);
-        inOrder.verify(userMapper).toUserDTO(existingUser);
+        inOrder.verify(userMapper).toUserDTO(existingUser, List.of(), List.of());
         inOrder.verifyNoMoreInteractions();
     }
 
@@ -147,7 +158,7 @@ class UserServiceGetUserByIdTest {
         assertEquals("User not found", exception.getMessage());
 
         verify(userRepository).findByIdWithFullDetails(nonExistentUserId);
-        verify(userMapper, never()).toUserDTO(any(User.class));
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
     }
 
     @Test
@@ -164,7 +175,7 @@ class UserServiceGetUserByIdTest {
         assertEquals("ID must be a positive number", exception.getMessage());
 
         verify(userRepository, never()).findByIdWithFullDetails(any());
-        verify(userMapper, never()).toUserDTO(any(User.class));
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
     }
 
     @Test
@@ -181,7 +192,7 @@ class UserServiceGetUserByIdTest {
         assertEquals("ID must be a positive number", exception.getMessage());
 
         verify(userRepository, never()).findByIdWithFullDetails(any());
-        verify(userMapper, never()).toUserDTO(any(User.class));
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
     }
 
     @Test
@@ -198,7 +209,7 @@ class UserServiceGetUserByIdTest {
         assertEquals("ID must be a positive number", exception.getMessage());
 
         verify(userRepository, never()).findByIdWithFullDetails(any());
-        verify(userMapper, never()).toUserDTO(any(User.class));
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
     }
 
     @Test
@@ -215,7 +226,7 @@ class UserServiceGetUserByIdTest {
         assertEquals("ID must be a positive number", exception.getMessage());
 
         verify(userRepository, never()).findByIdWithFullDetails(any());
-        verify(userMapper, never()).toUserDTO(any(User.class));
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
     }
 
     @Test
@@ -239,7 +250,7 @@ class UserServiceGetUserByIdTest {
 
         when(userRepository.findByIdWithFullDetails(minValidId)).thenReturn(Optional.of(userWithMinId));
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(minValidId);
-        when(userMapper.toUserDTO(userWithMinId)).thenReturn(expectedDTO);
+        when(userMapper.toUserDTO(userWithMinId, List.of(), List.of())).thenReturn(expectedDTO);
 
         // When
         UserDTO result = (UserDTO) userService.getUserById(minValidId);
@@ -249,7 +260,7 @@ class UserServiceGetUserByIdTest {
         assertEquals(minValidId, result.getId());
 
         verify(userRepository).findByIdWithFullDetails(minValidId);
-        verify(userMapper).toUserDTO(userWithMinId);
+        verify(userMapper).toUserDTO(userWithMinId, List.of(), List.of());
     }
 
     @Test
@@ -266,7 +277,7 @@ class UserServiceGetUserByIdTest {
 
         assertEquals("User not found", exception.getMessage());
         verify(userRepository).findByIdWithFullDetails(maxId);
-        verify(userMapper, never()).toUserDTO(any(User.class));
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
     }
 
     @Test
@@ -275,7 +286,7 @@ class UserServiceGetUserByIdTest {
         // Given
         when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.of(existingUser));
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
-        when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = (UserDTO) userService.getUserById(validUserId);
@@ -283,7 +294,7 @@ class UserServiceGetUserByIdTest {
         // Then
         InOrder inOrder = inOrder(userRepository, userMapper);
         inOrder.verify(userRepository, times(1)).findByIdWithFullDetails(validUserId);
-        inOrder.verify(userMapper, times(1)).toUserDTO(existingUser);
+        inOrder.verify(userMapper, times(1)).toUserDTO(existingUser, List.of(), List.of());
         inOrder.verifyNoMoreInteractions();
 
         assertSame(expectedUserDTO, result);
@@ -295,7 +306,7 @@ class UserServiceGetUserByIdTest {
         // Given
         when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.of(existingUser));
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
-        when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = (UserDTO) userService.getUserById(validUserId);
@@ -303,11 +314,11 @@ class UserServiceGetUserByIdTest {
         // Then
         verify(userRepository).findByIdWithFullDetails(validUserId);
         verify(userRepository, never()).findById(any()); // Ensure specific method is used
-        verify(userMapper).toUserDTO(existingUser);
+        verify(userMapper).toUserDTO(existingUser, List.of(), List.of());
         verify(userMapper).toUserDTO(argThat(user ->
                 user.getId().equals(validUserId) &&
                         user.isVerified()
-        ));
+        ), eq(List.of()), eq(List.of()));
 
         assertSame(expectedUserDTO, result);
     }
@@ -331,7 +342,7 @@ class UserServiceGetUserByIdTest {
 
         when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.of(minimalUser));
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
-        when(userMapper.toUserDTO(minimalUser)).thenReturn(minimalDTO);
+        when(userMapper.toUserDTO(minimalUser, List.of(), List.of())).thenReturn(minimalDTO);
 
         // When
         UserDTO result = (UserDTO) userService.getUserById(validUserId);
@@ -342,7 +353,7 @@ class UserServiceGetUserByIdTest {
         assertFalse(result.getVerified());
 
         verify(userRepository).findByIdWithFullDetails(validUserId);
-        verify(userMapper).toUserDTO(minimalUser);
+        verify(userMapper).toUserDTO(minimalUser, List.of(), List.of());
     }
 
     @Test
@@ -352,7 +363,7 @@ class UserServiceGetUserByIdTest {
         RuntimeException mapperException = new RuntimeException("Mapping failed");
         when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.of(existingUser));
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
-        when(userMapper.toUserDTO(existingUser)).thenThrow(mapperException);
+        when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenThrow(mapperException);
 
         // When & Then
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
@@ -363,7 +374,7 @@ class UserServiceGetUserByIdTest {
         assertSame(mapperException, exception);
 
         verify(userRepository).findByIdWithFullDetails(validUserId);
-        verify(userMapper).toUserDTO(existingUser);
+        verify(userMapper).toUserDTO(existingUser, List.of(), List.of());
     }
 
     @Nested
@@ -387,13 +398,13 @@ class UserServiceGetUserByIdTest {
         @DisplayName("The user themselves gets the full UserDTO, without checking the role")
         void ownProfile_ShouldReturnUserDTO() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
-            when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             Object result = userService.getUserById(validUserId);
 
             assertSame(expectedUserDTO, result);
             verify(roleValidationService, never()).isAdmin(any());
-            verify(userMapper, never()).toPublicUserProfileDTO(any());
+            verify(userMapper, never()).toPublicUserProfileDTO(any(), any(), any());
         }
 
         @Test
@@ -401,13 +412,13 @@ class UserServiceGetUserByIdTest {
         void adminCaller_ShouldReturnUserDTO() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
             when(roleValidationService.isAdmin(otherUserId)).thenReturn(true);
-            when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             Object result = userService.getUserById(validUserId);
 
             assertInstanceOf(UserDTO.class, result);
             assertSame(expectedUserDTO, result);
-            verify(userMapper, never()).toPublicUserProfileDTO(any());
+            verify(userMapper, never()).toPublicUserProfileDTO(any(), any(), any());
         }
 
         @Test
@@ -415,13 +426,13 @@ class UserServiceGetUserByIdTest {
         void thirdPartyCaller_ShouldReturnPublicProfile() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
             when(roleValidationService.isAdmin(otherUserId)).thenReturn(false);
-            when(userMapper.toPublicUserProfileDTO(existingUser)).thenReturn(publicProfile);
+            when(userMapper.toPublicUserProfileDTO(existingUser, List.of(), List.of())).thenReturn(publicProfile);
 
             Object result = userService.getUserById(validUserId);
 
             assertInstanceOf(PublicUserProfileDTO.class, result);
             assertSame(publicProfile, result);
-            verify(userMapper, never()).toUserDTO(any());
+            verify(userMapper, never()).toUserDTO(any(), any(), any());
         }
 
         @Test
@@ -436,8 +447,8 @@ class UserServiceGetUserByIdTest {
                     () -> userService.getUserById(validUserId));
 
             assertEquals("User not found", exception.getMessage());
-            verify(userMapper, never()).toPublicUserProfileDTO(any());
-            verify(userMapper, never()).toUserDTO(any());
+            verify(userMapper, never()).toPublicUserProfileDTO(any(), any(), any());
+            verify(userMapper, never()).toUserDTO(any(), any(), any());
         }
 
         @Test
@@ -446,12 +457,106 @@ class UserServiceGetUserByIdTest {
             existingUser.setBanned(true);
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
             when(roleValidationService.isAdmin(otherUserId)).thenReturn(true);
-            when(userMapper.toUserDTO(existingUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(existingUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             Object result = userService.getUserById(validUserId);
 
             assertSame(expectedUserDTO, result);
             verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
+    }
+
+    @Nested
+    @DisplayName("Social links and tags")
+    class SocialLinksAndTagsTests {
+
+        private final Long otherUserId = 2L;
+        private List<UserSocialLink> links;
+        private List<UserTag> tags;
+
+        @BeforeEach
+        void setUpLinksAndTags() {
+            links = List.of(UserSocialLink.builder().id(5L).user(existingUser)
+                    .platform(SocialPlatform.GITHUB).url("https://github.com/john").build());
+            tags = List.of(UserTag.builder().id(6L).user(existingUser).tag("arte").build());
+            when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.of(existingUser));
+        }
+
+        @Test
+        @DisplayName("The user themselves gets the UserDTO with the links and tags of the repositories, queried by id")
+        void ownProfile_ShouldMapLinksAndTagsIntoUserDTO() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(validUserId);
+            when(userSocialLinkRepository.findByUserId(validUserId)).thenReturn(links);
+            when(userTagRepository.findByUserId(validUserId)).thenReturn(tags);
+            when(userMapper.toUserDTO(existingUser, links, tags)).thenReturn(expectedUserDTO);
+
+            Object result = userService.getUserById(validUserId);
+
+            assertSame(expectedUserDTO, result);
+            verify(userSocialLinkRepository).findByUserId(validUserId);
+            verify(userTagRepository).findByUserId(validUserId);
+            verify(userMapper).toUserDTO(same(existingUser), same(links), same(tags));
+        }
+
+        @Test
+        @DisplayName("An ADMIN gets the UserDTO of another user with its links and tags")
+        void adminCaller_ShouldMapLinksAndTagsIntoUserDTO() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(true);
+            when(userSocialLinkRepository.findByUserId(validUserId)).thenReturn(links);
+            when(userTagRepository.findByUserId(validUserId)).thenReturn(tags);
+            when(userMapper.toUserDTO(existingUser, links, tags)).thenReturn(expectedUserDTO);
+
+            Object result = userService.getUserById(validUserId);
+
+            assertSame(expectedUserDTO, result);
+            verify(userSocialLinkRepository, never()).findByUserId(otherUserId);
+            verify(userTagRepository, never()).findByUserId(otherUserId);
+        }
+
+        @Test
+        @DisplayName("A third party gets the PublicUserProfileDTO with the links and tags, after the sanction check")
+        void thirdPartyCaller_ShouldMapLinksAndTagsIntoPublicProfile() {
+            PublicUserProfileDTO publicProfile = PublicUserProfileDTO.builder().id(validUserId).build();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(false);
+            when(userSocialLinkRepository.findByUserId(validUserId)).thenReturn(links);
+            when(userTagRepository.findByUserId(validUserId)).thenReturn(tags);
+            when(userMapper.toPublicUserProfileDTO(existingUser, links, tags)).thenReturn(publicProfile);
+
+            Object result = userService.getUserById(validUserId);
+
+            assertSame(publicProfile, result);
+            InOrder inOrder = inOrder(userValidationService, userSocialLinkRepository, userTagRepository, userMapper);
+            inOrder.verify(userValidationService).validateProfileNotSanctioned(existingUser);
+            inOrder.verify(userSocialLinkRepository).findByUserId(validUserId);
+            inOrder.verify(userTagRepository).findByUserId(validUserId);
+            inOrder.verify(userMapper).toPublicUserProfileDTO(same(existingUser), same(links), same(tags));
+        }
+
+        @Test
+        @DisplayName("A sanctioned profile gives 404 to a third party without querying its links or tags")
+        void thirdPartyCaller_SanctionedUser_ShouldNotQueryLinksOrTags() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(otherUserId);
+            when(roleValidationService.isAdmin(otherUserId)).thenReturn(false);
+            doThrow(new ResourceNotFoundException("User not found"))
+                    .when(userValidationService).validateProfileNotSanctioned(existingUser);
+
+            ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class,
+                    () -> userService.getUserById(validUserId));
+
+            assertEquals("User not found", exception.getMessage());
+            verifyNoInteractions(userSocialLinkRepository, userTagRepository);
+        }
+    }
+
+    @Test
+    @DisplayName("A user that doesn't exist gives 404 without querying links or tags")
+    void getUserById_WhenUserNotFound_ShouldNotQueryLinksOrTags() {
+        when(userRepository.findByIdWithFullDetails(validUserId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> userService.getUserById(validUserId));
+
+        verifyNoInteractions(userSocialLinkRepository, userTagRepository);
     }
 }

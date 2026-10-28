@@ -47,7 +47,7 @@ public class UserController {
     }
 
     @PostMapping("/create")
-    @Operation(summary = "Create user", description = "Create a new user")
+    @Operation(summary = "Create user", description = "Create a new user. profilePicture, if present, must be an http or https URL; blank stores null")
     public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserUserInfoRequestDTO dto) {
         return ResponseEntity.ok(userService.createUser(dto));
     }
@@ -55,7 +55,10 @@ public class UserController {
     @PutMapping("/update")
     @Operation(summary = "Update user",
             description = "Updates the authenticated user. Changing the password, or the email to a different one, requires currentPassword "
-                    + "(400 if missing or incorrect) and invalidates every session, including the current one: the user has to log in again")
+                    + "(400 if missing or incorrect) and invalidates every session, including the current one: the user has to log in again. "
+                    + "Profile fields (profilePicture, coverImageUrl, introVideoUrl, website): omitted or null keeps the value, blank clears it, "
+                    + "otherwise an http or https URL; introVideoUrl only YouTube or Vimeo. socialLinks and tags: omitted or null keeps them, "
+                    + "a list replaces them all ([] removes them); at most 8 links (one per platform) and 10 tags")
     public ResponseEntity<UserDTO> updateUser(@Valid @RequestBody UpdateUserDTO dto) {
         return ResponseEntity.ok(userService.updateUser(dto));
     }
@@ -71,8 +74,9 @@ public class UserController {
     }
     @GetMapping("/{id}")
     @Operation(summary = "Get user by ID",
-            description = "The user themselves and any ADMIN get the full UserDTO (userInfo with email and phone, verified, bankAccounts). "
-                    + "Anyone else gets a PublicUserProfileDTO: id, categories, firstName, lastName, userName, description and profilePicture")
+            description = "The user themselves and any ADMIN get the full UserDTO (userInfo with email, phone and the profile URLs, verified, "
+                    + "bankAccounts, socialLinks and tags). Anyone else gets a PublicUserProfileDTO: id, categories, firstName, lastName, "
+                    + "userName, description, profilePicture, coverImageUrl, introVideoUrl, website, socialLinks and tags")
     public ResponseEntity<Object> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }

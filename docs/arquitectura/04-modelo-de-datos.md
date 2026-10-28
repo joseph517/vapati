@@ -38,9 +38,23 @@ erDiagram
         string phone UK
         string description
         string profile_picture
+        string cover_image_url
+        string intro_video_url
+        string website
         string auto_thanks_message "varchar 280, null"
         datetime created_at
         datetime updated_at
+    }
+    UserSocialLink {
+        bigint id PK
+        bigint user_id FK "UK con platform"
+        string platform "SocialPlatform, varchar 20"
+        string url
+    }
+    UserTag {
+        bigint id PK
+        bigint user_id FK "UK con tag"
+        string tag "varchar 30"
     }
     Category {
         bigint id PK
@@ -179,6 +193,8 @@ erDiagram
     Role ||--o{ User : "role_id"
     User ||--|| UserInfo : "user_id"
     User ||--o{ UserCategory : "user_id"
+    User ||--o{ UserSocialLink : "user_id"
+    User ||--o{ UserTag : "user_id"
     Category ||--o{ UserCategory : "category_id"
     User ||--o{ Campaign : "user_id"
     Campaign ||--|| Goal : "goal_id"
@@ -213,10 +229,12 @@ erDiagram
 
 | Entidad | Archivo | Tabla | Campos relevantes | Relaciones |
 |---|---|---|---|---|
-| `User` | `entity/user/User.java` | `[user]` (entre corchetes porque `user` es palabra reservada en SQL Server) | `verified` (columna `is_verified`), estado de sanción (`banned`, `bannedAt`, `suspendedUntil`, `bannedReason`), `tokensValidAfter`, `createdAt`, `updatedAt`, `deletedAt` | `role` (`@ManyToOne` LAZY); inversas: `userInfo` y `verificationRequest` (`@OneToOne mappedBy`), `userCategories` y `bankAccounts` (`Set`), `campaigns` (`List`). Todas las inversas tienen `cascade = ALL`; las colecciones, además, `orphanRemoval = true`. |
-| `UserInfo` | `entity/user/UserInfo.java` | `user_info` | Datos de perfil y credenciales: `firstName`, `lastName`, `email`, `userName`, `password`, `phone`, `description`, `profilePicture`, y el mensaje de agradecimiento predeterminado `autoThanksMessage` (opcional, hasta 280) | Dueña de la FK `user_id` (`@OneToOne` LAZY, `unique`). |
+| `User` | `entity/user/User.java` | `[user]` (entre corchetes porque `user` es palabra reservada en SQL Server) | `verified` (columna `is_verified`), estado de sanción (`banned`, `bannedAt`, `suspendedUntil`, `bannedReason`), `tokensValidAfter`, `createdAt`, `updatedAt`, `deletedAt` | `role` (`@ManyToOne` LAZY); inversas: `userInfo` y `verificationRequest` (`@OneToOne mappedBy`), `userCategories`, `bankAccounts`, `socialLinks` y `tags` (`Set`), `campaigns` (`List`). Todas las inversas tienen `cascade = ALL`; las colecciones, además, `orphanRemoval = true`. |
+| `UserInfo` | `entity/user/UserInfo.java` | `user_info` | Datos de perfil y credenciales: `firstName`, `lastName`, `email`, `userName`, `password`, `phone`, `description`, `profilePicture`, las URLs de personalización `coverImageUrl`, `introVideoUrl` y `website` (opcionales), y el mensaje de agradecimiento predeterminado `autoThanksMessage` (opcional, hasta 280) | Dueña de la FK `user_id` (`@OneToOne` LAZY, `unique`). |
 | `Role` | `entity/user/Role.java` | `roles` | `name` (`unique`) | Ninguna. No es un enum: es una tabla con dos filas que siembra `data.sql`. |
 | `UserCategory` | `entity/user/UserCategory.java` | `user_category` | Tabla intermedia con id propio | `user` y `category` (`@ManyToOne`). |
+| `UserSocialLink` | `entity/user/UserSocialLink.java` | `user_social_link` | `platform` (`SocialPlatform`, `updatable = false`) y `url`. `UNIQUE (user_id, platform)`: una fila por plataforma | `user` (`@ManyToOne` LAZY, `optional = false`). |
+| `UserTag` | `entity/user/UserTag.java` | `user_tag` | `tag` normalizada (`length = 30`, `updatable = false`). `UNIQUE (user_id, tag)` | `user` (`@ManyToOne` LAZY, `optional = false`). |
 
 `User` y `UserInfo` están separados: `User` tiene el estado de la cuenta (rol, verificación, sanciones, borrado) y `UserInfo` los datos que el usuario edita y con los que se loguea. El email, el nombre de usuario y el teléfono son `unique` en `user_info`. Como el borrado de un usuario es lógico y no toca `user_info`, esos valores siguen ocupados por la cuenta borrada (y el login la puede restaurar, ver [Auth](dominios/auth.md)).
 
@@ -273,7 +291,9 @@ JPA carga por defecto en forma **EAGER** las relaciones `@ManyToOne` y `@OneToOn
 | `User.userCategories` | `@OneToMany` (`Set`) | LAZY | `ALL` + `orphanRemoval` | El `orphanRemoval` es lo que borra la fila de `user_category` al sacar una categoría del set. |
 | `User.bankAccounts` | `@OneToMany` (`Set`) | LAZY | `ALL` + `orphanRemoval` | |
 | `User.campaigns` | `@OneToMany` (`List`) | LAZY | `ALL` + `orphanRemoval` | Ningún código lee esta colección. |
+| `User.socialLinks`, `User.tags` | `@OneToMany` (`Set`) | LAZY | `ALL` + `orphanRemoval` | Fuera de los `@EntityGraph`, que ya traen dos colecciones. El perfil las lee con una consulta por `user_id` (`UserSocialLinkRepository.findByUserId`, `UserTagRepository.findByUserId`). |
 | `UserInfo.user` | `@OneToOne` | LAZY | — | Dueña de la FK. |
+| `UserSocialLink.user`, `UserTag.user` | `@ManyToOne` | LAZY | — | `optional = false`, `updatable = false`. |
 | `UserCategory.user`, `UserCategory.category` | `@ManyToOne` | EAGER | — | |
 | `Campaign.user` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `Campaign.goal` | `@OneToOne` | EAGER | `ALL` | Borrar la campaña borra (lógicamente) su meta. |
@@ -309,6 +329,7 @@ Todos los enums que se guardan en la base usan `@Enumerated(EnumType.STRING)`: l
 |---|---|---|---|---|
 | `CampaignStatus` | `entity/campaign/CampaignStatus.java` | `ACTIVE`, `COMPLETED`, `CLOSED` | `Goal.status`, `CampaignStatusHistory.previousStatus` y `.newStatus` (`VARCHAR(50)`) | Máquina de estados en [Campaign](dominios/campaign.md). |
 | `DonationStatus` | `entity/donation/DonationStatus.java` | `PENDING`, `COMPLETED`, `FAILED`, `REFUNDED` | `Donation.status` (`VARCHAR(20)`) | La entidad usa `PENDING` por defecto, pero la aprobación es simulada: `DonationService` crea cada donación directamente en `COMPLETED`. Ver [Donation](dominios/donation.md). |
+| `SocialPlatform` | `entity/user/SocialPlatform.java` | `INSTAGRAM`, `X`, `TIKTOK`, `YOUTUBE`, `TWITCH`, `FACEBOOK`, `LINKEDIN`, `GITHUB`, `OTHER` | `UserSocialLink.platform` (`VARCHAR(20)`) | Cada valor lleva los dominios que acepta su enlace (`OTHER`, ninguno: acepta cualquiera). El orden de declaración es el orden en que se devuelven los enlaces en las respuestas. Un valor nuevo necesita recrear la `CHECK` que genera Hibernate para la columna. Ver [User](dominios/user.md). |
 | `ReportStatus` | `entity/report/ReportStatus.java` | `PENDING`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED` | `Report.status` | Por defecto `PENDING`. Ver [Report](dominios/report.md). |
 | `ReportReason` | `entity/report/ReportReason.java` | `SPAM`, `INAPPROPRIATE_CONTENT`, `HARASSMENT`, `FRAUD`, `MISINFORMATION`, `IMPERSONATION`, `OTHER` | `Report.reason` | |
 | `ReportedEntityType` | `entity/report/ReportedEntityType.java` | `USER`, `PUBLICATION`, `CAMPAIGN`, `COMMENT` | `Report.reportedEntityType` | Define a qué tabla apunta `reportedEntityId`. Su columna tiene la `CHECK` `CK_report_reported_entity_type`, que se actualiza con un script al sumar un valor. |
@@ -407,11 +428,11 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 
 ## Lombok en las entidades
 
-Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `Comment` excluye sus dos relaciones (`user` y `publication`) y `PublicationLike` las suyas (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas.
+Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `UserSocialLink` y `UserTag` también excluyen su `user` de `toString` pero, además, usan `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` con su clave natural (`platform` y `tag`), `Comment` excluye sus dos relaciones (`user` y `publication`) y `PublicationLike` las suyas (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas (incluidas `socialLinks` y `tags`).
 
 Dos detalles a tener en cuenta al tocar entidades:
 
-- Con `@Builder`, los valores iniciales de los campos solo se respetan si llevan `@Builder.Default`. `Goal.status`, `Donation.status`, `Donation.messagePrivate`, `Donation.thanksPrivate` y `Report.status` lo tienen; los campos de `User` (`banned`, `userCategories`, `bankAccounts`) no, y en un `User` creado con el builder quedan en `null`.
+- Con `@Builder`, los valores iniciales de los campos solo se respetan si llevan `@Builder.Default`. `Goal.status`, `Donation.status`, `Donation.messagePrivate`, `Donation.thanksPrivate` y `Report.status` lo tienen; los campos de `User` (`banned`, `userCategories`, `bankAccounts`) no, y en un `User` creado con el builder quedan en `null`. Las excepciones son `socialLinks` y `tags`, que sí llevan `@Builder.Default` y arrancan como `HashSet` vacío.
 - `User` no excluye `campaigns` de `toString`, y `Campaign` y `Follower` no excluyen nada: llamar a `toString` sobre esas entidades puede recorrer la relación de ida y vuelta.
 
 ## Esquema de la base y datos iniciales
@@ -498,6 +519,6 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 
 ## Clases involucradas
 
-- Entidades: todo `entity/` (18 entidades y 7 enums).
-- Repositorios con queries de soft delete, sanción o fetch: `repository/user/UserRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
+- Entidades: todo `entity/` (20 entidades y 8 enums).
+- Repositorios con queries de soft delete, sanción o fetch: `repository/user/UserRepository.java`, `repository/user/UserSocialLinkRepository.java`, `repository/user/UserTagRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
 - Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`, `scripts/update-report-entity-type-check.sql`.

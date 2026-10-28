@@ -21,6 +21,9 @@ public class UserInfoMapper {
         dto.setPhone(userInfo.getPhone());
         dto.setDescription(userInfo.getDescription());
         dto.setProfilePicture(userInfo.getProfilePicture());
+        dto.setCoverImageUrl(userInfo.getCoverImageUrl());
+        dto.setIntroVideoUrl(userInfo.getIntroVideoUrl());
+        dto.setWebsite(userInfo.getWebsite());
 
         return dto;
     }
