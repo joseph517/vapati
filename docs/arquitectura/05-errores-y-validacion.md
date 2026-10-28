@@ -130,7 +130,7 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | | `amount` | `@NotNull(message = "Amount is required")`, `@Positive(message = "Amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
 | | `message` | `@Size(max = 280, message = "Message must be at most 280 characters")` (el blanco lo rechaza `DonationValidationService`) |
 | `dtos/donation/CreateDonationThanksDTO.java` | `thanksMessage` | `@Size(max = 280, message = "Thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `DonationValidationService`) |
-| `dtos/user/UpdateAutoThanksDTO.java` | `autoThanksMessage` | `@Size(max = 280, message = "Auto thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `UserValidationService`) |
+| `dtos/user/UpdateAutoThanksDTO.java` | `autoThanksMessage` | `@Size(max = 280, message = "Auto thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `UserProfileValidationService`) |
 | `dtos/publication/CreatePublicationDTO.java` | `description` | `@NotBlank`, `@Size(max = 255)` |
 | `dtos/comment/CreateCommentDTO.java` | `text` | `@Size(max = 280, message = "Text must be at most 280 characters")`, sin `@NotBlank` (ausente o en blanco lo rechaza `CommentValidationService`) |
 | `dtos/category/CreateCategoryDTO.java` | `name` | `@NotBlank`, `@Size(max = 255)` |
@@ -143,14 +143,17 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | | `accountNumber`, `accountType` | `@Size(max = 50)` con mensaje propio |
 | `dtos/user/UserUserInfoRequestDTO.java` | `user`, `userInfo` | `@NotNull`, `@Valid` |
 | `dtos/user/CreateUserInfoDTO.java` | `firstName`, `lastName` | `@NotBlank`, `@Size(max = 255)` |
-| | `email` | `@NotBlank`, `@Size(max = 254)` (el formato se valida en `UserValidationService`) |
-| | `userName`, `password` | `@NotBlank` (largo, caracteres y reglas de contraseña en `UserValidationService`) |
+| | `email` | `@NotBlank`, `@Size(max = 254)` (el formato se valida en `UserAccountValidationService`) |
+| | `userName`, `password` | `@NotBlank` (largo, caracteres y reglas de contraseña en `UserAccountValidationService`) |
 | | `phone` | `@NotBlank`, `@Size(max = 20)` |
 | | `description` | `@NotNull`, `@Size(max = 255)` |
-| | `profilePicture` | `@Size(max = 255)` |
+| | `profilePicture` | `@Size(max = 255)` (que sea una URL lo valida `UserProfileValidationService`) |
 | `dtos/user/UpdateUserDTO.java` | `firstName`, `lastName`, `description`, `profilePicture` | `@Size(max = 255)` |
 | | `email` | `@Size(max = 254)` |
 | | `phone` | `@Size(max = 20)` |
+| | `coverImageUrl`, `introVideoUrl`, `website` | `@Size(max = 255)` con mensaje propio (`Cover image must be at most 255 characters`, `Intro video must be at most 255 characters`, `Website must be at most 255 characters`) |
+| | `socialLinks` | `List<@Valid SocialLinkDTO>`: cada elemento se valida en cascada |
+| `dtos/user/SocialLinkDTO.java` | `url` | `@Size(max = 255, message = "Social link URL must be at most 255 characters")`; `platform` no tiene anotaciones: que falte lo rechaza `UserProfileValidationService` |
 | `dtos/report/CreateReportDTO.java` | `reportedEntityType`, `reason` | `@NotNull` |
 | | `reportedEntityId` | `@NotNull`, `@Positive` |
 | | `description` | `@Size(max = 1000)` |
@@ -173,7 +176,8 @@ Los DTOs `Update*` tienen todos los campos opcionales: un campo `null` deja el v
 |---|---|---|
 | Campaña, categoría | `@Pattern(regexp = ".*\\S.*")` en el DTO | `400 Validation failed`, `fields.name = must not be blank` |
 | Cuenta bancaria | `ValidationUtils.validateIfPresent` en `validation/bankaccount/BankAccountValidationService.java` | `400 Business logic error`, `Bank name cannot be empty` |
-| Usuario | `isValidString` en `validation/user/UserValidationService.java` | El campo se ignora y la actualización sigue (`200`) |
+| Usuario | `isValidString` en `validation/user/UserAccountValidationService.java` | El campo se ignora y la actualización sigue (`200`) |
+| Usuario, URLs de perfil (`profilePicture`, `coverImageUrl`, `introVideoUrl`, `website`) | `UrlValidationService.normalizeOptionalUrl`, desde `UserProfileValidationService.applyProfileFields` | El campo se borra y queda `null` (`200`) |
 
 ## Validación fuera de los DTOs
 
@@ -236,10 +240,30 @@ Regla de texto obligatorio que comparten cuatro usos en tres dominios. Un solo m
 |---|---|---|---|
 | `DonationValidationService.validateAndNormalizeMessage` | `Message` | 280 | El mensaje del donante es opcional: `null` devuelve `null` sin llamar al servicio. |
 | `DonationValidationService.validateAndNormalizeThanksMessage` | `Thanks message` | 280 | La respuesta del receptor a una donación. |
-| `UserValidationService.validateAndNormalizeAutoThanksMessage` | `Auto thanks message` | 280 | El mensaje predeterminado del usuario. |
+| `UserProfileValidationService.validateAndNormalizeAutoThanksMessage` | `Auto thanks message` | 280 | El mensaje predeterminado del usuario. |
 | `CommentValidationService.validateAndNormalizeText` | `Text` | 280 | El texto de un comentario; obligatorio. |
 
 En los cuatro casos el DTO tiene además un `@Size(max = 280)` con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
+
+### `validation/common/UrlValidationService.java`
+
+Regla de URL opcional que comparten los campos de perfil guardados como texto (no hay almacenamiento propio: solo se guardan URLs externas). Un solo método, `normalizeOptionalUrl(value, fieldLabel, maxLength)`, que lanza `MessageException` (`400 Business logic error`) o devuelve el valor:
+
+| Regla | Resultado o mensaje |
+|---|---|
+| `null`, vacío o solo espacios | Devuelve `null`; quien llama decide si eso significa "borrar" |
+| Hasta `maxLength` caracteres, medidos después del `trim` | `<fieldLabel> must be at most <maxLength> characters` |
+| Parsea como `URI`, con esquema `http` o `https` (sin distinguir mayúsculas) y host | `<fieldLabel> must be a valid http or https URL` |
+
+Devuelve la URL recortada. Un host con caracteres no ASCII sin punycode no lo reconoce `URI.getHost()` y se rechaza como inválido.
+
+| Quién lo usa | `fieldLabel` | `maxLength` |
+|---|---|---|
+| `UserProfileValidationService.validateAndNormalizeProfilePicture` (alta y edición) | `Profile picture` | 255 |
+| `UserProfileValidationService.applyProfileFields` | `Cover image`, `Website`, `Intro video` | 255 |
+| `UserProfileValidationService.replaceSocialLinks` | `<PLATAFORMA> link` | 255 |
+
+Sobre esta regla, `UserProfileValidationService` agrega las de dominio: `introVideoUrl` solo acepta los hosts de `VIDEO_HOSTS` (YouTube y Vimeo, lista exacta) y cada enlace social solo el dominio de su `SocialPlatform` o un subdominio. Como en los textos, el DTO corta antes con su `@Size(max = 255)` (`400 Validation failed`, con `fields`), así que el chequeo de largo del servicio no se alcanza por la API.
 
 ## `404` en lugar de `403`: no revelar lo que no se puede ver
 

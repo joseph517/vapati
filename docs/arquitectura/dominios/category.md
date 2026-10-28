@@ -57,7 +57,7 @@ Fíjate en la asimetría del borrado: para campañas la categoría se puede quit
 
 Los dos dominios que reciben `categoryIds` validan contra este catálogo con reglas parecidas pero no iguales:
 
-| | Usuario (`validation/user/UserValidationService.java`) | Campaña (`validation/campaign/CampaignValidationService.java`) |
+| | Usuario (`validation/user/UserCategoryValidationService.java`) | Campaña (`validation/campaign/CampaignValidationService.java`) |
 |---|---|---|
 | Mínimo / máximo | 1 / 6 (`MAX_CATEGORIES_PER_USER`) | 1 / 5 (además `@NotEmpty @Size(min = 1, max = 5)` en los DTOs) |
 | Lista vacía | `400` `User must have at least 1 category` | `400` de Bean Validation (`Validation failed`); si llega al service, `At least one category must be provided` |
@@ -225,7 +225,7 @@ flowchart TD
 |---|---|
 | Controller | `controller/category/CategoryController.java` |
 | Service | `service/category/CategoryService.java` |
-| Validation | No tiene; las reglas están en el service. Las validaciones de `categoryIds` de otros dominios están en `validation/user/UserValidationService.java` y `validation/campaign/CampaignValidationService.java`. |
+| Validation | No tiene; las reglas están en el service. Las validaciones de `categoryIds` de otros dominios están en `validation/user/UserCategoryValidationService.java` y `validation/campaign/CampaignValidationService.java`. |
 | Mapper | `mapper/category/CategoryMapper.java` (además, `mapper/campaign/CampaignMapper.java` arma `CategoryDTO` por su cuenta y `mapper/user/UserMapper.java` expone solo los nombres) |
 | Repository | `repository/category/CategoryRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/user/UserCategoryRepository.java` (sin uso en el código) |
 | DTOs | `dtos/category/CategoryDTO.java`, `dtos/category/CreateCategoryDTO.java`, `dtos/category/UpdateCategoryDTO.java` |
