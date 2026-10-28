@@ -1,21 +1,6 @@
 # Testing
 
-Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué configuración los rige y cómo correrlos.
-
-## Estado de la suite
-
-En el commit que describe esta documentación, `mvn -B test` corre **1544 tests en 94 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
-
-| Capa probada | Tests | Tipo |
-|---|---|---|
-| `service/` | 691 | unitarios con Mockito, salvo 2 de integración con SQL Server real (Testcontainers) |
-| `validation/` | 593 | unitarios con Mockito |
-| `dtos/` | 139 | Bean Validation sin Spring |
-| `repository/` | 39 | integración con SQL Server real (Testcontainers) |
-| `security/` | 22 | unitarios con Mockito |
-| `mapper/` | 45 | unitarios puros |
-| `exception/` | 14 | unitarios del handler |
-| contexto de Spring | 1 | integración con SQL Server real (Testcontainers) |
+Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué configuración los rige y cómo correrlos. Es el único lugar donde se explica cómo correr los tests: el resto de la documentación enlaza a [Cómo correr los tests](#cómo-correr-los-tests).
 
 ## Estrategia
 
@@ -66,7 +51,7 @@ Todas las clases de `service/` y de `validation/` tienen al menos una clase de t
 
 ## Organización
 
-Los tests espejan los paquetes de `src/main/java/com/vaPaTi/vaPaTi/`: un test vive en el mismo `<capa>/<dominio>/` que la clase que prueba. Las validaciones se prueban en `validation/<dominio>/`, no dentro de `service/`.
+Los tests espejan los paquetes de `src/main/java/com/vaPaTi/vaPaTi/`: un test vive en el mismo `<capa>/<dominio>/` que la clase que prueba. Las validaciones se prueban en `validation/<dominio>/`, no dentro de `service/`. Dos clases de `src/test/java/com/vaPaTi/vaPaTi/` son de apoyo y no son tests: `AbstractIntegrationTest.java`, con el contenedor de SQL Server de los tests de integración, y `dtos/DtoValidation.java`.
 
 ```mermaid
 flowchart LR
@@ -148,7 +133,7 @@ El wrapper descarga Maven solo; hace falta un JDK 21. Los tests de integración 
 ./mvnw test -Dtest=CategoryServiceTest
 
 # Un método de una clase sin @Nested
-./mvnw test -Dtest='BankAccountServiceDeleteTest#*'
+./mvnw test -Dtest='BankAccountServiceDeleteTest#deleteBankAccount_WhenAccountExistsAndIsActive_ShouldMarkAsDeleted'
 
 # Un método dentro de una clase @Nested: Clase$Anidada#metodo, entre comillas simples
 ./mvnw test -Dtest='DonationServiceTest$CreateDonationTests#createDonation_WithValidData_ShouldCreateDonation'
@@ -188,7 +173,7 @@ El contenedor `app_vapati_dev` del stack de desarrollo **no** corre tests: compi
 
 ### En CI
 
-El job `Tests` de `.github/workflows/docker-publish.yml` corre la suite completa en cada PR hacia `main` y antes de cada publicación de imagen, pasando la versión de API del daemon del runner (ver [Infraestructura](06-infraestructura.md#ci-y-publicación-githubworkflowsdocker-publishyml)):
+El job `Tests` de `.github/workflows/docker-publish.yml` corre la suite completa en cada PR hacia `main` y antes de cada publicación de imagen, pasando la versión de API del daemon del runner en lugar de la fijada en `pom.xml` (el porqué está en [Configuración de Surefire](#configuración-de-surefire); el job, en [Infraestructura](06-infraestructura.md#ci-y-publicación-githubworkflowsdocker-publishyml)):
 
 ```bash
 ./mvnw -B test -Ddocker.remote.api.version="$(docker version --format '{{.Server.APIVersion}}')"
@@ -199,4 +184,3 @@ El job `Tests` de `.github/workflows/docker-publish.yml` corre la suite completa
 - [Arquitectura](02-arquitectura.md): las capas que espejan los tests.
 - [Errores y validación](05-errores-y-validacion.md): los mensajes que verifican los tests de validación.
 - [Infraestructura](06-infraestructura.md): Docker, perfiles y CI.
-- [Deuda técnica](deuda-tecnica.md): configuraciones de test sin uso y huecos de cobertura.

@@ -21,7 +21,7 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 ### No exponer el `.env` del host dentro de `app_vapati_dev`
 
 - **Origen:** revisión final del spec 59, 2026-10-22.
-- **Estado:** **aplicada en parte** en esta rama (commit `2d63c2c`): `docker-compose.dev.yml` monta `/dev/null` sobre `/workspace/.env`. Queda pendiente lo que no cubre esa máscara.
+- **Estado:** **aplicada en parte**: `docker-compose.dev.yml` monta `/dev/null` sobre `/workspace/.env`. Queda pendiente lo que no cubre esa máscara.
 - **Evidencia:** `app-dev` monta la raíz del repo en `/workspace` (solo lectura) para que el script lea `pom.xml`; ahí también está el `.env`, con `DB_PASSWORD` (la de `sa`) y `DB_APP_PASSWORD`.
 - **Problema:** cualquier proceso del contenedor, incluidas las dependencias de la aplicación, podría leer las passwords del host, que el contenedor no necesita.
 - **Propuesta:** la máscara de `/workspace/.env` (hecha). Pendiente: un `.env.production` u otro archivo con secretos en la raíz sigue visible dentro del contenedor.
@@ -54,7 +54,7 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 ### Quitar el `hibernate.dialect` explícito y silenciar los avisos de arranque
 
 - **Origen:** revisión final del spec 59, 2026-10-22.
-- **Estado:** la parte del dialecto **ya está hecha** en esta rama (commit `2d63c2c`): ningún archivo de propiedades lo fija. Queda abierta la otra mitad.
+- **Estado:** la parte del dialecto **ya está hecha**: ningún archivo de propiedades lo fija. Queda abierta la otra mitad.
 - **Evidencia:** al arrancar, Spring Security avisa que el bean `UserDetailsService` se ignora porque existe un bean `AuthenticationProvider` (`service/auth/CustomUserDetailsService.java` es un `@Service` que implementa `UserDetailsService`; `security/SecurityConfig.java` lo pasa a mano al `DaoAuthenticationProvider` y `security/JwtAuthenticationFilter.java` lo inyecta directamente).
 - **Problema:** un aviso en cada arranque que oculta los avisos que sí importan.
 - **Propuesta:** revisar si hace falta que `CustomUserDetailsService` implemente `UserDetailsService` y quede registrado como bean de ese tipo, o dejarlo sin la interfaz, de modo que Spring Security no tenga un bean que ignorar.
@@ -75,7 +75,7 @@ Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/`, como en el
 ### Corregir el comentario engañoso sobre `getReferenceById`
 
 - **Origen:** revisión final del spec 54 (`harness/specs/54-comentarios-en-publicaciones.md`), 2026-10-27.
-- **Estado:** **aplicada en parte** en la rama del spec 54: `service/comment/CommentService.java` ya dice que `getReferenceById` devuelve un proxy. Queda `service/publication/PublicationLikeService.java` (`likePublication`).
+- **Estado:** **aplicada en parte**: `service/comment/CommentService.java` ya dice que `getReferenceById` devuelve un proxy. Queda `service/publication/PublicationLikeService.java` (`likePublication`).
 - **Evidencia:** el comentario de `PublicationLikeService` dice "getReferenceById avoids a SELECT of the user, the JWT filter already loaded it".
 - **Problema:** atribuye el ahorro del `SELECT` al filtro JWT, cuando lo evita `getReferenceById` porque devuelve un proxy. Es un patrón que se replica por copia y el próximo dominio lo va a copiar otra vez.
 - **Propuesta:** "getReferenceById returns a proxy: no SELECT of the caller, who the token already proved exists".

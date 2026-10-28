@@ -2,7 +2,7 @@
 
 Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectura, cada funcionalidad y por qué funciona como funciona. Todo lo que dice sale del código.
 
-**Describe:** la rama `spec-58-sancion-y-rol-admin-unificados` en el commit `13c01de`, al 2026-10-27. Es una foto: los cambios posteriores al código no se reflejan acá.
+**Qué describe:** el código actual. Si un doc y el código no coinciden, manda el código y el doc está mal. Los docs no llevan commits, ramas, fechas de foto, cantidades de tests ni historia de los specs.
 
 **Para quién es:** un dev backend que entra al proyecto, que sabe Java y lo básico de Spring. No se explica Spring desde cero, sino cómo lo usa este proyecto.
 
@@ -11,6 +11,8 @@ Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectur
 - Las rutas `.java` son relativas a `src/main/java/com/vaPaTi/vaPaTi/` (por ejemplo `service/campaign/CampaignService.java`). Las demás rutas se escriben desde la raíz del repo.
 - Las referencias al código no llevan número de línea, para que no se desactualicen con cada cambio.
 - Los diagramas están en Mermaid y se ven en GitHub y en los IDEs con vista previa de Markdown.
+- Cada tema vive en un solo archivo, y los demás lo enlazan con su ancla. Por ejemplo, cómo correr los tests está solo en [Testing](07-testing.md#cómo-correr-los-tests).
+- `recomendaciones-de-arquitectura.md` es la excepción a "sin historia de los specs": cada propuesta conserva su `Origen` (spec y fecha), porque el archivo es un backlog de propuestas y no describe el código.
 
 ## Orden de lectura sugerido
 
@@ -35,7 +37,6 @@ Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectur
 | [06-infraestructura.md](06-infraestructura.md) | Perfiles, variables de entorno, Docker, hot reload, tags fijados y escaneo de vulnerabilidades, CI y publicación de imágenes. |
 | [07-testing.md](07-testing.md) | Estrategia de tests, organización y cómo correrlos. |
 | [08-decisiones-de-diseno.md](08-decisiones-de-diseno.md) | Decisiones transversales: qué, por qué y dónde. |
-| [deuda-tecnica.md](deuda-tecnica.md) | Inconsistencias encontradas al recorrer el código. |
 | [roadmap.md](roadmap.md) | Lo planeado y todavía no implementado. |
 | [recomendaciones-de-arquitectura.md](recomendaciones-de-arquitectura.md) | Propuestas de mejora del architect, por prioridad. No describen el código. |
 
