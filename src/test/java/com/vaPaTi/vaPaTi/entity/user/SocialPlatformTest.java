@@ -41,6 +41,12 @@ class SocialPlatformTest {
     void acceptsHost_WithOtherPlatformDomain_ShouldReturnFalse() {
         // When & Then
         assertThat(SocialPlatform.X.acceptsHost("instagram.com")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should accept any subdomain of the platform domain, not only www")
+    void acceptsHost_WithNonWwwSubdomain_ShouldReturnTrue() {
+        // When & Then
         assertThat(SocialPlatform.FACEBOOK.acceptsHost("m.facebook.com")).isTrue();
     }
 

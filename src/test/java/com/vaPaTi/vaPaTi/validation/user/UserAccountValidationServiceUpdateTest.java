@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("Timestamp Update Service Tests")
+@DisplayName("UserAccountValidationService - User Update Tests")
 class UserAccountValidationServiceUpdateTest {
 
     @Mock
@@ -36,10 +36,7 @@ class UserAccountValidationServiceUpdateTest {
     private PasswordEncoder passwordEncoder;
 
     @InjectMocks
-    private UserAccountValidationService timestampUpdateService;
-
-    @InjectMocks
-    private UserAccountValidationService userValidationService;
+    private UserAccountValidationService userAccountValidationService;
 
     private User testUser;
     private UserInfo testUserInfo;
@@ -94,7 +91,7 @@ class UserAccountValidationServiceUpdateTest {
             mockedLocalDateTime.when(LocalDateTime::now).thenReturn(fixedDateTime);
 
             // When
-            timestampUpdateService.updateUserInfoTimestamp(testUserInfo);
+            userAccountValidationService.updateUserInfoTimestamp(testUserInfo);
 
             // Then
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(fixedDateTime);
@@ -112,7 +109,7 @@ class UserAccountValidationServiceUpdateTest {
         UserInfo nullUserInfo = null;
 
         // When & Then
-        assertThatThrownBy(() -> timestampUpdateService.updateUserInfoTimestamp(nullUserInfo))
+        assertThatThrownBy(() -> userAccountValidationService.updateUserInfoTimestamp(nullUserInfo))
                 .isInstanceOf(MessageException.class);
 
         // Verify LocalDateTime.now() was never called due to early validation failure
@@ -131,7 +128,7 @@ class UserAccountValidationServiceUpdateTest {
             mockedLocalDateTime.when(LocalDateTime::now).thenReturn(fixedDateTime);
 
             // When
-            timestampUpdateService.updateUserInfoTimestamp(testUserInfo);
+            userAccountValidationService.updateUserInfoTimestamp(testUserInfo);
 
             // Then
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(fixedDateTime);
@@ -151,12 +148,12 @@ class UserAccountValidationServiceUpdateTest {
         try (MockedStatic<LocalDateTime> mockedLocalDateTime = mockStatic(LocalDateTime.class)) {
             // First call
             mockedLocalDateTime.when(LocalDateTime::now).thenReturn(firstTimestamp);
-            timestampUpdateService.updateUserInfoTimestamp(testUserInfo);
+            userAccountValidationService.updateUserInfoTimestamp(testUserInfo);
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(firstTimestamp);
 
             // Second call
             mockedLocalDateTime.when(LocalDateTime::now).thenReturn(secondTimestamp);
-            timestampUpdateService.updateUserInfoTimestamp(testUserInfo);
+            userAccountValidationService.updateUserInfoTimestamp(testUserInfo);
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(secondTimestamp);
 
             // Verify LocalDateTime.now() was called twice
@@ -180,7 +177,7 @@ class UserAccountValidationServiceUpdateTest {
             mockedLocalDateTime.when(LocalDateTime::now).thenReturn(fixedDateTime);
 
             // When
-            timestampUpdateService.updateUserInfoTimestamp(testUserInfo);
+            userAccountValidationService.updateUserInfoTimestamp(testUserInfo);
 
             // Then - verify only updatedAt changed
             assertThat(testUserInfo.getUpdatedAt()).isEqualTo(fixedDateTime);
@@ -206,7 +203,7 @@ class UserAccountValidationServiceUpdateTest {
         when(passwordEncoder.encode("NewPassword123!")).thenReturn("encodedNewPassword123!");
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, updateUserDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, updateUserDTO));
 
         // Assert
         assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
@@ -245,7 +242,7 @@ class UserAccountValidationServiceUpdateTest {
         when(userInfoRepository.existsByEmailAndUserIdNot("jane.smith@example.com", 1L)).thenReturn(false);
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, partialDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, partialDTO));
 
         // Assert
         assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
@@ -282,7 +279,7 @@ class UserAccountValidationServiceUpdateTest {
         String originalProfilePicture = testUserInfo.getProfilePicture();
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, emptyDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, emptyDTO));
 
         // Assert - All original fields should remain unchanged
         assertThat(testUserInfo.getFirstName()).isEqualTo(originalFirstName);
@@ -307,7 +304,7 @@ class UserAccountValidationServiceUpdateTest {
     @DisplayName("Should throw exception when user is null")
     void shouldThrowException_WhenUserIsNull() {
         // Act & Assert
-        assertThatThrownBy(() -> userValidationService.updateUserInfo(null, updateUserDTO))
+        assertThatThrownBy(() -> userAccountValidationService.updateUserInfo(null, updateUserDTO))
                 .isInstanceOf(MessageException.class);
 
         verifyNoInteractions(userInfoRepository, passwordEncoder);
@@ -317,7 +314,7 @@ class UserAccountValidationServiceUpdateTest {
     @DisplayName("Should throw exception when DTO is null")
     void shouldThrowException_WhenDTOIsNull() {
         // Act & Assert
-        assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, null))
+        assertThatThrownBy(() -> userAccountValidationService.updateUserInfo(testUser, null))
                 .isInstanceOf(MessageException.class);
 
         verifyNoInteractions(userInfoRepository, passwordEncoder);
@@ -333,7 +330,7 @@ class UserAccountValidationServiceUpdateTest {
                 .build();
 
         // Act & Assert
-        assertThatThrownBy(() -> userValidationService.updateUserInfo(userWithoutInfo, updateUserDTO))
+        assertThatThrownBy(() -> userAccountValidationService.updateUserInfo(userWithoutInfo, updateUserDTO))
                 .isInstanceOf(MessageException.class)
                 .hasMessageContaining("UserInfo not found");
 
@@ -350,7 +347,7 @@ class UserAccountValidationServiceUpdateTest {
         when(userInfoRepository.existsByUserNameAndUserIdNot("janesmith", 1L)).thenReturn(true);
 
         // Act & Assert
-        assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, updateUserDTO))
+        assertThatThrownBy(() -> userAccountValidationService.updateUserInfo(testUser, updateUserDTO))
                 .isInstanceOf(MessageException.class)
                 .hasMessageContaining("Username already exists");
 
@@ -372,7 +369,7 @@ class UserAccountValidationServiceUpdateTest {
         when(userInfoRepository.existsByEmailAndUserIdNot("john.doe@example.com", 1L)).thenReturn(false);
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, sameEmailDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, sameEmailDTO));
 
         // Assert
         assertThat(testUserInfo.getEmail()).isEqualTo("john.doe@example.com");
@@ -394,7 +391,7 @@ class UserAccountValidationServiceUpdateTest {
         when(userInfoRepository.existsByUserNameAndUserIdNot("johndoe", 1L)).thenReturn(false);
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, sameUsernameDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, sameUsernameDTO));
 
         // Assert
         assertThat(testUserInfo.getUserName()).isEqualTo("johndoe");
@@ -418,7 +415,7 @@ class UserAccountValidationServiceUpdateTest {
         String originalPassword = testUserInfo.getPassword();
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, namesOnlyDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, namesOnlyDTO));
 
         // Assert
         assertThat(testUserInfo.getFirstName()).isEqualTo("Jane");
@@ -445,7 +442,7 @@ class UserAccountValidationServiceUpdateTest {
         when(passwordEncoder.encode("newSecretPassword1!")).thenReturn("encodedNewSecretPassword");
 
         // Act
-        assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, passwordOnlyDTO));
+        assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, passwordOnlyDTO));
 
         // Assert
         assertThat(testUserInfo.getPassword()).isEqualTo("encodedNewSecretPassword");
@@ -471,7 +468,7 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO phoneDTO = UpdateUserDTO.builder().phone("+9876543210").build();
             when(userInfoRepository.existsByPhoneAndUserIdNot("+9876543210", 1L)).thenReturn(true);
 
-            assertThatThrownBy(() -> userValidationService.updateUserInfo(testUser, phoneDTO))
+            assertThatThrownBy(() -> userAccountValidationService.updateUserInfo(testUser, phoneDTO))
                     .isInstanceOf(ConflictException.class)
                     .hasMessage("Phone already exists");
 
@@ -484,7 +481,7 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO phoneDTO = UpdateUserDTO.builder().phone("+1234567890").build();
             when(userInfoRepository.existsByPhoneAndUserIdNot("+1234567890", 1L)).thenReturn(false);
 
-            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, phoneDTO));
+            assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, phoneDTO));
 
             assertThat(testUserInfo.getPhone()).isEqualTo("+1234567890");
             verify(userInfoRepository).existsByPhoneAndUserIdNot("+1234567890", 1L);
@@ -496,7 +493,7 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO phoneDTO = UpdateUserDTO.builder().phone("  +5550001111  ").build();
             when(userInfoRepository.existsByPhoneAndUserIdNot("+5550001111", 1L)).thenReturn(false);
 
-            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, phoneDTO));
+            assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, phoneDTO));
 
             assertThat(testUserInfo.getPhone()).isEqualTo("+5550001111");
         }
@@ -507,8 +504,8 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO emptyPhoneDTO = UpdateUserDTO.builder().phone("").build();
             UpdateUserDTO blankPhoneDTO = UpdateUserDTO.builder().phone("   ").build();
 
-            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, emptyPhoneDTO));
-            assertDoesNotThrow(() -> userValidationService.updateUserInfo(testUser, blankPhoneDTO));
+            assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, emptyPhoneDTO));
+            assertDoesNotThrow(() -> userAccountValidationService.updateUserInfo(testUser, blankPhoneDTO));
 
             assertThat(testUserInfo.getPhone()).isEqualTo("+1234567890");
             verifyNoInteractions(userInfoRepository);
@@ -532,7 +529,7 @@ class UserAccountValidationServiceUpdateTest {
         void withoutEmailOrPassword_ShouldReturnFalse() {
             UpdateUserDTO dto = UpdateUserDTO.builder().description("New description").build();
 
-            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isFalse();
+            assertThat(userAccountValidationService.validateCredentialChange(testUser, dto)).isFalse();
             verifyNoInteractions(passwordEncoder);
         }
 
@@ -541,7 +538,7 @@ class UserAccountValidationServiceUpdateTest {
         void withSameEmailOtherCase_ShouldReturnFalse() {
             UpdateUserDTO dto = UpdateUserDTO.builder().email("  JOHN.Doe@Example.COM ").description("x").build();
 
-            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isFalse();
+            assertThat(userAccountValidationService.validateCredentialChange(testUser, dto)).isFalse();
             verifyNoInteractions(passwordEncoder);
         }
 
@@ -550,7 +547,7 @@ class UserAccountValidationServiceUpdateTest {
         void withBlankPassword_ShouldReturnFalse() {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("   ").build();
 
-            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isFalse();
+            assertThat(userAccountValidationService.validateCredentialChange(testUser, dto)).isFalse();
             verifyNoInteractions(passwordEncoder);
         }
 
@@ -559,7 +556,7 @@ class UserAccountValidationServiceUpdateTest {
         void withPasswordWithoutCurrentPassword_ShouldThrowRequired() {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").build();
 
-            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, dto))
+            assertThatThrownBy(() -> userAccountValidationService.validateCredentialChange(testUser, dto))
                     .isInstanceOf(MessageException.class)
                     .hasMessage(REQUIRED_MSG);
             assertThat(testUserInfo.getPassword()).isEqualTo("hashedPassword123");
@@ -571,7 +568,7 @@ class UserAccountValidationServiceUpdateTest {
         void withDifferentEmailAndBlankCurrentPassword_ShouldThrowRequired() {
             UpdateUserDTO dto = UpdateUserDTO.builder().email("new@example.com").currentPassword("  ").build();
 
-            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, dto))
+            assertThatThrownBy(() -> userAccountValidationService.validateCredentialChange(testUser, dto))
                     .isInstanceOf(MessageException.class)
                     .hasMessage(REQUIRED_MSG);
             assertThat(testUserInfo.getEmail()).isEqualTo("john.doe@example.com");
@@ -583,7 +580,7 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("wrong").build();
             when(passwordEncoder.matches("wrong", "hashedPassword123")).thenReturn(false);
 
-            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, dto))
+            assertThatThrownBy(() -> userAccountValidationService.validateCredentialChange(testUser, dto))
                     .isInstanceOf(MessageException.class)
                     .hasMessage(INCORRECT_MSG);
             assertThat(testUserInfo.getPassword()).isEqualTo("hashedPassword123");
@@ -595,7 +592,7 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("Passw0rd!").build();
             when(passwordEncoder.matches("Passw0rd!", "hashedPassword123")).thenReturn(true);
 
-            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isTrue();
+            assertThat(userAccountValidationService.validateCredentialChange(testUser, dto)).isTrue();
         }
 
         @Test
@@ -604,13 +601,13 @@ class UserAccountValidationServiceUpdateTest {
             UpdateUserDTO dto = UpdateUserDTO.builder().email("new@example.com").currentPassword("Passw0rd!").build();
             when(passwordEncoder.matches("Passw0rd!", "hashedPassword123")).thenReturn(true);
 
-            assertThat(userValidationService.validateCredentialChange(testUser, dto)).isTrue();
+            assertThat(userAccountValidationService.validateCredentialChange(testUser, dto)).isTrue();
         }
 
         @Test
         @DisplayName("Null DTO: throws")
         void withNullDto_ShouldThrow() {
-            assertThatThrownBy(() -> userValidationService.validateCredentialChange(testUser, null))
+            assertThatThrownBy(() -> userAccountValidationService.validateCredentialChange(testUser, null))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("DTO must not be null");
         }

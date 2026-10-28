@@ -125,6 +125,51 @@ class UrlValidationServiceTest {
                 .hasMessage("Cover image must be a valid http or https URL");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://exa\u0007mple.com",
+            "https://example.com/a\u0000b",
+            "https://example.com/a\nb",
+            "http://ex\u00e4mple.com",
+            "http://example.com:abc"
+    })
+    @DisplayName("Should throw when the URL has control characters, a non-ASCII host or an invalid port")
+    void normalizeOptionalUrl_WithControlCharsNonAsciiHostOrInvalidPort_ShouldThrow(String value) {
+        // When & Then
+        assertThatThrownBy(() -> urlValidationService.normalizeOptionalUrl(value, LABEL, MAX_LENGTH))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("Cover image must be a valid http or https URL");
+    }
+
+    @Test
+    @DisplayName("Should accept non-ASCII characters in the path and keep them unchanged")
+    void normalizeOptionalUrl_WithNonAsciiPath_ShouldReturnUnchanged() {
+        // When
+        String result = urlValidationService.normalizeOptionalUrl("https://example.com/caf\u00e9", LABEL, MAX_LENGTH);
+
+        // Then
+        assertThat(result).isEqualTo("https://example.com/caf\u00e9");
+    }
+
+    @Test
+    @DisplayName("Should return null when the value is only Unicode whitespace (isBlank)")
+    void normalizeOptionalUrl_WithOnlyUnicodeWhitespace_ShouldReturnNull() {
+        // When
+        String result = urlValidationService.normalizeOptionalUrl("\u2003\u2003", LABEL, MAX_LENGTH);
+
+        // Then
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("Should not trim Unicode whitespace around the URL (trim only removes chars up to U+0020)")
+    void normalizeOptionalUrl_WithLeadingUnicodeWhitespace_ShouldThrow() {
+        // When & Then
+        assertThatThrownBy(() -> urlValidationService.normalizeOptionalUrl("\u2003https://example.com", LABEL, MAX_LENGTH))
+                .isInstanceOf(MessageException.class)
+                .hasMessage("Cover image must be a valid http or https URL");
+    }
+
     @Test
     @DisplayName("Should accept a URL with userinfo and keep it unchanged (its host is the part after the @)")
     void normalizeOptionalUrl_WithUserInfo_ShouldReturnUrl() {

@@ -157,6 +157,7 @@ public class UserProfileValidationService {
 
     private String validateAndNormalizeIntroVideoUrl(String introVideoUrl) {
         String url = urlValidationService.normalizeOptionalUrl(introVideoUrl, "Intro video", MAX_URL_LENGTH);
+        // A non-null url already parsed as a URI with a host in normalizeOptionalUrl, so URI.create and getHost() can't fail
         if (url != null && !VIDEO_HOSTS.contains(URI.create(url).getHost().toLowerCase(Locale.ROOT))) {
             throw new MessageException("Intro video must be a YouTube or Vimeo URL");
         }

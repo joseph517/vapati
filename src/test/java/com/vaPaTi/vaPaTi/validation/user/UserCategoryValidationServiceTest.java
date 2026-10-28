@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserCategoryService Tests")
+@DisplayName("UserCategoryValidationService Tests")
 class UserCategoryValidationServiceTest {
 
     @Mock

@@ -24,13 +24,13 @@ class UserProfileValidationServiceAutoThanksTest {
     private TextValidationService textValidationService = new TextValidationService();
 
     @InjectMocks
-    private UserProfileValidationService userValidationService;
+    private UserProfileValidationService userProfileValidationService;
 
     @Test
     @DisplayName("Should return the auto thanks message without leading and trailing spaces")
     void validateAndNormalizeAutoThanksMessage_WithSurroundingSpaces_ShouldReturnTrimmed() {
         // When
-        String result = userValidationService.validateAndNormalizeAutoThanksMessage("  ¡Gracias por tu apoyo!  ");
+        String result = userProfileValidationService.validateAndNormalizeAutoThanksMessage("  ¡Gracias por tu apoyo!  ");
 
         // Then
         assertThat(result).isEqualTo("¡Gracias por tu apoyo!");
@@ -42,7 +42,7 @@ class UserProfileValidationServiceAutoThanksTest {
     @DisplayName("Should throw when the auto thanks message is missing, empty or only whitespace")
     void validateAndNormalizeAutoThanksMessage_WhenBlank_ShouldThrow(String autoThanksMessage) {
         // When & Then
-        assertThatThrownBy(() -> userValidationService.validateAndNormalizeAutoThanksMessage(autoThanksMessage))
+        assertThatThrownBy(() -> userProfileValidationService.validateAndNormalizeAutoThanksMessage(autoThanksMessage))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("Auto thanks message cannot be blank");
     }
@@ -54,7 +54,7 @@ class UserProfileValidationServiceAutoThanksTest {
         String autoThanksMessage = "a".repeat(280);
 
         // When
-        String result = userValidationService.validateAndNormalizeAutoThanksMessage(autoThanksMessage);
+        String result = userProfileValidationService.validateAndNormalizeAutoThanksMessage(autoThanksMessage);
 
         // Then
         assertThat(result).isEqualTo(autoThanksMessage);
@@ -64,7 +64,7 @@ class UserProfileValidationServiceAutoThanksTest {
     @DisplayName("Should throw when the auto thanks message has more than 280 characters")
     void validateAndNormalizeAutoThanksMessage_With281Characters_ShouldThrow() {
         // When & Then
-        assertThatThrownBy(() -> userValidationService.validateAndNormalizeAutoThanksMessage("a".repeat(281)))
+        assertThatThrownBy(() -> userProfileValidationService.validateAndNormalizeAutoThanksMessage("a".repeat(281)))
                 .isInstanceOf(MessageException.class)
                 .hasMessage("Auto thanks message must be at most 280 characters");
     }
