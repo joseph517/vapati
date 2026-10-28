@@ -47,7 +47,7 @@ public class UserController {
     }
 
     @PostMapping("/create")
-    @Operation(summary = "Create user", description = "Create a new user")
+    @Operation(summary = "Create user", description = "Create a new user. profilePicture, if present, must be an http or https URL; blank stores null")
     public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserUserInfoRequestDTO dto) {
         return ResponseEntity.ok(userService.createUser(dto));
     }

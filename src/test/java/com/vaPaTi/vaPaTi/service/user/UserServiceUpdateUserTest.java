@@ -4,12 +4,14 @@ import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +42,8 @@ class UserServiceUpdateUserTest {
     private UserCategoryValidationService userCategoryValidationService;
     @Mock
     private UserAccountValidationService userAccountValidationService;
+    @Mock
+    private UserProfileValidationService userProfileValidationService;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -89,9 +93,55 @@ class UserServiceUpdateUserTest {
                 userValidationService,
                 userCategoryValidationService,
                 userAccountValidationService,
+                userProfileValidationService,
                 userRepository,
                 userMapper
         );
+    }
+
+    @Nested
+    @DisplayName("Profile URL fields")
+    class ProfileFields {
+
+        @Test
+        @DisplayName("Should apply the profile fields to the user's UserInfo right after updateUserInfo")
+        void shouldApplyProfileFieldsAfterUpdateUserInfo() {
+            // Given
+            UserInfo userInfo = UserInfo.builder().id(10L).build();
+            mockUser.setUserInfo(userInfo);
+            UpdateUserDTO dto = UpdateUserDTO.builder().website("https://example.com").build();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+
+            // When
+            userService.updateUser(dto);
+
+            // Then
+            inOrder.verify(userAccountValidationService).updateUserInfo(mockUser, dto);
+            inOrder.verify(userProfileValidationService).applyProfileFields(same(userInfo), same(dto));
+            inOrder.verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should not save when a profile field is invalid")
+        void shouldNotSaveWhenProfileFieldIsInvalid() {
+            // Given
+            UserInfo userInfo = UserInfo.builder().id(10L).build();
+            mockUser.setUserInfo(userInfo);
+            UpdateUserDTO dto = UpdateUserDTO.builder().website("ftp://x.com").build();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+            doThrow(new MessageException("Website must be a valid http or https URL"))
+                    .when(userProfileValidationService).applyProfileFields(userInfo, dto);
+
+            // When & Then
+            MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
+            assertEquals("Website must be a valid http or https URL", exception.getMessage());
+            verify(userRepository, never()).save(any());
+            verifyNoInteractions(userCategoryValidationService, userMapper);
+        }
     }
 
     @Test
@@ -133,6 +183,7 @@ class UserServiceUpdateUserTest {
         inOrder.verify(userValidationService).getUserById(authenticatedUserId);
         inOrder.verify(userValidationService).updateTimestamp(mockUser);
         inOrder.verify(userAccountValidationService).updateUserInfo(mockUser, updateUserDTO);
+        inOrder.verify(userProfileValidationService).applyProfileFields(mockUser.getUserInfo(), updateUserDTO);
         inOrder.verify(userCategoryValidationService).validateCategoryLimit(updateUserDTO.getCategoryIds());
         inOrder.verify(userCategoryValidationService).processCategories(updateUserDTO.getCategoryIds());
         inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, mockCategories);

@@ -276,7 +276,6 @@ public class UserAccountValidationService {
             userInfo.setPhone(dto.getPhone().trim());
         }
         updateIfNotNull(dto.getDescription(), userInfo::setDescription);
-        updateIfNotNull(dto.getProfilePicture(), userInfo::setProfilePicture);
     }
 
     private void updateIfValid(String value, Consumer<String> setter) {

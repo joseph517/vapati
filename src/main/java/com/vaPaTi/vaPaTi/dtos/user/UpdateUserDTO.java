@@ -41,6 +41,15 @@ public class UpdateUserDTO {
     @Nullable
     @Size(max = 255)
     private String profilePicture;
+    @Nullable
+    @Size(max = 255, message = "Cover image must be at most 255 characters")
+    private String coverImageUrl;
+    @Nullable
+    @Size(max = 255, message = "Intro video must be at most 255 characters")
+    private String introVideoUrl;
+    @Nullable
+    @Size(max = 255, message = "Website must be at most 255 characters")
+    private String website;
 
     // Required only when the request changes the password or the email
     @Nullable

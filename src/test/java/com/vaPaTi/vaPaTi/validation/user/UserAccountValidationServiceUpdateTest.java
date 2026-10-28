@@ -198,6 +198,7 @@ class UserAccountValidationServiceUpdateTest {
     @DisplayName("Should successfully update all user info fields when all data is provided")
     void shouldSuccessfullyUpdateAllUserInfoFields_WhenAllDataProvided() {
         // Arrange
+        testUserInfo.setProfilePicture("https://cdn.example.com/current.png");
         testUser.setUserInfo(testUserInfo);
 
         when(userInfoRepository.existsByEmailAndUserIdNot("jane.smith@example.com", 1L)).thenReturn(false);
@@ -215,7 +216,8 @@ class UserAccountValidationServiceUpdateTest {
         assertThat(testUserInfo.getPassword()).isEqualTo("encodedNewPassword123!");
         assertThat(testUserInfo.getPhone()).isEqualTo("+9876543210");
         assertThat(testUserInfo.getDescription()).isEqualTo("Updated description");
-        assertThat(testUserInfo.getProfilePicture()).isEqualTo("new-profile.jpg");
+        // profilePicture belongs to UserProfileValidationService.applyProfileFields
+        assertThat(testUserInfo.getProfilePicture()).isEqualTo("https://cdn.example.com/current.png");
         assertThat(testUserInfo.getUpdatedAt()).isNotNull();
 
         verify(userInfoRepository).existsByEmailAndUserIdNot("jane.smith@example.com", 1L);

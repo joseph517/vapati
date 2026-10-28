@@ -21,11 +21,13 @@ import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -41,6 +43,8 @@ class UserServiceCreateUserTest {
     private UserCategoryValidationService userCategoryValidationService;
     @Mock
     private UserAccountValidationService userAccountValidationService;
+    @Mock
+    private UserProfileValidationService userProfileValidationService;
     @Mock
     private RoleRepository roleRepository;
     @Mock
@@ -301,6 +305,49 @@ class UserServiceCreateUserTest {
         inOrder.verify(userCategoryValidationService).createUserCategoryRelations(mockUser, categories);
 
         verify(userAccountValidationService, never()).createUserInfo(any());
+    }
+
+    @Test
+    @DisplayName("Should store the normalized profile picture in the saved UserInfo")
+    void shouldStoreNormalizedProfilePicture() {
+        // Given
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userAccountValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
+        when(userAccountValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
+        when(userProfileValidationService.validateAndNormalizeProfilePicture("profile.jpg"))
+                .thenReturn("https://cdn.example.com/profile.jpg");
+        when(roleRepository.findByName("USER")).thenReturn(Optional.of(mockRole));
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(userMapper.toUserDTO(savedUser)).thenReturn(expectedUserDTO);
+
+        // When
+        userService.createUser(validRequest);
+
+        // Then
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertEquals("https://cdn.example.com/profile.jpg", userCaptor.getValue().getUserInfo().getProfilePicture());
+        InOrder inOrder = inOrder(userAccountValidationService, userProfileValidationService, userRepository);
+        inOrder.verify(userAccountValidationService).createUserInfo(createUserInfoDTO);
+        inOrder.verify(userProfileValidationService).validateAndNormalizeProfilePicture("profile.jpg");
+        inOrder.verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("Should not save the user when the profile picture is invalid")
+    void shouldNotSaveWhenProfilePictureIsInvalid() {
+        // Given
+        when(userCategoryValidationService.processCategories(categoryIds)).thenReturn(categories);
+        when(userAccountValidationService.createAndSetupUser(createUserDTO)).thenReturn(mockUser);
+        when(userAccountValidationService.createUserInfo(createUserInfoDTO)).thenReturn(mockUserInfo);
+        when(userProfileValidationService.validateAndNormalizeProfilePicture("profile.jpg"))
+                .thenThrow(new MessageException("Profile picture must be a valid http or https URL"));
+
+        // When & Then
+        MessageException exception = assertThrows(MessageException.class, () -> userService.createUser(validRequest));
+        assertEquals("Profile picture must be a valid http or https URL", exception.getMessage());
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(roleRepository, userMapper);
     }
 
     @Test

@@ -100,6 +100,7 @@ public class UserService {
 
         // Set user info
         UserInfo userInfo = userAccountValidationService.createUserInfo(userInfoDTO);
+        userInfo.setProfilePicture(userProfileValidationService.validateAndNormalizeProfilePicture(userInfoDTO.getProfilePicture()));
 
         // Role
         Role userRole = roleRepository.findByName("USER").orElseThrow(() -> new ResourceNotFoundException("Role not found"));
@@ -130,6 +131,7 @@ public class UserService {
 
         // Update user info with full validations (only fields sent)
         userAccountValidationService.updateUserInfo(user, dto);
+        userProfileValidationService.applyProfileFields(user.getUserInfo(), dto);
 
         // Update categories only if explicitly provided
         if (dto.getCategoryIds() != null) {
