@@ -7,6 +7,8 @@ IF OBJECT_ID('publication_like', 'U') IS NOT NULL DROP TABLE publication_like;
 IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
 IF OBJECT_ID('report', 'U') IS NOT NULL DROP TABLE report;
 IF OBJECT_ID('campaign_category', 'U') IS NOT NULL DROP TABLE campaign_category;
+IF OBJECT_ID('user_social_link', 'U') IS NOT NULL DROP TABLE user_social_link;
+IF OBJECT_ID('user_tag', 'U') IS NOT NULL DROP TABLE user_tag;
 IF OBJECT_ID('user_category', 'U') IS NOT NULL DROP TABLE user_category;
 IF OBJECT_ID('followers', 'U') IS NOT NULL DROP TABLE followers;
 IF OBJECT_ID('publication', 'U') IS NOT NULL DROP TABLE publication;
@@ -65,8 +67,11 @@ CREATE TABLE user_info (
     password VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL UNIQUE,
     description TEXT NOT NULL,
-    profile_picture VARCHAR(500) NULL,
+    profile_picture VARCHAR(255) NULL,
     auto_thanks_message VARCHAR(280) NULL,
+    cover_image_url VARCHAR(255) NULL,
+    intro_video_url VARCHAR(255) NULL,
+    website VARCHAR(255) NULL,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE
@@ -81,6 +86,25 @@ CREATE TABLE user_category (
     FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES category(id),
     UNIQUE(user_id, category_id)
+);
+
+-- Create user_social_link table (one link per platform and user)
+CREATE TABLE user_social_link (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    platform VARCHAR(20) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    UNIQUE(user_id, platform)
+);
+
+-- Create user_tag table (normalized tags, unique per user)
+CREATE TABLE user_tag (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    tag VARCHAR(30) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    UNIQUE(user_id, tag)
 );
 
 -- Create verification_request table
