@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.entity.user.SocialPlatform;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.entity.user.UserSocialLink;
+import com.vaPaTi.vaPaTi.entity.user.UserTag;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.common.UrlValidationService;
@@ -15,22 +16,29 @@ import org.springframework.stereotype.Service;
 import java.net.URI;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-// Public profile fields: the default thanks message sent to supporters, the profile URLs and the social links
+// Public profile fields: the default thanks message sent to supporters, the profile URLs, the social links and the tags
 @Service
 @RequiredArgsConstructor
 public class UserProfileValidationService {
 
     static final int MAX_URL_LENGTH = 255;
     static final int MAX_SOCIAL_LINKS = 8;
+    static final int MAX_TAGS = 10;
+    static final int MAX_TAG_LENGTH = 30;
     private static final int MAX_AUTO_THANKS_LENGTH = 280;
     // Exact list, no subdomains: the front embeds the video
     private static final Set<String> VIDEO_HOSTS = Set.of(
             "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "vimeo.com", "www.vimeo.com");
+    // Letters and digits of any script (with their combining marks), spaces and '-'
+    private static final Pattern TAG_PATTERN = Pattern.compile("^[\\p{L}\\p{M}\\p{N} -]+$");
     private final TextValidationService textValidationService;
     private final UrlValidationService urlValidationService;
 
@@ -92,6 +100,47 @@ public class UserProfileValidationService {
                 current.add(UserSocialLink.builder().user(user).platform(platform).url(url).build());
             }
         });
+    }
+
+    // Normalizes and validates every tag before touching the user's set, so an error leaves the current tags as they are.
+    // Tags equal after normalizing are merged without error; the limit counts the distinct ones
+    public void replaceTags(User user, List<String> tags) {
+        Set<String> requested = new LinkedHashSet<>();
+        for (String tag : tags) {
+            requested.add(normalizeTag(tag));
+        }
+        if (requested.size() > MAX_TAGS) {
+            throw new MessageException("User cannot have more than " + MAX_TAGS + " tags");
+        }
+
+        // Diff, not clear()+add(): Hibernate flushes INSERTs before orphan DELETEs, so re-adding a tag would hit UNIQUE(user_id, tag)
+        Set<UserTag> current = user.getTags();
+        current.removeIf(t -> !requested.contains(t.getTag()));
+        Set<String> existingTags = current.stream().map(UserTag::getTag).collect(Collectors.toSet());
+        requested.stream()
+                .filter(t -> !existingTags.contains(t))
+                .forEach(t -> current.add(UserTag.builder().user(user).tag(t).build()));
+    }
+
+    private String normalizeTag(String tag) {
+        if (tag == null) {
+            throw new MessageException("Tag cannot be blank");
+        }
+        String normalized = tag.trim()
+                .replaceFirst("^#+", "")
+                .trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            throw new MessageException("Tag cannot be blank");
+        }
+        if (normalized.length() > MAX_TAG_LENGTH) {
+            throw new MessageException("Tag must be at most " + MAX_TAG_LENGTH + " characters");
+        }
+        if (!TAG_PATTERN.matcher(normalized).matches()) {
+            throw new MessageException("Tag contains invalid characters. Allowed: letters, digits, spaces and '-'");
+        }
+        return normalized;
     }
 
     private String validateAndNormalizeSocialLinkUrl(SocialPlatform platform, String url) {

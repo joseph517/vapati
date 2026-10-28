@@ -56,6 +56,10 @@ public class UpdateUserDTO {
     @Nullable
     private List<@Valid SocialLinkDTO> socialLinks;
 
+    // null keeps the current tags; a list replaces them all ([] removes them). Normalized and checked in UserProfileValidationService
+    @Nullable
+    private List<String> tags;
+
     // Required only when the request changes the password or the email
     @Nullable
     private String currentPassword;

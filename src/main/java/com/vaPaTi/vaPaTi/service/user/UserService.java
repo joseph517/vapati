@@ -148,6 +148,11 @@ public class UserService {
             userProfileValidationService.replaceSocialLinks(user, dto.getSocialLinks());
         }
 
+        // Replace tags only if explicitly provided ([] removes them all)
+        if (dto.getTags() != null) {
+            userProfileValidationService.replaceTags(user, dto.getTags());
+        }
+
         // Invalidates every access and refresh token issued so far, including the current session
         if (credentialsChanged) {
             user.setTokensValidAfter(LocalDateTime.now());

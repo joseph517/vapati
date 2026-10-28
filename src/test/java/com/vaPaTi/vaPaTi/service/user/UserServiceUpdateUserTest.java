@@ -209,6 +209,68 @@ class UserServiceUpdateUserTest {
         }
     }
 
+    @Nested
+    @DisplayName("Tags")
+    class Tags {
+
+        @BeforeEach
+        void setUpUser() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should not replace the tags when tags is null")
+        void shouldNotReplaceTagsWhenNull() {
+            // Given
+            UpdateUserDTO dto = UpdateUserDTO.builder().firstName("John").build();
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+
+            // When
+            userService.updateUser(dto);
+
+            // Then
+            verify(userProfileValidationService, never()).replaceTags(any(), any());
+            verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should replace the tags with an empty list, after the social links and before saving")
+        void shouldReplaceTagsAfterSocialLinks() {
+            // Given
+            List<SocialLinkDTO> links = List.of();
+            List<String> tags = List.of();
+            UpdateUserDTO dto = UpdateUserDTO.builder().socialLinks(links).tags(tags).build();
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+
+            // When
+            userService.updateUser(dto);
+
+            // Then
+            inOrder.verify(userProfileValidationService).replaceSocialLinks(same(mockUser), same(links));
+            inOrder.verify(userProfileValidationService).replaceTags(same(mockUser), same(tags));
+            inOrder.verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should not save when the tags are invalid")
+        void shouldNotSaveWhenTagsAreInvalid() {
+            // Given
+            List<String> tags = List.of("c++");
+            UpdateUserDTO dto = UpdateUserDTO.builder().tags(tags).build();
+            doThrow(new MessageException("Tag contains invalid characters. Allowed: letters, digits, spaces and '-'"))
+                    .when(userProfileValidationService).replaceTags(mockUser, tags);
+
+            // When & Then
+            MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
+            assertEquals("Tag contains invalid characters. Allowed: letters, digits, spaces and '-'", exception.getMessage());
+            verify(userRepository, never()).save(any());
+            verifyNoInteractions(userMapper);
+        }
+    }
+
     @Test
     @DisplayName("Should throw MessageException when DTO is null")
     void shouldThrowMessageExceptionWhenDtoIsNull() {
