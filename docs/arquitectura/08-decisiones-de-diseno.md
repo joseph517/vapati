@@ -29,7 +29,7 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** los services obtienen el usuario con `AuthenticatedUserService.getAuthenticatedUserId()`, y en rutas públicas con `findAuthenticatedUserId()`, que devuelve vacío para un anónimo.
 - **Por qué:** nadie puede actuar en nombre de otro. El autor de una campaña, una publicación, una donación, un seguimiento o un reporte es siempre quien llama.
 - **Dónde:** `security/AuthenticatedUserService.java`.
-- **Excepciones hoy:** las cuentas bancarias y las solicitudes de verificación toman el usuario del body o de la ruta. Ver [deuda técnica](deuda-tecnica.md).
+- **Excepciones hoy:** las cuentas bancarias y las solicitudes de verificación toman el usuario del body o de la ruta.
 
 ### El estado de la cuenta y el rol se releen de la base en cada request
 

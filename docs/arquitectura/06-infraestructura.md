@@ -146,7 +146,7 @@ SQL Server no tiene tope por defecto y su buffer pool solo crece. Se limita con 
 - `max server memory (MB) = 512` (`sp_configure` en el `command`) acota el buffer pool.
 - `MSSQL_MEMORY_LIMIT_MB=1024` acota el resto del proceso.
 
-No se le pone `mem_limit` al contenedor de la base: SQL Server en Linux no arranca con menos de 2 GB. Las mediciones de la implementación (`db_vapati_dev` de 1.06 GiB a entre 738 y 995 MiB) están en el spec 59.
+No se le pone `mem_limit` al contenedor de la base: SQL Server en Linux no arranca con menos de 2 GB.
 
 ### Servicio `app-dev` (`app_vapati_dev`)
 
@@ -373,7 +373,7 @@ flowchart LR
 
 Detalles:
 
-- **Tests.** JDK 21 Temurin con caché de Maven. Corre `./mvnw -B test -Ddocker.remote.api.version="$(docker version --format '{{.Server.APIVersion}}')"`: incluye los tests de integración con Testcontainers, porque los runners de GitHub tienen Docker. La versión de la API de Docker se toma del daemon del runner en lugar de la fijada en `pom.xml` (ver [Testing](07-testing.md#configuración-de-surefire)).
+- **Tests.** JDK 21 Temurin con caché de Maven. Corre la suite completa, incluidos los tests de integración con Testcontainers, porque los runners de GitHub tienen Docker. El comando y el porqué de la versión de la API de Docker están en [Testing](07-testing.md#en-ci).
 - **Credenciales.** `vars.DOCKERHUB_USERNAME` (una *variable*, no un secret, así el nombre de la imagen se ve en los logs) y `secrets.DOCKERHUB_TOKEN`. El workflow tiene `permissions: contents: read`.
 - **Tags de la imagen.** `type=raw,value=latest` solo cuando la ref es `refs/heads/main`; `type=semver` con `{{version}}` y `{{major}}.{{minor}}` para los tags de git. El paso no define `flavor`, así que rige `latest=auto` de `docker/metadata-action`, que también agrega `latest` cuando el tag de mayor prioridad es un semver. La línea `type=sha` (un tag `sha-<commit>` por imagen) está comentada.
 - **Concurrencia.** `group: docker-publish-${{ github.ref }}` con `cancel-in-progress: false`: dos publicaciones de la misma ref no se pisan, la segunda espera.
@@ -387,4 +387,3 @@ El flujo de ramas que se deduce del workflow: el trabajo diario va a `dev`, `mai
 - [Testing](07-testing.md): cómo correr la suite, localmente o con Maven en Docker.
 - [Seguridad](03-seguridad.md): uso de `JWT_SECRET` y de `CORS_ALLOWED_ORIGINS`, y [Contenedores y base de datos](03-seguridad.md#contenedores-y-base-de-datos).
 - [Modelo de datos](04-modelo-de-datos.md): las tablas que crea Hibernate y el contenido de `data.sql`.
-- [Deuda técnica](deuda-tecnica.md): las inconsistencias de infraestructura (archivos de inicialización sin uso, diferencias entre compose).

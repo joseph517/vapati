@@ -100,7 +100,7 @@ La respuesta debe incluir `"role":"ADMIN"`. El script no valida duplicados: si l
 
 ## Tests
 
-Guía completa (unitarios, integración con Testcontainers/MSSQL, cómo correr una clase o un método específico) en [`TESTING.md`](TESTING.md).
+Cómo correr los tests (la suite completa, solo los unitarios, una clase, un método o un paquete, con `./mvnw` o con Maven en Docker): [`docs/arquitectura/07-testing.md` § Cómo correr los tests](docs/arquitectura/07-testing.md#cómo-correr-los-tests).
 
 ## 🚀 Ejecución en producción
 

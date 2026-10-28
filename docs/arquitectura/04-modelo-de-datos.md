@@ -259,7 +259,7 @@ Los montos son `BigDecimal` con `precision = 15, scale = 2` (`DECIMAL(15,2)`), y
 
 **El objetivo de un reporte es polimórfico.** `Report` no tiene una relación JPA con lo reportado: guarda el tipo (`ReportedEntityType`) y el id, sin FK. Por eso un reporte sobrevive al borrado de lo que reporta, y la existencia del objetivo la comprueba `validation/report/ReportValidationService.java` al crear el reporte. Ver [Report](dominios/report.md).
 
-`RevokedToken` es la lista de JWT revocados por logout o refresh (ver [Seguridad](03-seguridad.md)). `TokenBlackListService.cleanupExpiredTokens` está anotado con `@Scheduled` para borrar los vencidos cada noche, pero la aplicación no declara `@EnableScheduling`, así que hoy esa limpieza no corre (ver [Deuda técnica](deuda-tecnica.md)).
+`RevokedToken` es la lista de JWT revocados por logout o refresh (ver [Seguridad](03-seguridad.md)). `TokenBlackListService.cleanupExpiredTokens` está anotado con `@Scheduled` para borrar los vencidos cada noche, pero la aplicación no declara `@EnableScheduling`, así que hoy esa limpieza no corre.
 
 ## Fetch types y cascadas
 
@@ -378,7 +378,7 @@ Consecuencias que se ven en el código:
 - Las reglas de visibilidad usan ese `null`: una publicación cuyo autor fue borrado responde `404` como si no existiera (ver [Publication](dominios/publication.md)).
 - `Report.reviewedBy` es la única de la lista sin `updatable = false`; no pierde la referencia porque `ReportService.reviewReport` la vuelve a asignar en cada revisión.
 
-Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `PublicationLike.user`, `PublicationLike.publication`, `Comment.publication`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados, y las queries de conteo de likes hacen `JOIN` con `user` y con `publication` y filtran `u.deletedAt IS NULL`). Ver [Deuda técnica](deuda-tecnica.md) para los casos en que eso no alcanza.
+Las relaciones a entidades con soft delete que **no** usan este patrón son `CampaignStatusHistory.changedBy`, `CampaignStatusHistory.campaign`, `PublicationLike.user`, `PublicationLike.publication`, `Comment.publication`, `Follower.user`, `Follower.follower`, `UserCategory.user`, `BankAccount.user` y `VerificationRequest.user`. Las queries que las leen filtran o hacen `JOIN` del lado borrado (por ejemplo, los listados de seguidores usan `JOIN FETCH` y así dejan afuera a los usuarios borrados, y las queries de conteo de likes hacen `JOIN` con `user` y con `publication` y filtran `u.deletedAt IS NULL`).
 
 ### Usuarios borrados frente a usuarios sancionados
 
@@ -412,7 +412,7 @@ Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` 
 Dos detalles a tener en cuenta al tocar entidades:
 
 - Con `@Builder`, los valores iniciales de los campos solo se respetan si llevan `@Builder.Default`. `Goal.status`, `Donation.status`, `Donation.messagePrivate`, `Donation.thanksPrivate` y `Report.status` lo tienen; los campos de `User` (`banned`, `userCategories`, `bankAccounts`) no, y en un `User` creado con el builder quedan en `null`.
-- `User` no excluye `campaigns` de `toString`, y `Campaign` y `Follower` no excluyen nada: llamar a `toString` sobre esas entidades puede recorrer la relación de ida y vuelta (ver [Deuda técnica](deuda-tecnica.md)).
+- `User` no excluye `campaigns` de `toString`, y `Campaign` y `Follower` no excluyen nada: llamar a `toString` sobre esas entidades puede recorrer la relación de ida y vuelta.
 
 ## Esquema de la base y datos iniciales
 
@@ -455,7 +455,7 @@ Antes de correrlo en cada entorno conviene mirar `EXEC sp_fkeys @fktable_name = 
 
 **Base nueva.** Una base creada desde cero por Hibernate deja `recipient_user_id` nullable y sin la FK ni el índice con nombre, porque `@NotFound` impide que Hibernate exporte la FK (le pasa lo mismo a `donor_user_id`). La garantía real es que `DonationService.createDonation` siempre asigna `recipient`. Para que coincida con dev y producción, el script se corre también ahí, una vez que arrancó la aplicación (el paso 1 no hace nada porque la columna ya existe, y el resto rellena, exige `NOT NULL` y crea la FK y el índice). Los tests usan su propio `src/test/resources/schema.sql`, que ya declara `recipient_user_id NOT NULL`, `campaign_id NULL` y `idx_donation_recipient`.
 
-Los scripts de migración de los specs 23 y 42 nunca se commitearon y no están en el repo: hay dos migraciones manuales commiteadas, este y `scripts/update-report-entity-type-check.sql`.
+Hay dos migraciones manuales en el repo: este script y `scripts/update-report-entity-type-check.sql`.
 
 ### `CHECK` de `report.reported_entity_type`
 
@@ -494,7 +494,7 @@ Crea la base `ApiVaPaTiJava` si no existe. `docker-compose.dev.yml` lo monta en 
 
 ### `scripts/create-admin-user.sql`
 
-No hay endpoint para crear administradores: `POST /api/users/create` siempre asigna el rol `USER`. Este script inserta a mano un `User` con el rol `ADMIN` y su `UserInfo`. Pide que la aplicación haya arrancado antes (para que existan los roles) y que el hash BCrypt de la contraseña se genere con `utils/PasswordHashGenerator.java`. El `INSERT` en `[user]` incluye una columna `is_active`, que ninguna entidad declara: en una base creada por Hibernate a partir de las entidades actuales esa columna no existe (ver [Deuda técnica](deuda-tecnica.md)).
+No hay endpoint para crear administradores: `POST /api/users/create` siempre asigna el rol `USER`. Este script inserta a mano un `User` con el rol `ADMIN` y su `UserInfo`. Pide que la aplicación haya arrancado antes (para que existan los roles) y que el hash BCrypt de la contraseña se genere con `utils/PasswordHashGenerator.java`. El `INSERT` en `[user]` incluye una columna `is_active`, que ninguna entidad declara: en una base creada por Hibernate a partir de las entidades actuales esa columna no existe.
 
 ## Clases involucradas
 

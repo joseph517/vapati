@@ -25,7 +25,7 @@ Tabla `revoked_tokens`: la lista negra de tokens. No guarda el token entero, sol
 | `expirationDate` | `expiration_date` | `NOT NULL`. Vencimiento del token revocado (el `exp` del token pasado a `LocalDateTime` con la zona horaria de la JVM). Pasada esa fecha el token ya no sirve por sí solo, así que la fila se puede borrar. |
 | `createdAt` | `created_at` | `NOT NULL`. Momento de la revocación, se completa en el constructor. |
 
-`RevokedTokenRepository` (`repository/auth/RevokedTokenRepository.java`) expone `existsByJti` (la consulta que se hace en cada refresh, logout y request autenticado) y `deleteExpiredTokens(fecha)`, que usa `TokenBlackListService.cleanupExpiredTokens`. Ese método está anotado con `@Scheduled(cron = "0 0 2 * * ?")` (todos los días a las 2 AM), pero ninguna clase del proyecto tiene `@EnableScheduling`, así que Spring no lo programa: hoy la tabla solo crece (ver [Deuda técnica](../deuda-tecnica.md)).
+`RevokedTokenRepository` (`repository/auth/RevokedTokenRepository.java`) expone `existsByJti` (la consulta que se hace en cada refresh, logout y request autenticado) y `deleteExpiredTokens(fecha)`, que usa `TokenBlackListService.cleanupExpiredTokens`. Ese método está anotado con `@Scheduled(cron = "0 0 2 * * ?")` (todos los días a las 2 AM), pero ninguna clase del proyecto tiene `@EnableScheduling`, así que Spring no lo programa: hoy la tabla solo crece.
 
 ### Campos de `User` que usa este dominio (`entity/user/User.java`)
 
