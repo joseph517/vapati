@@ -1,11 +1,14 @@
 package com.vaPaTi.vaPaTi.dtos.user;
 
+import com.vaPaTi.vaPaTi.entity.user.SocialPlatform;
 import jakarta.validation.ConstraintViolation;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
@@ -56,5 +59,35 @@ class UpdateUserDtoProfileValidationTest {
         ConstraintViolation<UpdateUserDTO> violation = violations.iterator().next();
         assertThat(violation.getPropertyPath()).hasToString(field);
         assertThat(violation.getMessage()).isEqualTo(message);
+    }
+
+    @Test
+    @DisplayName("A social link URL of 255 characters has no violations")
+    void socialLinkUrlAtLimit() {
+        // Given
+        UpdateUserDTO dto = UpdateUserDTO.builder()
+                .socialLinks(List.of(SocialLinkDTO.builder().platform(SocialPlatform.OTHER).url("a".repeat(255)).build()))
+                .build();
+
+        // When & Then
+        assertValid(dto);
+    }
+
+    @Test
+    @DisplayName("A social link URL of 256 characters is rejected on socialLinks[i].url")
+    void socialLinkUrlTooLong() {
+        // Given
+        UpdateUserDTO dto = UpdateUserDTO.builder()
+                .socialLinks(List.of(SocialLinkDTO.builder().platform(SocialPlatform.OTHER).url("a".repeat(256)).build()))
+                .build();
+
+        // When
+        Set<ConstraintViolation<UpdateUserDTO>> violations = validate(dto);
+
+        // Then
+        assertThat(violations).hasSize(1);
+        ConstraintViolation<UpdateUserDTO> violation = violations.iterator().next();
+        assertThat(violation.getPropertyPath()).hasToString("socialLinks[0].url");
+        assertThat(violation.getMessage()).isEqualTo("Social link URL must be at most 255 characters");
     }
 }

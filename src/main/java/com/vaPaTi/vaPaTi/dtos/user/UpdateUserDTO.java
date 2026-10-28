@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.dtos.user;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.annotation.Nullable;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -50,6 +51,10 @@ public class UpdateUserDTO {
     @Nullable
     @Size(max = 255, message = "Website must be at most 255 characters")
     private String website;
+
+    // null keeps the current links; a list replaces them all ([] removes them)
+    @Nullable
+    private List<@Valid SocialLinkDTO> socialLinks;
 
     // Required only when the request changes the password or the email
     @Nullable

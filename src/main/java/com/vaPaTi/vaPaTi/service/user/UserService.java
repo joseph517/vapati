@@ -143,6 +143,11 @@ public class UserService {
             userCategoryValidationService.updateUserCategories(user, categories);
         }
 
+        // Replace social links only if explicitly provided ([] removes them all)
+        if (dto.getSocialLinks() != null) {
+            userProfileValidationService.replaceSocialLinks(user, dto.getSocialLinks());
+        }
+
         // Invalidates every access and refresh token issued so far, including the current session
         if (credentialsChanged) {
             user.setTokensValidAfter(LocalDateTime.now());

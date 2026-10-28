@@ -1,8 +1,10 @@
 package com.vaPaTi.vaPaTi.service.user;
 
+import com.vaPaTi.vaPaTi.dtos.user.SocialLinkDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UpdateUserDTO;
 import com.vaPaTi.vaPaTi.dtos.user.UserDTO;
 import com.vaPaTi.vaPaTi.entity.category.Category;
+import com.vaPaTi.vaPaTi.entity.user.SocialPlatform;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.MessageException;
@@ -141,6 +143,69 @@ class UserServiceUpdateUserTest {
             assertEquals("Website must be a valid http or https URL", exception.getMessage());
             verify(userRepository, never()).save(any());
             verifyNoInteractions(userCategoryValidationService, userMapper);
+        }
+    }
+
+    @Nested
+    @DisplayName("Social links")
+    class SocialLinks {
+
+        @BeforeEach
+        void setUpUser() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should not replace the social links when socialLinks is null")
+        void shouldNotReplaceSocialLinksWhenNull() {
+            // Given
+            UpdateUserDTO dto = UpdateUserDTO.builder().firstName("John").build();
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+
+            // When
+            userService.updateUser(dto);
+
+            // Then
+            verify(userProfileValidationService, never()).replaceSocialLinks(any(), any());
+            verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should replace the social links with an empty list, after the categories and before saving")
+        void shouldReplaceSocialLinksWhenEmptyList() {
+            // Given
+            List<SocialLinkDTO> links = List.of();
+            UpdateUserDTO dto = UpdateUserDTO.builder().categoryIds(List.of(1L, 2L)).socialLinks(links).build();
+            when(userCategoryValidationService.processCategories(dto.getCategoryIds())).thenReturn(mockCategories);
+            when(userRepository.save(mockUser)).thenReturn(mockUser);
+            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+
+            // When
+            userService.updateUser(dto);
+
+            // Then
+            inOrder.verify(userProfileValidationService).applyProfileFields(mockUser.getUserInfo(), dto);
+            inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, mockCategories);
+            inOrder.verify(userProfileValidationService).replaceSocialLinks(same(mockUser), same(links));
+            inOrder.verify(userRepository).save(mockUser);
+        }
+
+        @Test
+        @DisplayName("Should not save when the social links are invalid")
+        void shouldNotSaveWhenSocialLinksAreInvalid() {
+            // Given
+            List<SocialLinkDTO> links = List.of(SocialLinkDTO.builder().platform(SocialPlatform.X).url("https://evil.com").build());
+            UpdateUserDTO dto = UpdateUserDTO.builder().socialLinks(links).build();
+            doThrow(new MessageException("X link must point to x.com or twitter.com"))
+                    .when(userProfileValidationService).replaceSocialLinks(mockUser, links);
+
+            // When & Then
+            MessageException exception = assertThrows(MessageException.class, () -> userService.updateUser(dto));
+            assertEquals("X link must point to x.com or twitter.com", exception.getMessage());
+            verify(userRepository, never()).save(any());
+            verifyNoInteractions(userMapper);
         }
     }
 
