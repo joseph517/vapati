@@ -7,9 +7,13 @@ import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.SocialPlatform;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.entity.user.UserSocialLink;
+import com.vaPaTi.vaPaTi.entity.user.UserTag;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
@@ -50,6 +54,10 @@ class UserServiceUpdateUserTest {
     private UserRepository userRepository;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private UserSocialLinkRepository userSocialLinkRepository;
+    @Mock
+    private UserTagRepository userTagRepository;
     @InjectMocks
     private UserService userService;
 
@@ -115,7 +123,7 @@ class UserServiceUpdateUserTest {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
             when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             // When
             userService.updateUser(dto);
@@ -147,6 +155,56 @@ class UserServiceUpdateUserTest {
     }
 
     @Nested
+    @DisplayName("Response with social links and tags")
+    class ResponseWithLinksAndTags {
+
+        @Test
+        @DisplayName("Should build the response from the saved user and the links and tags read by its id after saving")
+        void shouldMapLinksAndTagsOfSavedUser() {
+            // Given
+            User savedUser = User.builder().id(authenticatedUserId).build();
+            List<UserSocialLink> links = List.of(UserSocialLink.builder().id(5L).user(savedUser)
+                    .platform(SocialPlatform.GITHUB).url("https://github.com/john").build());
+            List<UserTag> tags = List.of(UserTag.builder().id(6L).user(savedUser).tag("arte").build());
+            UpdateUserDTO dto = UpdateUserDTO.builder().tags(List.of("arte")).build();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+            when(userRepository.save(mockUser)).thenReturn(savedUser);
+            when(userSocialLinkRepository.findByUserId(authenticatedUserId)).thenReturn(links);
+            when(userTagRepository.findByUserId(authenticatedUserId)).thenReturn(tags);
+            when(userMapper.toUserDTO(savedUser, links, tags)).thenReturn(expectedUserDTO);
+
+            // When
+            UserDTO result = userService.updateUser(dto);
+
+            // Then
+            assertSame(expectedUserDTO, result);
+            InOrder order = inOrder(userRepository, userSocialLinkRepository, userTagRepository, userMapper);
+            order.verify(userRepository).save(mockUser);
+            order.verify(userSocialLinkRepository).findByUserId(authenticatedUserId);
+            order.verify(userTagRepository).findByUserId(authenticatedUserId);
+            order.verify(userMapper).toUserDTO(same(savedUser), same(links), same(tags));
+            verify(userMapper, never()).toUserDTO(any(User.class));
+        }
+
+        @Test
+        @DisplayName("Should not read links or tags when the update fails")
+        void shouldNotReadLinksOrTagsWhenUpdateFails() {
+            // Given
+            List<String> tags = List.of("c++");
+            UpdateUserDTO dto = UpdateUserDTO.builder().tags(tags).build();
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
+            when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
+            doThrow(new MessageException("Tag contains invalid characters. Allowed: letters, digits, spaces and '-'"))
+                    .when(userProfileValidationService).replaceTags(mockUser, tags);
+
+            // When & Then
+            assertThrows(MessageException.class, () -> userService.updateUser(dto));
+            verifyNoInteractions(userSocialLinkRepository, userTagRepository);
+        }
+    }
+
+    @Nested
     @DisplayName("Social links")
     class SocialLinks {
 
@@ -162,7 +220,7 @@ class UserServiceUpdateUserTest {
             // Given
             UpdateUserDTO dto = UpdateUserDTO.builder().firstName("John").build();
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             // When
             userService.updateUser(dto);
@@ -180,7 +238,7 @@ class UserServiceUpdateUserTest {
             UpdateUserDTO dto = UpdateUserDTO.builder().categoryIds(List.of(1L, 2L)).socialLinks(links).build();
             when(userCategoryValidationService.processCategories(dto.getCategoryIds())).thenReturn(mockCategories);
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             // When
             userService.updateUser(dto);
@@ -225,7 +283,7 @@ class UserServiceUpdateUserTest {
             // Given
             UpdateUserDTO dto = UpdateUserDTO.builder().firstName("John").build();
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             // When
             userService.updateUser(dto);
@@ -243,7 +301,7 @@ class UserServiceUpdateUserTest {
             List<String> tags = List.of();
             UpdateUserDTO dto = UpdateUserDTO.builder().socialLinks(links).tags(tags).build();
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             // When
             userService.updateUser(dto);
@@ -296,7 +354,7 @@ class UserServiceUpdateUserTest {
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         when(userCategoryValidationService.processCategories(updateUserDTO.getCategoryIds())).thenReturn(mockCategories);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
-        when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = userService.updateUser(updateUserDTO);
@@ -315,7 +373,7 @@ class UserServiceUpdateUserTest {
         inOrder.verify(userCategoryValidationService).processCategories(updateUserDTO.getCategoryIds());
         inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, mockCategories);
         inOrder.verify(userRepository).save(mockUser);
-        inOrder.verify(userMapper).toUserDTO(mockUser);
+        inOrder.verify(userMapper).toUserDTO(mockUser, List.of(), List.of());
     }
 
     @Test
@@ -332,7 +390,7 @@ class UserServiceUpdateUserTest {
         when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
-        when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = userService.updateUser(dtoWithoutCategories);
@@ -352,7 +410,7 @@ class UserServiceUpdateUserTest {
         verify(userValidationService).updateTimestamp(mockUser);
         verify(userAccountValidationService).updateUserInfo(mockUser, dtoWithoutCategories);
         verify(userRepository).save(mockUser);
-        verify(userMapper).toUserDTO(mockUser);
+        verify(userMapper).toUserDTO(mockUser, List.of(), List.of());
     }
 
     @Test
@@ -377,7 +435,7 @@ class UserServiceUpdateUserTest {
         verify(userValidationService, never()).updateTimestamp(any());
         verify(userAccountValidationService, never()).updateUserInfo(any(), any());
         verify(userRepository, never()).save(any());
-        verify(userMapper, never()).toUserDTO(any());
+        verify(userMapper, never()).toUserDTO(any(), any(), any());
     }
 
     @Test
@@ -413,7 +471,7 @@ class UserServiceUpdateUserTest {
         verify(userCategoryValidationService, never()).processCategories(any());
         verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
-        verify(userMapper, never()).toUserDTO(any());
+        verify(userMapper, never()).toUserDTO(any(), any(), any());
     }
 
     @Test
@@ -449,7 +507,7 @@ class UserServiceUpdateUserTest {
         verify(userCategoryValidationService, never()).processCategories(any());
         verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
-        verify(userMapper, never()).toUserDTO(any());
+        verify(userMapper, never()).toUserDTO(any(), any(), any());
     }
 
     @Test
@@ -485,7 +543,7 @@ class UserServiceUpdateUserTest {
         // Verify no calls after processCategories failure
         verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
-        verify(userMapper, never()).toUserDTO(any());
+        verify(userMapper, never()).toUserDTO(any(), any(), any());
     }
 
     @Test
@@ -516,7 +574,7 @@ class UserServiceUpdateUserTest {
         verify(userCategoryValidationService, never()).processCategories(any());
         verify(userCategoryValidationService, never()).updateUserCategories(any(), any());
         verify(userRepository, never()).save(any());
-        verify(userMapper, never()).toUserDTO(any());
+        verify(userMapper, never()).toUserDTO(any(), any(), any());
     }
 
     @Test
@@ -534,7 +592,7 @@ class UserServiceUpdateUserTest {
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         when(userCategoryValidationService.processCategories(singleCategoryId)).thenReturn(singleCategory);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
-        when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = userService.updateUser(dtoWithSingleCategory);
@@ -552,7 +610,7 @@ class UserServiceUpdateUserTest {
         inOrder.verify(userCategoryValidationService).processCategories(singleCategoryId);
         inOrder.verify(userCategoryValidationService).updateUserCategories(mockUser, singleCategory);
         inOrder.verify(userRepository).save(mockUser);
-        inOrder.verify(userMapper).toUserDTO(mockUser);
+        inOrder.verify(userMapper).toUserDTO(mockUser, List.of(), List.of());
     }
 
     @Test
@@ -572,7 +630,7 @@ class UserServiceUpdateUserTest {
         when(userValidationService.getUserById(authenticatedUserId)).thenReturn(mockUser);
         when(userCategoryValidationService.processCategories(maxCategoryIds)).thenReturn(maxCategories);
         when(userRepository.save(mockUser)).thenReturn(mockUser);
-        when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+        when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
         // When
         UserDTO result = userService.updateUser(dtoWithMaxCategories);
@@ -603,7 +661,7 @@ class UserServiceUpdateUserTest {
             UpdateUserDTO dto = UpdateUserDTO.builder().description("New description").build();
             when(userAccountValidationService.validateCredentialChange(mockUser, dto)).thenReturn(false);
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
 
             userService.updateUser(dto);
 
@@ -620,7 +678,7 @@ class UserServiceUpdateUserTest {
             UpdateUserDTO dto = UpdateUserDTO.builder().password("N3wPassw0rd!").currentPassword("Passw0rd!").build();
             when(userAccountValidationService.validateCredentialChange(mockUser, dto)).thenReturn(true);
             when(userRepository.save(mockUser)).thenReturn(mockUser);
-            when(userMapper.toUserDTO(mockUser)).thenReturn(expectedUserDTO);
+            when(userMapper.toUserDTO(mockUser, List.of(), List.of())).thenReturn(expectedUserDTO);
             LocalDateTime before = LocalDateTime.now();
 
             userService.updateUser(dto);

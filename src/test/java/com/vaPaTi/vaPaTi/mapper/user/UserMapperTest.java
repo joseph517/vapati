@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +43,7 @@ class UserMapperTest {
                 )))
                 .build();
 
-        PublicUserProfileDTO dto = userMapper.toPublicUserProfileDTO(user);
+        PublicUserProfileDTO dto = userMapper.toPublicUserProfileDTO(user, List.of(), List.of());
 
         assertThat(dto.getId()).isEqualTo(7L);
         assertThat(dto.getCategories()).containsExactly("Technology");
@@ -64,6 +65,6 @@ class UserMapperTest {
     @Test
     @DisplayName("toPublicUserProfileDTO: null user returns null")
     void toPublicUserProfileDTO_WithNullUser_ShouldReturnNull() {
-        assertThat(userMapper.toPublicUserProfileDTO(null)).isNull();
+        assertThat(userMapper.toPublicUserProfileDTO(null, List.of(), List.of())).isNull();
     }
 }

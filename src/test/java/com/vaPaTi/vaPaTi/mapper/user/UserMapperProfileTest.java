@@ -113,16 +113,6 @@ class UserMapperProfileTest {
     }
 
     @Test
-    @DisplayName("toPublicUserProfileDTO(user): delegates with empty lists")
-    void toPublicUserProfileDTO_OneArg_ShouldReturnEmptyLists() {
-        PublicUserProfileDTO dto = userMapper.toPublicUserProfileDTO(user());
-
-        assertThat(dto.getSocialLinks()).isEmpty();
-        assertThat(dto.getTags()).isEmpty();
-        assertThat(dto.getWebsite()).isEqualTo("https://example.com");
-    }
-
-    @Test
     @DisplayName("toPublicUserProfileDTO: null collections give empty lists")
     void toPublicUserProfileDTO_WithNullCollections_ShouldReturnEmptyLists() {
         PublicUserProfileDTO dto = userMapper.toPublicUserProfileDTO(user(), null, null);

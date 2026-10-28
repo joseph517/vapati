@@ -19,6 +19,8 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
@@ -51,6 +53,10 @@ class UserServiceCreateUserTest {
     private UserRepository userRepository;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private UserSocialLinkRepository userSocialLinkRepository;
+    @Mock
+    private UserTagRepository userTagRepository;
     @InjectMocks
     private UserService userService;
 
@@ -173,6 +179,9 @@ class UserServiceCreateUserTest {
         inOrder.verify(roleRepository).findByName("USER");
         inOrder.verify(userRepository).save(any(User.class));
         inOrder.verify(userMapper).toUserDTO(savedUser);
+        // The creation response has no social links or tags
+        verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
+        verifyNoInteractions(userSocialLinkRepository, userTagRepository);
 
         // Verify that user was properly configured before saving
         verify(userRepository).save(argThat(user ->

@@ -63,10 +63,6 @@ public class UserMapper {
         return dto;
     }
 
-    public PublicUserProfileDTO toPublicUserProfileDTO(User user) {
-        return toPublicUserProfileDTO(user, List.of(), List.of());
-    }
-
     public PublicUserProfileDTO toPublicUserProfileDTO(User user, Collection<UserSocialLink> socialLinks,
                                                        Collection<UserTag> tags) {
         if (user == null) {

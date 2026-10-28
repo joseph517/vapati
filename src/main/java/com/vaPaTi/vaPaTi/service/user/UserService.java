@@ -17,6 +17,8 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
@@ -51,6 +53,8 @@ public class UserService {
     private final UserAccountValidationService userAccountValidationService;
     private final UserProfileValidationService userProfileValidationService;
     private final RoleValidationService roleValidationService;
+    private final UserSocialLinkRepository userSocialLinkRepository;
+    private final UserTagRepository userTagRepository;
 
     public List<UserDTO> listUsers() {
         return userRepository.findAllWithDetails().stream()
@@ -159,7 +163,10 @@ public class UserService {
         }
 
         User savedUser = userRepository.save(user);
-        return userMapper.toUserDTO(savedUser);
+        // The queries flush first, so they return the links and tags just written
+        return userMapper.toUserDTO(savedUser,
+                userSocialLinkRepository.findByUserId(savedUser.getId()),
+                userTagRepository.findByUserId(savedUser.getId()));
     }
 
     @Transactional
@@ -189,11 +196,12 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(USER_NOT_FOUND));
 
         Long callerId = authenticatedUserService.getAuthenticatedUserId();
+        // Links and tags are loaded only after the visibility is decided: a sanctioned profile gives 404 without querying them
         if (id.equals(callerId) || roleValidationService.isAdmin(callerId)) {
-            return userMapper.toUserDTO(user);
+            return userMapper.toUserDTO(user, userSocialLinkRepository.findByUserId(id), userTagRepository.findByUserId(id));
         }
         userValidationService.validateProfileNotSanctioned(user);
-        return userMapper.toPublicUserProfileDTO(user);
+        return userMapper.toPublicUserProfileDTO(user, userSocialLinkRepository.findByUserId(id), userTagRepository.findByUserId(id));
     }
 
     public AutoThanksResponseDTO getAutoThanksMessage() {
