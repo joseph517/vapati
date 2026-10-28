@@ -1,11 +1,6 @@
 package com.vaPaTi.vaPaTi.validation.user;
 
 import com.vaPaTi.vaPaTi.exception.MessageException;
-import com.vaPaTi.vaPaTi.mapper.user.UserInfoMapper;
-import com.vaPaTi.vaPaTi.repository.category.CategoryRepository;
-import com.vaPaTi.vaPaTi.repository.user.UserInfoRepository;
-import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,42 +9,22 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UserValidationService - Auto Thanks Tests")
-class UserValidationServiceAutoThanksTest {
-
-    @Mock
-    private CategoryRepository categoryRepository;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
-
-    @Mock
-    private UserInfoRepository userInfoRepository;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private UserInfoMapper userInfoMapper;
-
-    @Mock
-    private AccountStatusValidationService accountStatusValidationService;
+@DisplayName("UserProfileValidationService - Auto Thanks Tests")
+class UserProfileValidationServiceAutoThanksTest {
 
     // Real instance: the text rule lives in TextValidationService
     @Spy
     private TextValidationService textValidationService = new TextValidationService();
 
     @InjectMocks
-    private UserValidationService userValidationService;
+    private UserProfileValidationService userValidationService;
 
     @Test
     @DisplayName("Should return the auto thanks message without leading and trailing spaces")

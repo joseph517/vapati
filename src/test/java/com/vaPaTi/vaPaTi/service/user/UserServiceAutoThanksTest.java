@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +40,9 @@ class UserServiceAutoThanksTest {
 
     @Mock
     private UserAccountValidationService userAccountValidationService;
+
+    @Mock
+    private UserProfileValidationService userProfileValidationService;
 
     @Mock
     private UserRepository userRepository;
@@ -103,7 +107,7 @@ class UserServiceAutoThanksTest {
             // Given
             UpdateAutoThanksDTO dto = new UpdateAutoThanksDTO();
             dto.setAutoThanksMessage("  ¡Gracias por tu apoyo!  ");
-            when(userValidationService.validateAndNormalizeAutoThanksMessage("  ¡Gracias por tu apoyo!  "))
+            when(userProfileValidationService.validateAndNormalizeAutoThanksMessage("  ¡Gracias por tu apoyo!  "))
                     .thenReturn("¡Gracias por tu apoyo!");
             givenAuthenticatedUser();
 
@@ -124,7 +128,7 @@ class UserServiceAutoThanksTest {
             userInfo.setAutoThanksMessage("¡Gracias por tu apoyo!");
             UpdateAutoThanksDTO dto = new UpdateAutoThanksDTO();
             dto.setAutoThanksMessage("   ");
-            when(userValidationService.validateAndNormalizeAutoThanksMessage("   "))
+            when(userProfileValidationService.validateAndNormalizeAutoThanksMessage("   "))
                     .thenThrow(new MessageException("Auto thanks message cannot be blank"));
 
             // When & Then

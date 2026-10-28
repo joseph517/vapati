@@ -5,7 +5,6 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
-import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -17,10 +16,8 @@ public class UserValidationService {
 
     private static final String USER_NOT_FOUND = "User not found";
     private static final String USER_NULL_ERROR = "User must not be null";
-    private static final int MAX_AUTO_THANKS_LENGTH = 280;
     private final UserRepository userRepository;
     private final AccountStatusValidationService accountStatusValidationService;
-    private final TextValidationService textValidationService;
 
     public User getUserById(Long id) {
         return userRepository.findById(id)
@@ -44,10 +41,5 @@ public class UserValidationService {
         }
 
         user.setUpdatedAt(LocalDateTime.now());
-    }
-
-    // The length check repeats the DTO's @Size, as validateAndNormalizeMessage does for donations
-    public String validateAndNormalizeAutoThanksMessage(String autoThanksMessage) {
-        return textValidationService.normalizeRequiredText(autoThanksMessage, "Auto thanks message", MAX_AUTO_THANKS_LENGTH);
     }
 }

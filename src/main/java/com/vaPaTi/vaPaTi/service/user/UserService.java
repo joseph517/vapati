@@ -22,6 +22,7 @@ import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class UserService {
     private final CampaignService campaignService;
     private final UserCategoryValidationService userCategoryValidationService;
     private final UserAccountValidationService userAccountValidationService;
+    private final UserProfileValidationService userProfileValidationService;
     private final RoleValidationService roleValidationService;
 
     public List<UserDTO> listUsers() {
@@ -197,7 +199,7 @@ public class UserService {
         }
 
         // Before loading the user: a blank text throws without touching anything
-        String autoThanksMessage = userValidationService.validateAndNormalizeAutoThanksMessage(dto.getAutoThanksMessage());
+        String autoThanksMessage = userProfileValidationService.validateAndNormalizeAutoThanksMessage(dto.getAutoThanksMessage());
 
         Long userId = authenticatedUserService.getAuthenticatedUserId();
         User user = userValidationService.getUserById(userId);
