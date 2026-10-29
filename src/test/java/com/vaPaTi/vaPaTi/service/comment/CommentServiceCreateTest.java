@@ -154,7 +154,7 @@ class CommentServiceCreateTest {
             dto.setText("   ");
 
             assertThatThrownBy(() -> commentService.createComment(PUBLICATION_ID, dto))
-                    .isInstanceOf(ResourceNotFoundException.class)
+                    .isExactlyInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Publication not found with ID: " + PUBLICATION_ID);
             verify(commentValidationService, never()).validateAndNormalizeText(any());
             verify(userRepository, never()).getReferenceById(any());
@@ -172,7 +172,7 @@ class CommentServiceCreateTest {
                     .thenThrow(new MessageException("Text cannot be blank"));
 
             assertThatThrownBy(() -> commentService.createComment(PUBLICATION_ID, dto))
-                    .isInstanceOf(MessageException.class)
+                    .isExactlyInstanceOf(MessageException.class)
                     .hasMessage("Text cannot be blank");
             verify(userRepository, never()).getReferenceById(any());
             verify(commentMapper, never()).toEntity(any(), any(), any());
@@ -227,7 +227,7 @@ class CommentServiceCreateTest {
                     .thenThrow(new ResourceNotFoundException("Publication not found with ID: " + PUBLICATION_ID));
 
             assertThatThrownBy(() -> commentService.createComment(PUBLICATION_ID, dto))
-                    .isInstanceOf(ResourceNotFoundException.class)
+                    .isExactlyInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Publication not found with ID: " + PUBLICATION_ID);
             verify(commentValidationService, never()).validateNoBlockWithPublicationAuthor(any(), any());
             verify(commentRepository, never()).save(any());
