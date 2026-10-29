@@ -11,6 +11,7 @@ IF OBJECT_ID('campaign_category', 'U') IS NOT NULL DROP TABLE campaign_category;
 IF OBJECT_ID('user_social_link', 'U') IS NOT NULL DROP TABLE user_social_link;
 IF OBJECT_ID('user_tag', 'U') IS NOT NULL DROP TABLE user_tag;
 IF OBJECT_ID('user_category', 'U') IS NOT NULL DROP TABLE user_category;
+IF OBJECT_ID('user_block', 'U') IS NOT NULL DROP TABLE user_block;
 IF OBJECT_ID('followers', 'U') IS NOT NULL DROP TABLE followers;
 IF OBJECT_ID('publication', 'U') IS NOT NULL DROP TABLE publication;
 IF OBJECT_ID('campaign_status_history', 'U') IS NOT NULL DROP TABLE campaign_status_history;
@@ -234,6 +235,18 @@ CREATE TABLE followers (
     FOREIGN KEY (follower_id) REFERENCES [user](id) ON DELETE NO ACTION,
     UNIQUE(user_id, follower_id),
     CHECK (user_id != follower_id)
+);
+
+-- Create user_block table (blocker blocks blocked_user; the opposite direction is another row)
+CREATE TABLE user_block (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    blocker_id BIGINT NOT NULL,
+    blocked_user_id BIGINT NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT uk_user_block_blocker_blocked UNIQUE (blocker_id, blocked_user_id),
+    FOREIGN KEY (blocker_id) REFERENCES [user](id) ON DELETE NO ACTION,
+    FOREIGN KEY (blocked_user_id) REFERENCES [user](id) ON DELETE NO ACTION,
+    CONSTRAINT CK_user_block_not_self CHECK (blocker_id != blocked_user_id)
 );
 
 -- Create donation table
