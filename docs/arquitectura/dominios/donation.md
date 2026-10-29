@@ -16,6 +16,8 @@ El receptor agradece de dos formas:
 
 No hay pasarela de pago: el sistema **simula la aprobación**. Toda donación que pasa las validaciones se guarda directamente en `COMPLETED` con un identificador de transacción generado en el momento. El propio service lo marca como el punto donde, en producción, se integraría una pasarela.
 
+El dominio también guarda el **panel de donación** de cada creador: si pide un importe libre o una unidad tipo "café", un mínimo, hasta tres importes sugeridos y el texto del botón (`TIP` o `DONATE`). Cualquiera lo lee, solo su dueño lo configura, y el mínimo efectivo lo exigen las donaciones directas (no las de campaña). Ver [Ajustes del panel de donación](#ajustes-del-panel-de-donación).
+
 Además de crear donaciones y responderlas, el dominio ofrece seis lecturas: el historial del usuario que llama, las **donaciones recibidas** por el usuario que llama (paginadas, directas y de sus campañas), el listado de donaciones de una campaña, las estadísticas de recaudación de una campaña, los **supporters de un creador**, un ranking paginado con una fila por donante que suma todas sus donaciones a ese usuario, a sus campañas y directas, y el **feed de apoyos de un creador**, la lista paginada de las donaciones que recibió, una fila por donación. El listado y las estadísticas de una campaña, los supporters y el feed son públicos. En los supporters, cualquiera ve quiénes son, pero los importes los ven solo el propio creador y un ADMIN. El feed es el mismo para todos: no trae importes ni nada privado. Las donaciones directas no aparecen en el listado ni en las estadísticas de una campaña: las ven el donante y el receptor, cuentan como agregado en los supporters y aparecen en el feed de apoyos del receptor, sin importe ni datos privados.
 
 ## Entidades y datos
@@ -64,6 +66,35 @@ El detalle general del borrado lógico está en [Modelo de datos](../04-modelo-d
 
 `PENDING`, `COMPLETED`, `FAILED`, `REFUNDED`. Hoy el código solo asigna `COMPLETED` (ver [Estados](#estados)).
 
+### Entidad `DonationSettings` (`entity/donation/DonationSettings.java`, tabla `donation_settings`)
+
+El panel de un creador. 0 o 1 fila por usuario, creada recién en el primer `PUT`. `User` no tiene campo de vuelta.
+
+| Campo | Columna | Notas |
+|---|---|---|
+| `id` | `id` | Identidad generada por la base. |
+| `user` | `user_id` | `@OneToOne` LAZY, `optional = false`, `unique`, `updatable = false`. Fuera de `equals`, `hashCode` y `toString`. |
+| `mode` | `mode` | `DonationMode`, `VARCHAR(10)`, no nulo, por defecto `SIMPLE`. |
+| `unitName` | `unit_name` | `VARCHAR(30)`. Solo en `UNIT`; `null` en `SIMPLE`. |
+| `unitAmount` | `unit_amount` | `DECIMAL(15,2)`. Solo en `UNIT`; `null` en `SIMPLE`. |
+| `minimumAmount` | `minimum_amount` | `DECIMAL(15,2)`. `null` = sin mínimo además de `> 0`. |
+| `suggestedAmount1..3` | `suggested_amount_1..3` | `DECIMAL(15,2)`, de menor a mayor y sin huecos. Sin getter ni setter: se leen con `getSuggestedAmounts()` y se reemplazan con `replaceSuggestedAmounts(sortedAmounts)`, así nadie más conoce las tres columnas. |
+| `ctaText` | `cta_text` | `DonationCtaText`, `VARCHAR(10)`, no nulo, por defecto `DONATE`. |
+| `createdAt` / `updatedAt` | `created_at` / `updated_at` | `@PrePersist` / `@PreUpdate`. |
+
+- **1 a 1 solo desde `DonationSettings`.** Un lado inverso en `User` haría que Hibernate cargara esta fila con otra consulta en cada lectura de usuario, aunque fuera LAZY. Nada lee la fila sin leer antes al usuario con `UserValidationService`.
+- **Sin borrado lógico propio.** Si se borra el usuario, la fila queda y vuelve si se restaura la cuenta.
+- **Tres columnas y no `@ElementCollection`** para los sugeridos: no hay precedente en el repo y esa colección borra y reinserta en cada `PUT`.
+- `DonationSettings.getEffectiveMinimumAmount()` calcula el mínimo efectivo (ver [Ajustes del panel de donación](#ajustes-del-panel-de-donación)).
+- `repository/donation/DonationSettingsRepository.java`: `findByUserId`. Si no devuelve fila, valen los valores por defecto.
+
+### Enums `DonationMode` y `DonationCtaText` (`entity/donation/`)
+
+- `DonationMode`: `SIMPLE` (importe libre) y `UNIT` (importe libre, pero de al menos `unitAmount`, con una unidad tipo "café"; no se guarda la cantidad).
+- `DonationCtaText`: `TIP` y `DONATE`, el texto del botón.
+
+Se guardan como texto (`EnumType.STRING`). Hibernate genera una `CHECK` por cada uno, ver [Modelo de datos](../04-modelo-de-datos.md#enums).
+
 ### Datos de otros dominios que se usan
 
 - `Campaign` y `Goal` (`entity/campaign/`): una donación a campaña apunta a la campaña (una directa no), y el monto se suma en `Goal.amountRaised`. `Goal.amountRaised` es `updatable = false` en el mapeo: solo lo modifica `GoalRepository.addToAmountRaised` con un `UPDATE` atómico, para que guardar una campaña con datos viejos nunca pise donaciones sumadas en el medio. Ver [Campaign](campaign.md).
@@ -81,6 +112,9 @@ El detalle general del borrado lógico está en [Modelo de datos](../04-modelo-d
 - `dtos/donation/CampaignStatisticsDTO.java`: estadísticas de una campaña. Vive en `dtos/donation/` aunque describe una campaña, porque lo calcula este dominio a partir de las donaciones.
 - `dtos/donation/SupporterResponseDTO.java`: una fila del ranking de supporters (`donorUserId`, `donorUserName`, `totalAmount`, `donationsCount`, `lastDonationAt`). No es una donación: es el agregado de las donaciones de un donante a un creador.
 - `dtos/donation/SupportFeedItemDTO.java`: un ítem del feed de apoyos de un creador, una donación sin datos privados. Campos: `donationId`, `donorUserId`, `donorUserName`, `campaignId`, `campaignName`, `campaignHidden`, `message`, `thanksMessage`, `thankedAt`, `createdAt`. No lleva `amount`, `transactionId`, `status`, receptor, `messagePrivate` ni `thanksPrivate`. Se llama `donationId` y no `id` para no confundirlo con un id de usuario o de campaña. `campaignHidden` es `Boolean` y nunca llega en `null`.
+
+- `dtos/donation/UpdateDonationSettingsDTO.java`: entrada de `PUT /api/users/me/donation-settings`. Reemplaza la configuración completa. Valida la forma de todos los campos; las reglas de `UNIT` y de los sugeridos viven en `DonationSettingsValidationService`.
+- `dtos/donation/DonationSettingsResponseDTO.java`: el panel en las tres lecturas, el mismo para el dueño y para los demás. Lleva `effectiveMinimumAmount` y `suggestedAmounts` nunca `null`.
 
 **Proyección `DonationRepository.SupporterProjection`.** Interfaz anidada en el repositorio, con `getDonorUserId()`, `getTotalAmount()`, `getDonationsCount()` y `getLastDonationAt()`. Es lo que devuelve la query nativa de supporters, y `DonationMapper.toSupporterDTO` la recibe directamente: es el único mapper que recibe un tipo de `repository/`, pero es solo un tipo de datos, sin acceso a la base.
 
@@ -107,6 +141,7 @@ Todas las aplica `validation/donation/DonationValidationService.java`, salvo don
       - su rol es `USER` → si no, `400 Cannot donate to an admin`. El rol es LAZY y se lee dentro del `@Transactional` de `createDonation`. Un ADMIN dueño de una campaña sí recibe donaciones a esa campaña; lo que no recibe son donaciones directas.
    2. El donante existe (`validateAndGetDonor`).
    3. No es auto-donación (`validateNotSelfDirectDonation`) → `400 Cannot donate to yourself`. El literal de la campaña (`Cannot donate to your own campaign`) engañaría sin campaña.
+   4. El importe alcanza el mínimo del receptor (`validateDirectDonationMinimum`) → `400 Amount must be at least <min>`, con el mínimo en 2 decimales (`Amount must be at least 4.00`). Lee la fila de ajustes del receptor (`DonationSettingsRepository.findByUserId`): sin fila, o sin mínimo efectivo, pasa. No exige múltiplos de la unidad. Va al final para no revelar la configuración de un creador oculto, de un ADMIN o de uno mismo. Ver [Ajustes del panel de donación](#ajustes-del-panel-de-donación).
 
    No se exige que el receptor esté verificado. Después, una donación directa salta los pasos 10 y 11: no hay meta que sumar ni historial de estados que escribir.
 9. **Aprobación simulada.** Se construye la `Donation` con `status = COMPLETED`, el `recipient` y la `campaign` (`null` en una directa) y un `transactionId` `"TXN-"` + los primeros 8 caracteres de un UUID aleatorio en mayúsculas, más el mensaje normalizado y su `messagePrivate`, y se guarda.
@@ -191,6 +226,27 @@ Lo aplica `service/donation/SupporterService.java` (`getSupportFeed`), con ayuda
 7. **El orden de los chequeos.** Primero valida el controller (`page`, `size`) y después el servicio (`userId`, existencia y sanción del creador): `page=-1` da `400` aunque el creador no exista.
 
 **Sin N+1.** La query hace `LEFT JOIN FETCH` del donante (con su `userInfo` y `verificationRequest`), de la campaña y de su `goal`: el estado `CLOSED` está en `Goal.status`, y `Campaign.goal` es EAGER. Son todos fetch a uno, así que la paginación se hace en SQL (por eso lleva un `countQuery` explícito). `d.recipient` y el dueño de cada campaña no llevan fetch: siempre son el creador, que `getUserById` ya cargó en la misma transacción, y salen del contexto de persistencia.
+
+### Ajustes del panel de donación
+
+Cómo un creador pide donaciones directas. Los endpoints están en [Endpoints de los ajustes del panel](#endpoints-de-los-ajustes-del-panel).
+
+1. **Valores por defecto sin fila.** Sin fila valen `SIMPLE`, `DONATE`, sin unidad, sin mínimo y sin sugeridos. No se guardan: leer nunca crea la fila (`DonationSettingsService.toResponse` arma una `DonationSettings` en memoria). La crea el primer `PUT`.
+2. **Reemplazo completo.** El `PUT` pisa toda la configuración y no hay `DELETE`. Un parcial no podría devolver `minimumAmount` a `null`. El primer `PUT` inserta la fila y los siguientes actualizan la misma. Dos primeros `PUT` a la vez chocan con `UNIQUE(user_id)`: el servicio no captura la violación y `GlobalExceptionHandler` responde `409`.
+3. **Unidad** (`DonationSettingsValidationService`, `MessageException` → `400 Business logic error`). En `UNIT`, `unitName` pasa por `TextValidationService.normalizeRequiredText` con la etiqueta `Unit name` y 30 caracteres (`Unit name cannot be blank` si falta o está en blanco) y se guarda sin los espacios de los extremos; sin `unitAmount`, `Unit amount is required in UNIT mode`. En `SIMPLE`, ambos quedan `null` aunque lleguen.
+4. **Escala.** `unitAmount`, `minimumAmount` y cada sugerido se guardan con 2 decimales (`5` → `5.00`), así `5` y `5.00` son el mismo importe y la respuesta del `PUT` coincide con una lectura posterior. Solo rellena ceros: el `@Digits` del DTO ya limitó los decimales a 2.
+5. **Mínimo efectivo** (`DonationSettings.getEffectiveMinimumAmount`, el único lugar de la regla). En `SIMPLE` es `minimumAmount`; en `UNIT`, el mayor de `unitAmount` y `minimumAmount`, ignorando el que sea `null`; `null` significa cualquier importe `> 0`. Vive en la entidad porque es un valor derivado que usan `DonationSettingsValidationService`, `DonationValidationService` y `DonationSettingsMapper`: en `validation/` el mapper dependería de una validación. La entidad calcula, no valida. Sale en la respuesta como `effectiveMinimumAmount`, para que el front no repita la regla.
+6. **Sugeridos.** `null` cuenta como `[]`. Más de 3 → `At most 3 suggested amounts are allowed` y un elemento `null` → `Suggested amount is required` (los dos repiten al DTO, porque la tabla tiene 3 columnas). Repetidos después de escalar → `Suggested amounts must be distinct`. Con mínimo efectivo, uno menor → `Suggested amounts must be at least <min>` (`4.00`). Se guardan de menor a mayor.
+7. **Todo o nada.** El orden del `PUT` es: unidad, escala, mínimo efectivo (con una `DonationSettings` suelta, sin tocar la real), sugeridos y recién al final la asignación de `mode`, unidad, mínimo, sugeridos y `ctaText`. Un error deja la entidad como estaba.
+8. **Mínimo en las donaciones directas** (`DonationValidationService.validateDirectDonationMinimum`). Solo en la rama directa de `createDonation`; la de campaña no cambia, porque las campañas tienen su propia meta. Sin fila o sin mínimo efectivo, pasa; con `amount` menor, `400 Amount must be at least <min>`, con el mínimo tal como sale de la base (2 decimales). No exige múltiplos de `unitAmount` (`4.50` con unidad `4.00` es válido) ni guarda la cantidad de unidades.
+
+| Regla | Clase |
+|---|---|
+| Valores por defecto, upsert, lectura con sanción | `DonationSettingsService` |
+| Unidad, escala, sugeridos, asignación | `DonationSettingsValidationService` |
+| Mínimo efectivo y lista de sugeridos | `DonationSettings` |
+| Mínimo en la donación directa | `DonationValidationService` |
+| Forma de los campos | `UpdateDonationSettingsDTO` |
 
 ## Estados
 
@@ -353,6 +409,14 @@ stateDiagram-v2
   | Baneado o suspendido (también si dona un ADMIN) | `404 User not found` |
   | ADMIN | `400 Cannot donate to an admin` |
   | El propio donante | `400 Cannot donate to yourself` |
+- **Ajustes del panel de donación.** Todos los campos son públicos y no hay vista privada: el dueño y los demás reciben el mismo `DonationSettingsResponseDTO`. `autoThanksMessage` no forma parte del panel y sigue en `/api/users/me/auto-thanks`. Nadie edita el panel de otro.
+
+  | Quién llama | `GET /api/users/{id}/donation-settings` de un activo | De un baneado o suspendido | De un borrado o inexistente | `GET /me` | `PUT /me` |
+  |---|---|---|---|---|---|
+  | Anónimo | `200` | `404` | `404` | `401` | `401` |
+  | USER | `200` | `404` | `404` | `200` | `200` |
+  | ADMIN | `200` (también de otros ADMIN) | `200` | `404` | `200` | `200`, sin efecto práctico: un ADMIN no recibe donaciones directas |
+  | Token de una cuenta sancionada | `403` del filtro JWT | `403` del filtro JWT | `403` del filtro JWT | `403` del filtro JWT | `403` del filtro JWT |
 - **ADMIN.** Se decide con `RoleValidationService.isAdmin` (consulta `existsByIdAndRole_Name(id, "ADMIN")` contra la base, no el rol del token), tanto para la visibilidad de la campaña como para ver todos los `transactionId` y los mensajes privados, y también en los supporters y el feed de apoyos. Un ADMIN puede donar como cualquier usuario, también a campañas de dueños sancionados (ver [Reglas de negocio](#reglas-de-negocio)). Lo que un ADMIN no puede es recibir una donación **directa** (`400 Cannot donate to an admin`); sí recibe las donaciones a las campañas de las que es dueño.
 - **404 vs 403.** Al donar y en las lecturas, toda campaña que no se puede ver da `404`, con el mismo mensaje que una inexistente. En los supporters y en el feed de apoyos pasa lo mismo con el creador: oculto o inexistente, `404 User not found`. Una donación directa a un usuario oculto (inexistente, borrado, baneado o suspendido) da el mismo `404 User not found`, sin revelar la sanción. Los dos endpoints de `/thanks` son la excepción: responden `403` a quien no es el receptor (o ADMIN, al borrar) sin aplicar la visibilidad de la campaña, y vale también para las donaciones directas. Un tercero que prueba ids recibe `404` si la donación no existe y `403` si existe, también cuando es de una campaña `CLOSED` ajena o de un dueño sancionado, que en el resto de la API darían `404`. El `400` de campaña borrada también confirma que la donación existe. Además está el `403` del filtro JWT para cuentas baneadas o suspendidas (ver [Seguridad](../03-seguridad.md)), que corta también las rutas públicas si el usuario sancionado manda su token.
 
@@ -443,9 +507,10 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   | 404 | `User not found` | Donación directa: el receptor está baneado o suspendido, también si quien dona es ADMIN. |
   | 400 | `Cannot donate to an admin` | Donación directa: el receptor tiene rol ADMIN. |
   | 400 | `Cannot donate to yourself` | Donación directa: el receptor es el propio donante. |
+  | 400 | `Amount must be at least <min>` (con `error: "Business logic error"`), por ejemplo `Amount must be at least 4.00` | Donación directa: `amount` menor que el `effectiveMinimumAmount` del receptor. Se revisa después de los chequeos del receptor y de la autodonación. Una donación a campaña no lo tiene. |
   | 409 | `The request conflicts with existing data` | Violación de una restricción de la base al guardar, por ejemplo un `transactionId` repetido. |
 
-  Los errores de Bean Validation se juntan en `fields`, uno por campo: si `amount` rompe varias reglas a la vez (por ejemplo `-0.001`), se ve solo uno de los mensajes. Las reglas de negocio corren en el orden de la tabla y responde la primera que falla: el dueño que dona a su propia campaña `CLOSED` recibe `Campaign goal is not active`, no `Cannot donate to your own campaign`. En la donación directa el orden es: existe → no sancionado → rol USER → donante → no auto-donación. El orden general es Bean Validation → `validateInput` (primero el destino, después el monto) → mensaje en blanco → rama del destino. Con `amount: 0`, por ejemplo, responde antes el `400 Validation failed` de Bean Validation, con el texto en `fields.amount`.
+  Los errores de Bean Validation se juntan en `fields`, uno por campo: si `amount` rompe varias reglas a la vez (por ejemplo `-0.001`), se ve solo uno de los mensajes. Las reglas de negocio corren en el orden de la tabla y responde la primera que falla: el dueño que dona a su propia campaña `CLOSED` recibe `Campaign goal is not active`, no `Cannot donate to your own campaign`. En la donación directa el orden es: existe → no sancionado → rol USER → donante → no auto-donación → mínimo del receptor. El orden general es Bean Validation → `validateInput` (primero el destino, después el monto) → mensaje en blanco → rama del destino. Con `amount: 0`, por ejemplo, responde antes el `400 Validation failed` de Bean Validation, con el texto en `fields.amount`.
 
 - **Qué hace:**
   1. Obtiene el id del donante del token (`AuthenticatedUserService.getAuthenticatedUserId`).
@@ -453,7 +518,7 @@ Las respuestas de error tienen la forma `{error, message, timestamp}` descripta 
   3. `validateAndNormalizeMessage(dto.message)`: el mensaje con `trim`, `null` si no hay, o `400`. `messagePrivate` queda en `true` solo si hay mensaje y el request trae `messagePrivate: true`.
   4. Según el destino:
      - **con `campaignId`:** `validateAndGetCampaign(campaignId, donorId)` (la campaña visible para el donante o `404`) → `validateGoalIsActive(campaign.getGoal())` → `validateAndGetDonor(donorId)` → `validateNotSelfDonation(donorId, ownerId)`. El receptor es el dueño de la campaña;
-     - **con `recipientUserId`:** `validateAndGetRecipient(recipientUserId)` → `validateAndGetDonor(donorId)` → `validateNotSelfDirectDonation(donorId, recipientId)`.
+     - **con `recipientUserId`:** `validateAndGetRecipient(recipientUserId)` → `validateAndGetDonor(donorId)` → `validateNotSelfDirectDonation(donorId, recipientId)` → `validateDirectDonationMinimum(recipientId, amount)`.
   5. Construye la donación en `COMPLETED` con el `recipient`, la `campaign` (`null` en una directa), un `transactionId` nuevo, el mensaje y `messagePrivate`, y la guarda.
   6. Solo con campaña: `GoalRepository.addToAmountRaised`; si actualiza 0 filas, lanza `400 Campaign goal is not active` y la transacción se revierte.
   7. Solo con campaña: `GoalRepository.completeIfGoalReached`; si actualiza 1 fila, `CampaignStatusHistoryService.recordTransition(campaign, ACTIVE, COMPLETED, null)`.
@@ -901,21 +966,119 @@ sequenceDiagram
     S-->>C: 200 Page de SupportFeedItemDTO
 ```
 
+### Endpoints de los ajustes del panel
+
+Los tres endpoints viven en `controller/donation/DonationSettingsController.java`, bajo `@RequestMapping("/api/users")`. La ruta literal `/me/donation-settings` gana sobre `/{userId}/donation-settings`, y `UserController` (`/{id}`) no coincide con ninguna. La descripción OpenAPI de cada operación dice quién la puede llamar, los valores por defecto, los campos obligatorios por modo, las reglas de los sugeridos y cómo se calcula `effectiveMinimumAmount`. Las reglas están en [Ajustes del panel de donación](#ajustes-del-panel-de-donación).
+
+La respuesta de los tres es `DonationSettingsResponseDTO`:
+
+| Campo | Qué es |
+|---|---|
+| `userId` | El dueño del panel. Sale también con los valores por defecto |
+| `mode`, `unitName`, `unitAmount`, `minimumAmount`, `ctaText` | Lo guardado, o los valores por defecto |
+| `effectiveMinimumAmount` | Lo que tiene que alcanzar una donación directa. `null` = cualquier importe `> 0` |
+| `suggestedAmounts` | De menor a mayor. Nunca `null`: sin sugeridos es `[]` |
+
+```json
+{ "userId": 20004, "mode": "UNIT", "unitName": "café", "unitAmount": 4.00, "minimumAmount": 3.00,
+  "effectiveMinimumAmount": 4.00, "suggestedAmounts": [4.00, 8.00, 12.00], "ctaText": "TIP" }
+```
+
+#### `GET /api/users/me/donation-settings`
+
+- **Acceso:** cualquier usuario autenticado. Sin token, `401`: la regla `authenticated()` de `SecurityConfig` va antes de `PUBLIC_GET_URLS` (ver [Seguridad](../03-seguridad.md#reglas-por-ruta)).
+- **Respuesta:** `200` con el panel del que llama, o los valores por defecto si nunca guardó nada. No crea la fila.
+- **Qué hace** (`DonationSettingsService.getMyDonationSettings`): el id sale del token, lee el usuario con `UserValidationService.getUserById` y busca su fila.
+
+#### `PUT /api/users/me/donation-settings`
+
+- **Acceso:** cualquier usuario autenticado (USER o ADMIN), solo sobre su propio panel. Sin `@PreAuthorize` ni regla por rol: cae en `anyRequest().authenticated()`. No existe un `PUT` con `{userId}`.
+- **Body:** `UpdateDonationSettingsDTO`, reemplazo completo.
+
+  | Campo | Tipo | Validación (Bean Validation) |
+  |---|---|---|
+  | `mode` | `DonationMode` | `@NotNull`: `Mode is required` |
+  | `unitName` | `String` | `@Size(max = 30)`: `Unit name must be at most 30 characters` |
+  | `unitAmount` | `BigDecimal` | `@Positive`: `Unit amount must be greater than zero`; `@Digits(integer = 13, fraction = 2)` |
+  | `minimumAmount` | `BigDecimal` | `@Positive`: `Minimum amount must be greater than zero`; `@Digits(13, 2)`. `null` = sin mínimo |
+  | `suggestedAmounts` | `List<BigDecimal>` | `@Size(max = 3)`: `At most 3 suggested amounts are allowed`. `null` o `[]` = ninguno. Cada elemento: `@NotNull` (`Suggested amount is required`), `@Positive` (`Suggested amount must be greater than zero`), `@Digits(13, 2)` |
+  | `ctaText` | `DonationCtaText` | `@NotNull`: `CTA text is required` |
+
+  Bean Validation revisa la forma de los campos de unidad en los dos modos: un `unitAmount: -1` en `SIMPLE` responde `400` aunque después se ignore. Que `UNIT` exija `unitName` y `unitAmount` no está en el DTO, está en `DonationSettingsValidationService`.
+- **Respuesta:** `200` con el panel guardado.
+- **Errores:** responde el primer chequeo que falla: primero Bean Validation (un mensaje por campo, todos juntos) y después las reglas de negocio en su orden. Ningún error deja cambios escritos.
+
+  | Status | Mensaje | Cuándo |
+  |---|---|---|
+  | 401 | `Full authentication is required to access this resource` | Sin token. |
+  | 400 | `Request body is required` / `Malformed request body` (con `error: "Malformed request"`) | Sin body / JSON mal formado. |
+  | 400 | `Invalid value 'COFFEE' for field 'mode'. Allowed: SIMPLE, UNIT` (con `error: "Malformed request"`) | `mode` desconocido. Lo mismo con `ctaText` (`Allowed: TIP, DONATE`). |
+  | 400 | `Validation failed`, con un mensaje por campo en `fields` | Las anotaciones del DTO de arriba. Un sugerido inválido sale en `fields["suggestedAmounts[i]"]`. Más de 2 decimales o 13 enteros: `numeric value out of bounds (<13 digits>.<2 digits> expected)`, el mensaje por defecto de Hibernate Validator. |
+  | 400 | `Unit name cannot be blank` (con `error: "Business logic error"`) | `UNIT` sin `unitName`, o en blanco. |
+  | 400 | `Unit amount is required in UNIT mode` | `UNIT` sin `unitAmount`. |
+  | 400 | `Suggested amounts must be distinct` | Repetidos después de escalar a 2 decimales (`5` y `5.00`). |
+  | 400 | `Suggested amounts must be at least <min>` (por ejemplo `4.00`) | Un sugerido menor que el mínimo efectivo. |
+  | 409 | `The request conflicts with existing data` (con `error: "Conflict"`) | Dos primeros `PUT` simultáneos del mismo usuario. |
+
+- **Qué hace** (`DonationSettingsService.updateMyDonationSettings`, `@Transactional`):
+  1. DTO nulo → `400 DTO cannot be null`.
+  2. El usuario sale del token y se lee.
+  3. Busca su fila (`DonationSettingsRepository.findByUserId`); si no hay, prepara una nueva con ese usuario.
+  4. `DonationSettingsValidationService.validateAndApply(settings, dto)`: valida todo y recién después escribe en la entidad.
+  5. Guarda y mapea con `DonationSettingsMapper.toDTO`.
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant DC as DonationSettingsController
+    participant S as DonationSettingsService
+    participant UV as UserValidationService
+    participant R as DonationSettingsRepository
+    participant V as DonationSettingsValidationService
+    participant M as DonationSettingsMapper
+    C->>DC: PUT /api/users/me/donation-settings
+    Note over DC: Bean Validation de UpdateDonationSettingsDTO
+    DC->>S: updateMyDonationSettings(dto)
+    S->>UV: getUserById (id del token)
+    S->>R: findByUserId (o una fila nueva)
+    S->>V: validateAndApply (valida y después asigna)
+    S->>R: save
+    S->>M: toDTO(userId, settings)
+    S-->>C: 200 DonationSettingsResponseDTO
+```
+
+#### `GET /api/users/{userId}/donation-settings`
+
+- **Acceso:** público, también sin token (`/api/users/*/donation-settings` en `PUBLIC_GET_URLS`, solo `GET`). El service resuelve al que llama como opcional (`findAuthenticatedUserId`), pero el token no cambia el contenido: solo decide si un usuario sancionado responde `404` o `200`. Un sancionado que manda su token recibe el `403` del filtro, también el propio usuario.
+- **Parámetros:** `userId` (path, `Long`, mayor que 0).
+- **Respuesta:** `200` con el panel del usuario, o los valores por defecto. Todos los campos son públicos: todos reciben lo mismo.
+- **Errores:**
+
+  | Status | Mensaje | Cuándo |
+  |---|---|---|
+  | 403 | `Your account has been banned. Reason: {motivo}` / `Your account is suspended until {fecha}. Reason: {motivo}` | El que llama manda el token de una cuenta sancionada (filtro JWT). |
+  | 400 | `Invalid value '{valor}' for parameter 'userId'` (con `error: "Invalid parameter"`) | `userId` no es un número. |
+  | 400 | `ID must be a positive number` (con `error: "Business logic error"`) | `userId <= 0`. |
+  | 404 | `User not found` | El usuario no existe o está borrado, también para un ADMIN. |
+  | 404 | `User not found` | El usuario está baneado o suspendido y el que llama no es él mismo ni ADMIN. |
+
+- **Qué hace** (`DonationSettingsService.getDonationSettings`): sigue el orden de `SupporterService.getSupporters`: valida `userId`; `UserValidationService.getUserById`; obtiene al que llama (opcional); si no es el propio usuario ni un ADMIN (`RoleValidationService.isAdmin`), `validateProfileNotSanctioned`, y en ese caso no se lee la configuración; responde su fila o los valores por defecto.
+
 ## Clases involucradas
 
 | Capa | Clase |
 |---|---|
-| Controller | `controller/donation/DonationController.java`, `controller/donation/SupporterController.java` (supporters y feed de apoyos, bajo `/api/users/{userId}`) |
-| Service | `service/donation/DonationService.java`, `service/donation/SupporterService.java` (`getSupporters`, `getSupportFeed`) |
-| Validation | `validation/donation/DonationValidationService.java` (`isCampaignPublic`, para el feed), `validation/common/TextValidationService.java` (texto obligatorio del mensaje y la respuesta), `validation/common/SortValidationService.java` (paginación de supporters, del feed y de `/received`) |
+| Controller | `controller/donation/DonationController.java`, `controller/donation/SupporterController.java` (supporters y feed de apoyos, bajo `/api/users/{userId}`), `controller/donation/DonationSettingsController.java` (ajustes del panel, bajo `/api/users`) |
+| Service | `service/donation/DonationService.java`, `service/donation/SupporterService.java` (`getSupporters`, `getSupportFeed`), `service/donation/DonationSettingsService.java` (leer y guardar el panel) |
+| Validation | `validation/donation/DonationValidationService.java` (`isCampaignPublic`, para el feed; `validateDirectDonationMinimum`, el mínimo de las directas), `validation/donation/DonationSettingsValidationService.java` (reglas del `PUT` del panel), `validation/common/TextValidationService.java` (texto obligatorio del mensaje, la respuesta y `Unit name`), `validation/common/SortValidationService.java` (paginación de supporters, del feed y de `/received`) |
 | Validation (de campaign) | `validation/campaign/CampaignValidationService.java` (visibilidad; `isPublicCampaign`, para el feed), `validation/campaign/CampaignAuthorizationService.java` (propiedad y visibilidad de la campaña) |
 | Validation (común) | `validation/common/RoleValidationService.java` (`isAdmin`: `DonationService` y `DonationValidationService` para los `transactionId`, los mensajes privados y el borrado de la respuesta; `SupporterService` en supporters y feed) |
 | Validation (de user) | `validation/user/UserValidationService.java` (`getUserById` y `validateProfileNotSanctioned`, al validar el receptor de una donación directa y en supporters y feed) |
 | Service (de campaign) | `service/campaign/CampaignStatusHistoryService.java` |
-| Mapper | `mapper/donation/DonationMapper.java` (`toSupportFeedItemDTO` para el feed; y `mapper/campaign/CampaignMapper.java`, que crea la meta de cada campaña) |
-| Repository | `repository/donation/DonationRepository.java` (`findCompletedByRecipientId`, para el feed), `repository/campaign/GoalRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java` |
-| Entity | `entity/donation/Donation.java`, `entity/donation/DonationStatus.java`, `entity/campaign/Goal.java`, `entity/campaign/Campaign.java`, `entity/user/UserInfo.java` (`autoThanksMessage`) |
-| DTOs | `dtos/donation/CreateDonationDTO.java`, `dtos/donation/DonationCreatedResponseDTO.java`, `dtos/donation/CreateDonationThanksDTO.java`, `dtos/donation/DonationResponseDTO.java`, `dtos/donation/CampaignStatisticsDTO.java`, `dtos/donation/SupporterResponseDTO.java`, `dtos/donation/SupportFeedItemDTO.java` |
+| Mapper | `mapper/donation/DonationMapper.java` (`toSupportFeedItemDTO` para el feed; y `mapper/campaign/CampaignMapper.java`, que crea la meta de cada campaña), `mapper/donation/DonationSettingsMapper.java` (el panel; no calcula nada) |
+| Repository | `repository/donation/DonationRepository.java` (`findCompletedByRecipientId`, para el feed), `repository/donation/DonationSettingsRepository.java` (`findByUserId`), `repository/campaign/GoalRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java` |
+| Entity | `entity/donation/Donation.java`, `entity/donation/DonationStatus.java`, `entity/donation/DonationSettings.java`, `entity/donation/DonationMode.java`, `entity/donation/DonationCtaText.java`, `entity/campaign/Goal.java`, `entity/campaign/Campaign.java`, `entity/user/UserInfo.java` (`autoThanksMessage`) |
+| DTOs | `dtos/donation/CreateDonationDTO.java`, `dtos/donation/DonationCreatedResponseDTO.java`, `dtos/donation/CreateDonationThanksDTO.java`, `dtos/donation/DonationResponseDTO.java`, `dtos/donation/CampaignStatisticsDTO.java`, `dtos/donation/SupporterResponseDTO.java`, `dtos/donation/SupportFeedItemDTO.java`, `dtos/donation/UpdateDonationSettingsDTO.java`, `dtos/donation/DonationSettingsResponseDTO.java` |
 | Seguridad | `security/AuthenticatedUserService.java`, `security/SecurityConfig.java`, `security/JwtAuthenticationFilter.java`, `validation/auth/AccountStatusValidationService.java` (mensajes del `403`) |
 | Errores | `exception/GlobalExceptionHandler.java`, `exception/MessageException.java`, `exception/ResourceNotFoundException.java`, `exception/ForbiddenActionException.java`, `exception/ConflictException.java` |
 

@@ -115,6 +115,20 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+    DonationSettings {
+        bigint id PK
+        bigint user_id FK "UK, una fila por usuario como máximo"
+        string mode "DonationMode"
+        string unit_name "30, solo UNIT"
+        decimal unit_amount "15,2, solo UNIT"
+        decimal minimum_amount "15,2, null = sin mínimo"
+        decimal suggested_amount_1 "15,2, de menor a mayor"
+        decimal suggested_amount_2 "15,2"
+        decimal suggested_amount_3 "15,2"
+        string cta_text "DonationCtaText"
+        datetime created_at
+        datetime updated_at
+    }
     Publication {
         bigint id PK
         bigint user_id FK "autor"
@@ -205,6 +219,7 @@ erDiagram
     User ||--o{ Donation : "donor_user_id"
     User ||--o{ Donation : "recipient_user_id"
     Campaign |o--o{ Donation : "campaign_id (opcional)"
+    User ||--o| DonationSettings : "user_id (sin lado inverso en User)"
     User ||--o{ Publication : "user_id"
     Campaign ||--o{ Publication : "campaign_id"
     User ||--o{ PublicationLike : "user_id"
@@ -259,6 +274,7 @@ erDiagram
 | Entidad | Archivo | Tabla | Campos relevantes | Relaciones |
 |---|---|---|---|---|
 | `Donation` | `entity/donation/Donation.java` | `donation` | `amount`, `status` (`DonationStatus`), `transactionId` (`unique`), `message` (opcional, hasta 280), `messagePrivate` (`bit NOT NULL`, default `0`), la respuesta del receptor `thanksMessage` (opcional, hasta 280), `thanksPrivate` (`bit NOT NULL`, default `0`) y `thankedAt`, `createdAt`, `updatedAt`, y las copias de solo lectura `campaignId`, `donorUserId` y `recipientUserId` | `donor`, `recipient` y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). `campaign` es opcional: una donación directa tiene `campaign_id` y `campaign` en `null`. `recipient` es el dueño de la campaña, o el usuario de una donación directa. |
+| `DonationSettings` | `entity/donation/DonationSettings.java` | `donation_settings` | `mode` (`DonationMode`), `unitName` (30), `unitAmount`, `minimumAmount`, `suggestedAmount1..3` (sin getter ni setter, ver [Donation](dominios/donation.md#entidad-donationsettings-entitydonationdonationsettingsjava-tabla-donation_settings)), `ctaText` (`DonationCtaText`), `createdAt`, `updatedAt` | `user` (`@OneToOne` LAZY, `optional = false`, `UNIQUE`, `updatable = false`). Una fila por usuario como máximo, creada por el primer `PUT`. Sin borrado lógico ni cascada. |
 | `Publication` | `entity/publication/Publication.java` | `publication` | `description`, `createdAt`, `updatedAt`, `deletedAt`, y la copia de solo lectura `campaignId` | `user` (autor) y `campaign` (`@ManyToOne` con `@NotFound`, no actualizables). |
 | `PublicationLike` | `entity/publication/PublicationLike.java` | `publication_like` | `createdAt` | `publication` y `user` (`@ManyToOne` LAZY, `optional = false`, sin `@NotFound`). `UNIQUE (publication_id, user_id)` (`uk_publication_like_publication_user`): un like por usuario y publicación. Sin borrado lógico ni cascada. |
 | `Comment` | `entity/comment/Comment.java` | `comment` | `text` (hasta 280), `createdAt`, `deletedAt`, y la copia de solo lectura `publicationId` | `user` (autor, `@ManyToOne` con `@NotFound`, no actualizable) y `publication` (`@ManyToOne` LAZY, `optional = false`, no actualizable, sin `@NotFound`). Índice `idx_comment_publication_created (publication_id, created_at)`. Sin `updatedAt` ni cascada. Ver [Comment](dominios/comment.md). |
@@ -301,6 +317,7 @@ JPA carga por defecto en forma **EAGER** las relaciones `@ManyToOne` y `@OneToOn
 | `CampaignCategory.category` | `@ManyToOne` | EAGER | — | `optional = false`. |
 | `CampaignStatusHistory.campaign`, `.changedBy` | `@ManyToOne` | EAGER | — | Sin `@NotFound`. |
 | `Donation.donor`, `.recipient`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
+| `DonationSettings.user` | `@OneToOne` | LAZY | — | `optional = false`, `unique`, `updatable = false`, sin `@NotFound`. Solo el lado dueño: `User` no tiene `donationSettings`. Un lado inverso se carga con otra consulta aunque sea LAZY y sumaría un `SELECT` a cada lectura de usuarios. |
 | `Publication.user`, `.campaign` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. |
 | `PublicationLike.publication`, `.user` | `@ManyToOne` | LAZY | — | `optional = false`, sin `@NotFound`. |
 | `Comment.user` | `@ManyToOne` | EAGER | — | `@NotFound(IGNORE)`, `updatable = false`. El `@NotFound` la vuelve EAGER y hace que Hibernate no exporte su FK. |
@@ -329,6 +346,8 @@ Todos los enums que se guardan en la base usan `@Enumerated(EnumType.STRING)`: l
 |---|---|---|---|---|
 | `CampaignStatus` | `entity/campaign/CampaignStatus.java` | `ACTIVE`, `COMPLETED`, `CLOSED` | `Goal.status`, `CampaignStatusHistory.previousStatus` y `.newStatus` (`VARCHAR(50)`) | Máquina de estados en [Campaign](dominios/campaign.md). |
 | `DonationStatus` | `entity/donation/DonationStatus.java` | `PENDING`, `COMPLETED`, `FAILED`, `REFUNDED` | `Donation.status` (`VARCHAR(20)`) | La entidad usa `PENDING` por defecto, pero la aprobación es simulada: `DonationService` crea cada donación directamente en `COMPLETED`. Ver [Donation](dominios/donation.md). |
+| `DonationMode` | `entity/donation/DonationMode.java` | `SIMPLE`, `UNIT` | `DonationSettings.mode` (`VARCHAR(10)`) | Por defecto `SIMPLE`. La `CHECK` tiene un nombre generado por Hibernate: un valor nuevo necesita recrearla. Ver [Donation](dominios/donation.md). |
+| `DonationCtaText` | `entity/donation/DonationCtaText.java` | `TIP`, `DONATE` | `DonationSettings.ctaText` (`VARCHAR(10)`) | Por defecto `DONATE`. Misma nota sobre la `CHECK`. |
 | `SocialPlatform` | `entity/user/SocialPlatform.java` | `INSTAGRAM`, `X`, `TIKTOK`, `YOUTUBE`, `TWITCH`, `FACEBOOK`, `LINKEDIN`, `GITHUB`, `OTHER` | `UserSocialLink.platform` (`VARCHAR(20)`) | Cada valor lleva los dominios que acepta su enlace (`OTHER`, ninguno: acepta cualquiera). El orden de declaración es el orden en que se devuelven los enlaces en las respuestas. Un valor nuevo necesita recrear la `CHECK` que genera Hibernate para la columna. Ver [User](dominios/user.md). |
 | `ReportStatus` | `entity/report/ReportStatus.java` | `PENDING`, `UNDER_REVIEW`, `RESOLVED`, `REJECTED` | `Report.status` | Por defecto `PENDING`. Ver [Report](dominios/report.md). |
 | `ReportReason` | `entity/report/ReportReason.java` | `SPAM`, `INAPPROPRIATE_CONTENT`, `HARASSMENT`, `FRAUD`, `MISINFORMATION`, `IMPERSONATION`, `OTHER` | `Report.reason` | |
@@ -418,7 +437,7 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 | Mecanismo | Entidades |
 |---|---|
 | `@CreationTimestamp` / `@UpdateTimestamp` de Hibernate y además `@PrePersist` / `@PreUpdate` | `Campaign`, `Goal`, `Donation` |
-| Solo `@PrePersist` / `@PreUpdate` | `User`, `BankAccount`, `Report`, `Publication` (en `Publication` el mapper también las asigna) |
+| Solo `@PrePersist` / `@PreUpdate` | `User`, `BankAccount`, `Report`, `DonationSettings`, `Publication` (en `Publication` el mapper también las asigna) |
 | Solo `@PrePersist` (sin `updatedAt`) | `PublicationLike`, `Comment` |
 | `@CreationTimestamp` solo | `CampaignStatusHistory.changedAt` |
 | Asignadas a mano en service, validation o mapper | `UserInfo`, `VerificationRequest`, `Follower.createdAt` |
@@ -428,7 +447,7 @@ No hay un mecanismo único para `createdAt` y `updatedAt`:
 
 ## Lombok en las entidades
 
-Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `UserSocialLink` y `UserTag` también excluyen su `user` de `toString` pero, además, usan `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` con su clave natural (`platform` y `tag`), `Comment` excluye sus dos relaciones (`user` y `publication`) y `PublicationLike` las suyas (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas (incluidas `socialLinks` y `tags`).
+Las entidades usan `@Data` (getters, setters, `equals`, `hashCode` y `toString` con todos los campos), casi siempre con `@Builder`, `@NoArgsConstructor` y `@AllArgsConstructor`. En las relaciones bidireccionales, `@EqualsAndHashCode(exclude = ...)` y `@ToString(exclude = ...)` sacan el lado que vuelve hacia el padre para evitar recursión: `UserInfo`, `UserCategory`, `BankAccount`, `VerificationRequest` y `CampaignCategory` excluyen su `user` o `campaign`, `UserSocialLink` y `UserTag` también excluyen su `user` de `toString` pero, además, usan `@EqualsAndHashCode(onlyExplicitlyIncluded = true)` con su clave natural (`platform` y `tag`), `DonationSettings` excluye su `user` (LAZY, para que `toString` y `equals` no carguen el proxy), `Comment` excluye sus dos relaciones (`user` y `publication`) y `PublicationLike` las suyas (`publication` y `user`, LAZY) para que `toString` y `equals` no carguen los proxies, y `User` excluye sus colecciones y relaciones inversas (incluidas `socialLinks` y `tags`).
 
 Dos detalles a tener en cuenta al tocar entidades:
 
@@ -519,6 +538,6 @@ No hay endpoint para crear administradores: `POST /api/users/create` siempre asi
 
 ## Clases involucradas
 
-- Entidades: todo `entity/` (20 entidades y 8 enums).
-- Repositorios con queries de soft delete, sanción o fetch: `repository/user/UserRepository.java`, `repository/user/UserSocialLinkRepository.java`, `repository/user/UserTagRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
+- Entidades: todo `entity/` (21 entidades y 10 enums).
+- Repositorios con queries de soft delete, sanción o fetch: `repository/user/UserRepository.java`, `repository/user/UserSocialLinkRepository.java`, `repository/user/UserTagRepository.java`, `repository/campaign/CampaignRepository.java`, `repository/campaign/CampaignCategoryRepository.java`, `repository/campaign/GoalRepository.java`, `repository/donation/DonationRepository.java`, `repository/donation/DonationSettingsRepository.java`, `repository/follower/FollowerRepository.java`, `repository/publication/PublicationRepository.java`, `repository/publication/PublicationLikeRepository.java`, `repository/comment/CommentRepository.java`, `repository/report/ReportRepository.java`, `repository/bankaccount/BankAccountRepository.java`.
 - Configuración y scripts: `src/main/resources/application.properties`, `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`, `src/main/resources/data.sql`, `init-db.sql`, `scripts/create-admin-user.sql`, `scripts/migrate-donation-recipient.sql`, `scripts/update-report-entity-type-check.sql`.

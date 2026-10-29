@@ -10,8 +10,8 @@ El cobro no es real: una donación se aprueba sola en el momento (aprobación si
 
 | Actor | Cómo se identifica | Qué puede hacer |
 |---|---|---|
-| **Visitante** | Sin token | Registrarse, iniciar sesión, ver las categorías, listar y ver campañas visibles con sus publicaciones (y cuántos likes tiene cada una), leer los comentarios de las publicaciones, sus donaciones y sus estadísticas, ver los supporters de un creador (sin importes) y su feed de apoyos (sin importes ni datos privados). |
-| **USER** | JWT con rol `USER` | Todo lo del visitante, más: gestionar su perfil y personalizarlo con portada, video, web, redes y etiquetas, crear y gestionar sus campañas, publicar en ellas, dar y quitar like a publicaciones, comentarlas y borrar sus comentarios y los de sus publicaciones, donar, seguir usuarios, vincular cuentas bancarias, reportar contenido y pedir la verificación de su cuenta. Ve los importes de sus propios supporters. |
+| **Visitante** | Sin token | Registrarse, iniciar sesión, ver las categorías, listar y ver campañas visibles con sus publicaciones (y cuántos likes tiene cada una), leer los comentarios de las publicaciones, sus donaciones y sus estadísticas, ver los supporters de un creador (sin importes) su feed de apoyos (sin importes ni datos privados) y el panel de donación de un creador. |
+| **USER** | JWT con rol `USER` | Todo lo del visitante, más: gestionar su perfil y personalizarlo con portada, video, web, redes y etiquetas, crear y gestionar sus campañas, publicar en ellas, dar y quitar like a publicaciones, comentarlas y borrar sus comentarios y los de sus publicaciones, donar, seguir usuarios, vincular cuentas bancarias, reportar contenido y pedir la verificación de su cuenta, y configurar su panel de donación. Ve los importes de sus propios supporters. |
 | **ADMIN** | JWT con rol `ADMIN` | Todo lo anterior, más: listar usuarios, gestionar categorías, revisar y resolver reportes (con sanciones), procesar solicitudes de verificación y ver lo que está oculto para el resto (campañas `CLOSED` ajenas y usuarios sancionados) y los importes de los supporters de cualquier creador. |
 
 Las rutas públicas están definidas en `security/SecurityConfig.java`. El detalle está en [Seguridad](03-seguridad.md).
@@ -24,7 +24,7 @@ Las rutas públicas están definidas en `security/SecurityConfig.java`. El detal
 | `user` | Registro, perfil propio, mensaje de agradecimiento predeterminado, perfil público, baja de la cuenta y listado de usuarios (ADMIN). | 9 | [dominios/user.md](dominios/user.md) |
 | `category` | Categorías que clasifican campañas e intereses de usuarios; el ADMIN las gestiona. | 4 | [dominios/category.md](dominios/category.md) |
 | `campaign` | Campañas con meta, estados (`ACTIVE`, `COMPLETED`, `CLOSED`), historial de transiciones y visibilidad. | 9 | [dominios/campaign.md](dominios/campaign.md) |
-| `donation` | Donar a una campaña o a un creador, responder una donación, mis donaciones, donaciones recibidas, donaciones de una campaña, sus estadísticas, los supporters de un creador y su feed de apoyos. | 9 | [dominios/donation.md](dominios/donation.md) |
+| `donation` | Donar a una campaña o a un creador, responder una donación, mis donaciones, donaciones recibidas, donaciones de una campaña, sus estadísticas, los supporters de un creador, su feed de apoyos y configurar el panel de donación. | 12 | [dominios/donation.md](dominios/donation.md) |
 | `follower` | Seguir y dejar de seguir usuarios, listas y contadores. | 7 | [dominios/follower.md](dominios/follower.md) |
 | `publication` | Novedades que el dueño publica dentro de su campaña, y los likes que reciben. | 5 | [dominios/publication.md](dominios/publication.md) |
 | `comment` | Comentarios en publicaciones visibles: comentar, listar (público y paginado) y borrar. | 3 | [dominios/comment.md](dominios/comment.md) |
@@ -32,7 +32,7 @@ Las rutas públicas están definidas en `security/SecurityConfig.java`. El detal
 | `verification` | Solicitud de verificación de cuenta y su resolución por un ADMIN. | 3 | [dominios/verification.md](dominios/verification.md) |
 | `report` | Reportes de usuarios, campañas y publicaciones, y su moderación. | 5 | [dominios/report.md](dominios/report.md) |
 
-Son 61 endpoints en total. Además, Swagger UI y la especificación OpenAPI se generan automáticamente a partir de los controllers (ver [Seguridad](03-seguridad.md)).
+Son 64 endpoints en total. Además, Swagger UI y la especificación OpenAPI se generan automáticamente a partir de los controllers (ver [Seguridad](03-seguridad.md)).
 
 ## Stack
 
