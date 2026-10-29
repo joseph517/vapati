@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -57,5 +58,12 @@ public interface FollowerRepository extends JpaRepository<Follower, Long> {
     @Query("SELECT COUNT(f) FROM Follower f JOIN f.user u WHERE f.follower = :follower AND u.deletedAt IS NULL AND " +
             UserRepository.NOT_SANCTIONED)
     long countVisibleByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
+
+    // Bulk delete of the follows in both directions between two users: a derived delete would load the rows first.
+    // Idempotent: returns 0 if they didn't follow each other
+    @Modifying
+    @Query("DELETE FROM Follower f WHERE (f.user.id = :userId AND f.follower.id = :otherUserId) " +
+            "OR (f.user.id = :otherUserId AND f.follower.id = :userId)")
+    int deleteFollowsBetween(@Param("userId") Long userId, @Param("otherUserId") Long otherUserId);
 
 }

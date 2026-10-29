@@ -3,11 +3,13 @@ package com.vaPaTi.vaPaTi.validation.follower;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.userblock.UserBlockValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
@@ -19,6 +21,7 @@ public class FollowerValidationService {
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
     private final AccountStatusValidationService accountStatusValidationService;
+    private final UserBlockValidationService userBlockValidationService;
 
     /**
      * Check if current user follows another user. For a non-admin, a banned or suspended user is not found.
@@ -115,6 +118,16 @@ public class FollowerValidationService {
         return userRepository.findByIdForRequest(userId)
                 .filter(user -> callerIsAdmin || !accountStatusValidationService.isSanctioned(user))
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+    }
+
+    /**
+     * Validates that there is no block in either direction between the current user and the user to follow.
+     * @param currentUserId ID of the authenticated user
+     * @param userToFollowId ID of the user to follow
+     * @throws ForbiddenActionException if either of them blocked the other
+     */
+    public void validateNoUserBlock(Long currentUserId, Long userToFollowId) {
+        userBlockValidationService.validateNoBlockBetween(currentUserId, userToFollowId);
     }
 
     /**

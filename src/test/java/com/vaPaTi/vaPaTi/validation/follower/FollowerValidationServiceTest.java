@@ -3,11 +3,13 @@ package com.vaPaTi.vaPaTi.validation.follower;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.userblock.UserBlockValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -38,6 +40,9 @@ class FollowerValidationServiceTest {
 
     @Mock
     private AccountStatusValidationService accountStatusValidationService;
+
+    @Mock
+    private UserBlockValidationService userBlockValidationService;
 
     @InjectMocks
     private FollowerValidationService followerValidationService;
@@ -515,6 +520,32 @@ class FollowerValidationServiceTest {
             assertThatThrownBy(() -> followerValidationService.validateAndGetFollowRelation(otherUser, currentUser))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("Follow relationship not found");
+        }
+    }
+
+    @Nested
+    @DisplayName("validateNoUserBlock()")
+    class ValidateNoUserBlockTests {
+
+        @Test
+        @DisplayName("validateNoUserBlock should delegate to the shared check with the current user and the user to follow")
+        void validateNoUserBlock_ShouldDelegateToSharedCheck() {
+            assertThatCode(() -> followerValidationService.validateNoUserBlock(currentUserId, otherUserId))
+                    .doesNotThrowAnyException();
+
+            verify(userBlockValidationService).validateNoBlockBetween(currentUserId, otherUserId);
+            verifyNoInteractions(userRepository, followerRepository);
+        }
+
+        @Test
+        @DisplayName("validateNoUserBlock should propagate the 403 of the shared check with its message")
+        void validateNoUserBlock_WhenBlocked_ShouldPropagateForbidden() {
+            doThrow(new ForbiddenActionException("You cannot interact with this user"))
+                    .when(userBlockValidationService).validateNoBlockBetween(currentUserId, otherUserId);
+
+            assertThatThrownBy(() -> followerValidationService.validateNoUserBlock(currentUserId, otherUserId))
+                    .isExactlyInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("You cannot interact with this user");
         }
     }
 }
