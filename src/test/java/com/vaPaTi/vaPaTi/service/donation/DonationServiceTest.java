@@ -160,6 +160,7 @@ class DonationServiceTest {
             verify(donationValidationService).validateGoalIsActive(testGoal);
             verify(donationValidationService).validateAndGetDonor(TEST_DONOR_ID);
             verify(donationValidationService).validateNotSelfDonation(TEST_DONOR_ID, TEST_CAMPAIGN_OWNER_ID);
+            verify(donationValidationService, never()).validateDirectDonationMinimum(any(), any());
             verify(donationRepository).save(any(Donation.class));
             verify(donationMapper).toDTO(testDonation);
         }
