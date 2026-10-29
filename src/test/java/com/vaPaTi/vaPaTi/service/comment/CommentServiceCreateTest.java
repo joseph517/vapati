@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.dtos.comment.CreateCommentDTO;
 import com.vaPaTi.vaPaTi.entity.comment.Comment;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
 import com.vaPaTi.vaPaTi.entity.user.User;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.comment.CommentMapper;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +28,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -172,6 +176,60 @@ class CommentServiceCreateTest {
                     .hasMessage("Text cannot be blank");
             verify(userRepository, never()).getReferenceById(any());
             verify(commentMapper, never()).toEntity(any(), any(), any());
+            verify(commentRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("createComment - block with the publication author")
+    class Block {
+
+        @Test
+        @DisplayName("Should check the block with the validated publication and the caller, after the visibility and before the text")
+        void shouldCheckBlockBetweenVisibilityAndText() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CALLER_ID);
+            when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, CALLER_ID))
+                    .thenReturn(publication);
+            when(commentValidationService.validateAndNormalizeText(RAW_TEXT)).thenReturn(NORMALIZED_TEXT);
+
+            commentService.createComment(PUBLICATION_ID, dto);
+
+            InOrder order = inOrder(publicationValidationService, commentValidationService, commentRepository);
+            order.verify(publicationValidationService).validateAndGetVisiblePublication(PUBLICATION_ID, CALLER_ID);
+            order.verify(commentValidationService).validateNoBlockWithPublicationAuthor(publication, CALLER_ID);
+            order.verify(commentValidationService).validateAndNormalizeText(RAW_TEXT);
+            order.verify(commentRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("Should propagate the 403 of the block check, without validating the text nor saving")
+        void shouldThrowForbidden_whenBlocked() {
+            dto.setText("   ");
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CALLER_ID);
+            when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, CALLER_ID))
+                    .thenReturn(publication);
+            doThrow(new ForbiddenActionException("You cannot interact with this user"))
+                    .when(commentValidationService).validateNoBlockWithPublicationAuthor(publication, CALLER_ID);
+
+            assertThatThrownBy(() -> commentService.createComment(PUBLICATION_ID, dto))
+                    .isExactlyInstanceOf(ForbiddenActionException.class)
+                    .hasMessage("You cannot interact with this user");
+            verify(commentValidationService, never()).validateAndNormalizeText(any());
+            verify(userRepository, never()).getReferenceById(any());
+            verify(commentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should throw the publication's 404 when it is hidden, without checking the block")
+        void shouldNotCheckBlock_whenPublicationIsHidden() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CALLER_ID);
+            when(publicationValidationService.validateAndGetVisiblePublication(PUBLICATION_ID, CALLER_ID))
+                    .thenThrow(new ResourceNotFoundException("Publication not found with ID: " + PUBLICATION_ID));
+
+            assertThatThrownBy(() -> commentService.createComment(PUBLICATION_ID, dto))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Publication not found with ID: " + PUBLICATION_ID);
+            verify(commentValidationService, never()).validateNoBlockWithPublicationAuthor(any(), any());
             verify(commentRepository, never()).save(any());
         }
     }
