@@ -145,7 +145,7 @@ class DonationServiceDirectTest {
         }
 
         @Test
-        @DisplayName("Should validate recipient, then donor, then self-donation")
+        @DisplayName("Should validate recipient, then donor, then self-donation, then the recipient's minimum")
         void createDonation_Direct_ShouldValidateInOrder() {
             // Given
             givenValidDirectDonation();
@@ -159,6 +159,7 @@ class DonationServiceDirectTest {
             inOrder.verify(donationValidationService).validateAndGetRecipient(RECIPIENT_ID);
             inOrder.verify(donationValidationService).validateAndGetDonor(DONOR_ID);
             inOrder.verify(donationValidationService).validateNotSelfDirectDonation(DONOR_ID, RECIPIENT_ID);
+            inOrder.verify(donationValidationService).validateDirectDonationMinimum(RECIPIENT_ID, AMOUNT);
             inOrder.verify(donationRepository).save(any(Donation.class));
         }
     }
@@ -259,8 +260,27 @@ class DonationServiceDirectTest {
             assertThatThrownBy(() -> donationService.createDonation(dto))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot donate to yourself");
+            verify(donationValidationService, never()).validateDirectDonationMinimum(any(), any());
             verify(donationRepository, never()).save(any());
             verifyNoInteractions(goalRepository, campaignStatusHistoryService);
+        }
+
+        @Test
+        @DisplayName("Should not save when the amount is below the recipient's minimum")
+        void createDonation_Direct_WhenBelowMinimum_ShouldNotSave() {
+            // Given
+            when(donationValidationService.validateAndGetRecipient(RECIPIENT_ID)).thenReturn(recipient);
+            when(donationValidationService.validateAndGetDonor(DONOR_ID)).thenReturn(donor);
+            doThrow(new MessageException("Amount must be at least 20.00"))
+                    .when(donationValidationService).validateDirectDonationMinimum(RECIPIENT_ID, AMOUNT);
+
+            // When & Then
+            assertThatThrownBy(() -> donationService.createDonation(dto))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage("Amount must be at least 20.00");
+            verify(donationValidationService).validateNotSelfDirectDonation(DONOR_ID, RECIPIENT_ID);
+            verify(donationRepository, never()).save(any());
+            verifyNoInteractions(donationMapper, goalRepository, campaignStatusHistoryService);
         }
 
         @Test

@@ -51,6 +51,7 @@ public class SecurityConfig {
             "/api/donations/campaign/*/statistics",
             "/api/users/*/supporters",
             "/api/users/*/support-feed",
+            "/api/users/*/donation-settings",
             "/api/publications/*/comments"
     };
 
@@ -75,6 +76,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         // my-campaigns also matches /api/campaigns/*, so it must stay authenticated before the public GET rule
                         .requestMatchers(HttpMethod.GET, "/api/campaigns/my-campaigns").authenticated()
+                        // me/donation-settings also matches /api/users/*/donation-settings: without this rule an anonymous call would be a 500 instead of a 401
+                        .requestMatchers(HttpMethod.GET, "/api/users/me/donation-settings").authenticated()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_URLS).permitAll()
                         // Reports are protected via @PreAuthorize annotations in ReportController
                         // - POST /api/reports - authenticated users

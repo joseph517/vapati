@@ -87,8 +87,9 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 
 1. `PUBLIC_URLS`: públicas para **cualquier método**.
 2. `GET /api/campaigns/my-campaigns`: autenticada.
-3. `PUBLIC_GET_URLS`: públicas **solo con GET**.
-4. Todo lo demás: autenticado (`anyRequest().authenticated()`).
+3. `GET /api/users/me/donation-settings`: autenticada.
+4. `PUBLIC_GET_URLS`: públicas **solo con GET**.
+5. Todo lo demás: autenticado (`anyRequest().authenticated()`).
 
 **`PUBLIC_URLS`**
 
@@ -112,12 +113,13 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 | `/api/donations/campaign/*/statistics` | Estadísticas de donaciones de una campaña. |
 | `/api/users/*/supporters` | Supporters de un creador (`controller/donation/SupporterController.java`). |
 | `/api/users/*/support-feed` | Feed de apoyos de un creador (`controller/donation/SupporterController.java`). |
+| `/api/users/*/donation-settings` | Ajustes del panel de donación de un usuario (`controller/donation/DonationSettingsController.java`). |
 
-`/api/users/*/supporters` y `/api/users/*/support-feed` son las únicas rutas públicas bajo `/api/users` además de `/api/users/create`. Los patrones terminan en los literales `/supporters` y `/support-feed`, así que `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él). El `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`.
+`/api/users/*/supporters`, `/api/users/*/support-feed` y `/api/users/*/donation-settings` son las únicas rutas públicas bajo `/api/users` además de `/api/users/create`. Los patrones terminan en los literales `/supporters`, `/support-feed` y `/donation-settings`, así que `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él). El `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`.
 
-`/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`.
+`/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`. Lo mismo pasa con `GET /api/users/me/donation-settings`, que coincide con `/api/users/*/donation-settings`: su regla `authenticated()` va también antes de la lista pública, y sin ella un visitante llegaría a `DonationSettingsService.getMyDonationSettings`, que usa `getAuthenticatedUserId()`. `PUT /api/users/me/donation-settings` no coincide con ningún patrón público (son solo `GET`) y cae en `anyRequest().authenticated()`.
 
-En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. En el feed de apoyos el token no cambia el contenido: es la misma vista pública para todos, y solo decide si un creador sancionado da `404` (resto) o `200` (el propio creador o un ADMIN). En los comentarios de una publicación, un ADMIN ve además los comentarios de autores sancionados; para el resto, y para un visitante, esos comentarios se omiten. Solo el `GET` es público: `POST /api/publications/*/comments` y `DELETE /api/comments/*` piden token. Detalle en [Campañas](dominios/campaign.md), [Donaciones](dominios/donation.md) y [Comentarios](dominios/comment.md).
+En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. En el feed de apoyos el token no cambia el contenido: es la misma vista pública para todos, y solo decide si un creador sancionado da `404` (resto) o `200` (el propio creador o un ADMIN). En los ajustes del panel de donación pasa lo mismo. En los comentarios de una publicación, un ADMIN ve además los comentarios de autores sancionados; para el resto, y para un visitante, esos comentarios se omiten. Solo el `GET` es público: `POST /api/publications/*/comments` y `DELETE /api/comments/*` piden token. Detalle en [Campañas](dominios/campaign.md), [Donaciones](dominios/donation.md) y [Comentarios](dominios/comment.md).
 
 No hay reglas por rol en `SecurityConfig`: ninguna ruta pide `hasRole` a nivel de URL. Los roles se controlan con `@PreAuthorize` y la propiedad de los recursos en la capa `validation/`.
 

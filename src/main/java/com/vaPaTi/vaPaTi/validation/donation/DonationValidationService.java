@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
+import com.vaPaTi.vaPaTi.entity.donation.DonationSettings;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
@@ -12,6 +13,7 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
+import com.vaPaTi.vaPaTi.repository.donation.DonationSettingsRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
 import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
@@ -20,6 +22,8 @@ import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,7 @@ public class DonationValidationService {
     private final DonationRepository donationRepository;
     private final UserValidationService userValidationService;
     private final RoleValidationService roleValidationService;
+    private final DonationSettingsRepository donationSettingsRepository;
 
     // Exactly one destination: a campaign or a user (direct donation). Checked before the amount
     public void validateInput(@NotNull CreateDonationDTO dto) {
@@ -107,6 +112,19 @@ public class DonationValidationService {
     public void validateNotSelfDirectDonation(Long donorUserId, Long recipientUserId) {
         if (donorUserId.equals(recipientUserId)) {
             throw new MessageException("Cannot donate to yourself");
+        }
+    }
+
+    // Only for a direct donation, after the recipient and self-donation checks so it never reveals the settings of a
+    // hidden creator. Without a row or without an effective minimum any positive amount passes. Multiples of the
+    // unit are not required. The minimum comes from the database with 2 decimals
+    public void validateDirectDonationMinimum(Long recipientUserId, BigDecimal amount) {
+        BigDecimal effectiveMinimum = donationSettingsRepository.findByUserId(recipientUserId)
+                .map(DonationSettings::getEffectiveMinimumAmount)
+                .orElse(null);
+
+        if (effectiveMinimum != null && amount.compareTo(effectiveMinimum) < 0) {
+            throw new MessageException("Amount must be at least " + effectiveMinimum.toPlainString());
         }
     }
 

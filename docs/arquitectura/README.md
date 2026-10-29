@@ -48,7 +48,7 @@ Esta carpeta explica cómo está construido el backend de VaPaTi: la arquitectur
 | [dominios/user.md](dominios/user.md) | Usuarios y perfiles. |
 | [dominios/category.md](dominios/category.md) | Categorías de campañas y de intereses. |
 | [dominios/campaign.md](dominios/campaign.md) | Campañas, metas y estados. |
-| [dominios/donation.md](dominios/donation.md) | Donaciones a campañas y directas, donaciones recibidas, estadísticas, supporters y feed de apoyos de un creador. |
+| [dominios/donation.md](dominios/donation.md) | Donaciones a campañas y directas, donaciones recibidas, estadísticas, supporters y feed de apoyos de un creador, y ajustes del panel de donación. |
 | [dominios/follower.md](dominios/follower.md) | Seguir a otros usuarios. |
 | [dominios/publication.md](dominios/publication.md) | Publicaciones dentro de una campaña, y los likes que reciben. |
 | [dominios/comment.md](dominios/comment.md) | Comentarios en publicaciones. |

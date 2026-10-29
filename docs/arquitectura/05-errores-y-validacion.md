@@ -130,6 +130,11 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | | `amount` | `@NotNull(message = "Amount is required")`, `@Positive(message = "Amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
 | | `message` | `@Size(max = 280, message = "Message must be at most 280 characters")` (el blanco lo rechaza `DonationValidationService`) |
 | `dtos/donation/CreateDonationThanksDTO.java` | `thanksMessage` | `@Size(max = 280, message = "Thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `DonationValidationService`) |
+| `dtos/donation/UpdateDonationSettingsDTO.java` | `mode` | `@NotNull(message = "Mode is required")` |
+| | `unitName` | `@Size(max = 30, message = "Unit name must be at most 30 characters")` (que `UNIT` lo exija lo valida `DonationSettingsValidationService`) |
+| | `unitAmount`, `minimumAmount` | `@Positive(message = "Unit amount must be greater than zero")` / `@Positive(message = "Minimum amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
+| | `suggestedAmounts` | `@Size(max = 3, message = "At most 3 suggested amounts are allowed")`; cada elemento: `@NotNull(message = "Suggested amount is required")`, `@Positive(message = "Suggested amount must be greater than zero")`, `@Digits(integer = 13, fraction = 2)` |
+| | `ctaText` | `@NotNull(message = "CTA text is required")` |
 | `dtos/user/UpdateAutoThanksDTO.java` | `autoThanksMessage` | `@Size(max = 280, message = "Auto thanks message must be at most 280 characters")` (ausente o en blanco lo rechaza `UserProfileValidationService`) |
 | `dtos/publication/CreatePublicationDTO.java` | `description` | `@NotBlank`, `@Size(max = 255)` |
 | `dtos/comment/CreateCommentDTO.java` | `text` | `@Size(max = 280, message = "Text must be at most 280 characters")`, sin `@NotBlank` (ausente o en blanco lo rechaza `CommentValidationService`) |
@@ -162,9 +167,9 @@ Ningún controller usa `@Validated` a nivel de clase, así que no aparecen `Cons
 | `dtos/verification/ProcessVerificationRequestDTO.java` | `requestId` | `@NotNull`, `@Positive` |
 | | `status` | `@NotNull` |
 
-Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, `Donation.thanksMessage`, `UserInfo.autoThanksMessage` y `Comment.text`, que declaran `length = 280` igual que su `@Size`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
+Ningún `@Size` supera el largo de su columna: los `String` de las entidades no declaran `length`, así que Hibernate los crea con 255, salvo `Donation.message`, `Donation.thanksMessage`, `UserInfo.autoThanksMessage` y `Comment.text`, que declaran `length = 280` igual que su `@Size`, y `DonationSettings.unitName`, que declara `length = 30`, y la descripción del reporte es `TEXT`. Un texto demasiado largo se rechaza con `400` en lugar de llegar a la base y volver como `DataIntegrityViolationException` (`409`). `@Digits(integer = 13, fraction = 2)` cumple el mismo papel con los montos, que en la base son `precision = 15, scale = 2` (`entity/campaign/Goal.java`, `entity/donation/Donation.java`).
 
-La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `CreateDonationThanksDTO`, `CreateCommentDTO`, `UpdateAutoThanksDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
+La mayoría de las anotaciones no define `message`, así que el cliente recibe el texto por defecto de Hibernate Validator en inglés (`must not be blank`, `size must be between 0 and 255`, `must be greater than 0`). Solo `CreateDonationDTO`, `CreateDonationThanksDTO`, `UpdateDonationSettingsDTO` (menos los `@Digits`), `CreateCommentDTO`, `UpdateAutoThanksDTO`, `UpdateBankAccountDTO` y los `@Pattern` de los DTOs de actualización traen mensajes propios.
 
 `fields` es un mapa con una entrada por campo: si un mismo campo viola dos reglas a la vez (por ejemplo `categoryIds: []` viola `@NotEmpty` y `@Size(min = 1)`), solo se ve uno de los dos mensajes.
 
@@ -229,7 +234,7 @@ En los supporters, los campos de orden no son columnas: el servicio lee `sortBy`
 
 ### `validation/common/TextValidationService.java`
 
-Regla de texto obligatorio que comparten cuatro usos en tres dominios. Un solo método, `normalizeRequiredText(text, fieldLabel, maxLength)`, que lanza `MessageException` (`400 Business logic error`) o devuelve el texto con `trim`:
+Regla de texto obligatorio que comparten cinco usos en tres dominios. Un solo método, `normalizeRequiredText(text, fieldLabel, maxLength)`, que lanza `MessageException` (`400 Business logic error`) o devuelve el texto con `trim`:
 
 | Regla | Mensaje |
 |---|---|
@@ -242,8 +247,9 @@ Regla de texto obligatorio que comparten cuatro usos en tres dominios. Un solo m
 | `DonationValidationService.validateAndNormalizeThanksMessage` | `Thanks message` | 280 | La respuesta del receptor a una donación. |
 | `UserProfileValidationService.validateAndNormalizeAutoThanksMessage` | `Auto thanks message` | 280 | El mensaje predeterminado del usuario. |
 | `CommentValidationService.validateAndNormalizeText` | `Text` | 280 | El texto de un comentario; obligatorio. |
+| `DonationSettingsValidationService.validateAndApply` | `Unit name` | 30 | El nombre de la unidad del panel de donación; solo en modo `UNIT`. |
 
-En los cuatro casos el DTO tiene además un `@Size(max = 280)` con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
+En los cinco casos el DTO tiene además un `@Size` (280, y 30 para `Unit name`) con su propio mensaje, que corta antes (`400 Validation failed`, con `fields`). `@Size` mide el texto con los espacios de los extremos, así que el chequeo de largo del servicio no se alcanza por la API. El blanco sí lo rechaza el servicio y no el DTO, porque es una regla de negocio.
 
 ### `validation/common/UrlValidationService.java`
 

@@ -82,6 +82,7 @@ public class DonationService {
             recipient = donationValidationService.validateAndGetRecipient(dto.getRecipientUserId());
             donor = donationValidationService.validateAndGetDonor(donorUserId);
             donationValidationService.validateNotSelfDirectDonation(donorUserId, recipient.getId());
+            donationValidationService.validateDirectDonationMinimum(recipient.getId(), dto.getAmount());
         }
 
         // Auto-approve: System simulates validation

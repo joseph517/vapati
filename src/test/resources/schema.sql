@@ -2,6 +2,7 @@
 -- This script creates all necessary tables and initial data for integration tests
 
 -- Drop tables if they exist (in reverse dependency order)
+IF OBJECT_ID('donation_settings', 'U') IS NOT NULL DROP TABLE donation_settings;
 IF OBJECT_ID('comment', 'U') IS NOT NULL DROP TABLE comment;
 IF OBJECT_ID('publication_like', 'U') IS NOT NULL DROP TABLE publication_like;
 IF OBJECT_ID('donation', 'U') IS NOT NULL DROP TABLE donation;
@@ -255,6 +256,25 @@ CREATE TABLE donation (
     FOREIGN KEY (recipient_user_id) REFERENCES [user](id) ON DELETE NO ACTION,
     FOREIGN KEY (campaign_id) REFERENCES campaign(id) ON DELETE NO ACTION,
     CHECK (amount > 0)
+);
+
+-- Create donation_settings table (a creator's donation panel, one row per user at most)
+CREATE TABLE donation_settings (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    mode VARCHAR(10) NOT NULL,
+    unit_name VARCHAR(30) NULL,
+    unit_amount DECIMAL(15,2) NULL,
+    minimum_amount DECIMAL(15,2) NULL,
+    suggested_amount_1 DECIMAL(15,2) NULL,
+    suggested_amount_2 DECIMAL(15,2) NULL,
+    suggested_amount_3 DECIMAL(15,2) NULL,
+    cta_text VARCHAR(10) NOT NULL,
+    created_at DATETIME2 NULL,
+    updated_at DATETIME2 NULL,
+    FOREIGN KEY (user_id) REFERENCES [user](id) ON DELETE CASCADE,
+    CHECK (mode IN ('SIMPLE', 'UNIT')),
+    CHECK (cta_text IN ('TIP', 'DONATE'))
 );
 
 -- Create report table (content/user moderation reports)
