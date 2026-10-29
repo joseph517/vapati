@@ -11,7 +11,6 @@ import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.donation.DonationSettingsMapper;
 import com.vaPaTi.vaPaTi.repository.donation.DonationSettingsRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
-import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.donation.DonationSettingsValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,8 +51,6 @@ class DonationSettingsServiceUpdateTest {
     private UserValidationService userValidationService;
     @Mock
     private AuthenticatedUserService authenticatedUserService;
-    @Mock
-    private RoleValidationService roleValidationService;
     @Mock
     private DonationSettingsValidationService donationSettingsValidationService;
 
