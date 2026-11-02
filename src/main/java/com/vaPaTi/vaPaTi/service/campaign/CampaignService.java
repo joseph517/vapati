@@ -7,6 +7,7 @@ import com.vaPaTi.vaPaTi.dtos.campaign.UpdateCampaignRequestDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignCategory;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
+import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatusHistory;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.category.Category;
 import com.vaPaTi.vaPaTi.entity.user.User;
@@ -21,6 +22,7 @@ import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
@@ -49,12 +51,13 @@ public class CampaignService {
     private final CampaignStatusHistoryService campaignStatusHistoryService;
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
     private final EntityManager entityManager;
+    private final RoleValidationService roleValidationService;
 
     // Public listings: admins see every campaign, everyone else (anonymous included) only their own CLOSED ones
     @Transactional
     public List<CampaignResponseDTO> getAllCampaigns() {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+        List<Campaign> campaigns = roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findAllWithActiveOwner()
                 : campaignRepository.findAllVisibleTo(callerId, LocalDateTime.now());
 
@@ -112,7 +115,7 @@ public class CampaignService {
         CampaignStatus campaignStatus = campaignValidationService.parseStatus(status);
 
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+        List<Campaign> campaigns = roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findByGoalStatusWithActiveOwner(campaignStatus)
                 : campaignRepository.findByGoalStatusVisibleTo(campaignStatus, callerId, LocalDateTime.now());
 
@@ -122,7 +125,7 @@ public class CampaignService {
     @Transactional
     public List<CampaignResponseDTO> getCampaignsByCategoryId(Long categoryId) {
         Long callerId = authenticatedUserService.findAuthenticatedUserId().orElse(null);
-        List<Campaign> campaigns = campaignAuthorizationService.isAdmin(callerId)
+        List<Campaign> campaigns = roleValidationService.isAdmin(callerId)
                 ? campaignRepository.findByCategoryIdWithActiveOwner(categoryId)
                 : campaignRepository.findByCategoryIdVisibleTo(categoryId, callerId, LocalDateTime.now());
 
@@ -237,10 +240,14 @@ public class CampaignService {
             if (goal.getStatus() != CampaignStatus.CLOSED) {
                 CampaignStatus previousStatus = goal.getStatus();
                 goal.setStatus(CampaignStatus.CLOSED);
-                campaignStatusHistoryService.recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, changedByUserId);
+                CampaignStatusHistory history = campaignStatusHistoryService
+                        .recordTransition(campaign, previousStatus, CampaignStatus.CLOSED, changedByUserId);
                 // Flush before deleting: the delete cascades to the goal, and Hibernate skips
                 // the pending status update of an entity scheduled for removal.
                 campaignRepository.saveAndFlush(campaign);
+                // The history row is already written. Detach it so the commit flush does not see a managed
+                // entity pointing at a removed campaign, which Hibernate 6.6 rejects as a transient reference.
+                entityManager.detach(history);
             }
         }
 

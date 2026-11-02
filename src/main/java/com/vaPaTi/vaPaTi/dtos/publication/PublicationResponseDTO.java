@@ -22,4 +22,7 @@ public class PublicationResponseDTO {
     private String firstName;
     private String lastName;
     private String userName;
+
+    private Long likesCount;     // likes of active users that are not banned or suspended
+    private Boolean likedByMe;   // false for an anonymous caller
 }

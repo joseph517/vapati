@@ -5,6 +5,7 @@ import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.campaign.CampaignStatus;
 import com.vaPaTi.vaPaTi.entity.campaign.Goal;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
+import com.vaPaTi.vaPaTi.entity.donation.DonationSettings;
 import com.vaPaTi.vaPaTi.entity.donation.DonationStatus;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
@@ -12,14 +13,17 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
+import com.vaPaTi.vaPaTi.repository.donation.DonationSettingsRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -32,8 +36,9 @@ public class DonationValidationService {
     private final UserRepository userRepository;
     private final TextValidationService textValidationService;
     private final DonationRepository donationRepository;
-    private final CampaignAuthorizationService campaignAuthorizationService;
     private final UserValidationService userValidationService;
+    private final RoleValidationService roleValidationService;
+    private final DonationSettingsRepository donationSettingsRepository;
 
     // Exactly one destination: a campaign or a user (direct donation). Checked before the amount
     public void validateInput(@NotNull CreateDonationDTO dto) {
@@ -95,7 +100,7 @@ public class DonationValidationService {
     // ADMIN donor, so a sanction is not revealed. The role is LAZY: read it inside the caller's transaction
     public User validateAndGetRecipient(Long recipientUserId) {
         User recipient = userValidationService.getUserById(recipientUserId);
-        userValidationService.validateProfileNotBlocked(recipient);
+        userValidationService.validateProfileNotSanctioned(recipient);
 
         if (!RECIPIENT_ROLE.equals(recipient.getRole().getName())) {
             throw new MessageException("Cannot donate to an admin");
@@ -107,6 +112,19 @@ public class DonationValidationService {
     public void validateNotSelfDirectDonation(Long donorUserId, Long recipientUserId) {
         if (donorUserId.equals(recipientUserId)) {
             throw new MessageException("Cannot donate to yourself");
+        }
+    }
+
+    // Only for a direct donation, after the recipient and self-donation checks so it never reveals the settings of a
+    // hidden creator. Without a row or without an effective minimum any positive amount passes. Multiples of the
+    // unit are not required. The minimum comes from the database with 2 decimals
+    public void validateDirectDonationMinimum(Long recipientUserId, BigDecimal amount) {
+        BigDecimal effectiveMinimum = donationSettingsRepository.findByUserId(recipientUserId)
+                .map(DonationSettings::getEffectiveMinimumAmount)
+                .orElse(null);
+
+        if (effectiveMinimum != null && amount.compareTo(effectiveMinimum) < 0) {
+            throw new MessageException("Amount must be at least " + effectiveMinimum.toPlainString());
         }
     }
 
@@ -127,6 +145,13 @@ public class DonationValidationService {
         }
     }
 
+    // Only for a campaign donation (campaignId set). A soft-deleted campaign leaves the relation null (@NotFound)
+    // and is not public; otherwise the campaign domain decides, so the CLOSED rule has a single source
+    public boolean isCampaignPublic(Donation donation) {
+        return donation.getCampaign() != null
+                && campaignValidationService.isPublicCampaign(donation.getCampaign());
+    }
+
     // Only the recipient replies (the campaign owner in a campaign donation): an ADMIN can delete a reply but not write one
     public void validateIsRecipient(Donation donation, Long callerId) {
         if (!isRecipient(donation, callerId)) {
@@ -137,7 +162,7 @@ public class DonationValidationService {
     }
 
     public void validateIsRecipientOrAdmin(Donation donation, Long callerId) {
-        if (!isRecipient(donation, callerId) && !campaignAuthorizationService.isAdmin(callerId)) {
+        if (!isRecipient(donation, callerId) && !roleValidationService.isAdmin(callerId)) {
             throw new ForbiddenActionException(isCampaignDonation(donation)
                     ? "Only the campaign owner or an admin can delete this reply"
                     : "Only the recipient or an admin can delete this reply");

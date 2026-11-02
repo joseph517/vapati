@@ -16,7 +16,7 @@ public class CampaignStatusHistoryService {
     private final CampaignStatusHistoryRepository campaignStatusHistoryRepository;
     private final UserRepository userRepository;
 
-    public void recordTransition(Campaign campaign, CampaignStatus previousStatus, CampaignStatus newStatus, Long changedByUserId) {
+    public CampaignStatusHistory recordTransition(Campaign campaign, CampaignStatus previousStatus, CampaignStatus newStatus, Long changedByUserId) {
         User changedBy = changedByUserId != null ? userRepository.findById(changedByUserId).orElse(null) : null;
 
         CampaignStatusHistory history = CampaignStatusHistory.builder()
@@ -26,6 +26,6 @@ public class CampaignStatusHistoryService {
                 .changedBy(changedBy)
                 .build();
 
-        campaignStatusHistoryRepository.save(history);
+        return campaignStatusHistoryRepository.save(history);
     }
 }

@@ -3,11 +3,13 @@ package com.vaPaTi.vaPaTi.validation.follower;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.validation.auth.AccountStatusValidationService;
+import com.vaPaTi.vaPaTi.validation.userblock.UserBlockValidationService;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
@@ -16,11 +18,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class FollowerValidationService {
 
-    private static final String ADMIN_ROLE = "ADMIN";
-
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
     private final AccountStatusValidationService accountStatusValidationService;
+    private final UserBlockValidationService userBlockValidationService;
 
     /**
      * Check if current user follows another user. For a non-admin, a banned or suspended user is not found.
@@ -35,23 +36,14 @@ public class FollowerValidationService {
         }
 
         User currentUser = userRepository.findById(currentUserId)
-                .filter(user -> callerIsAdmin || !accountStatusValidationService.isBlocked(user))
+                .filter(user -> callerIsAdmin || !accountStatusValidationService.isSanctioned(user))
                 .orElseThrow(() -> new ResourceNotFoundException("Current user not found with ID: " + currentUserId));
 
         User otherUser = userRepository.findById(otherUserId)
-                .filter(user -> callerIsAdmin || !accountStatusValidationService.isBlocked(user))
+                .filter(user -> callerIsAdmin || !accountStatusValidationService.isSanctioned(user))
                 .orElseThrow(() -> new ResourceNotFoundException("Other user not found with ID: " + otherUserId));
 
         return followerRepository.existsByUserAndFollower(otherUser, currentUser);
-    }
-
-    /**
-     * Whether the user is an ADMIN, read from the database. False for a null id (anonymous).
-     * @param callerId ID of the authenticated user
-     * @return true if the user has the ADMIN role
-     */
-    public boolean isAdmin(Long callerId) {
-        return callerId != null && userRepository.existsByIdAndRole_Name(callerId, ADMIN_ROLE);
     }
 
     /**
@@ -93,11 +85,11 @@ public class FollowerValidationService {
      * Loads the user to follow. Deleted, banned and suspended users are not found, so the sanction is not revealed.
      * @param userId ID of the user to follow
      * @return the user to follow
-     * @throws ResourceNotFoundException if the user does not exist or is blocked
+     * @throws ResourceNotFoundException if the user does not exist or is banned or suspended
      */
     public User validateAndGetUserToFollow(Long userId) {
         return userRepository.findById(userId)
-                .filter(user -> !accountStatusValidationService.isBlocked(user))
+                .filter(user -> !accountStatusValidationService.isSanctioned(user))
                 .orElseThrow(() -> new ResourceNotFoundException("User to follow not found with ID: " + userId));
     }
 
@@ -105,11 +97,11 @@ public class FollowerValidationService {
      * Loads the user to unfollow. Deleted, banned and suspended users are not found, so the sanction is not revealed.
      * @param userId ID of the user to unfollow
      * @return the user to unfollow
-     * @throws ResourceNotFoundException if the user does not exist or is blocked
+     * @throws ResourceNotFoundException if the user does not exist or is banned or suspended
      */
     public User validateAndGetUserToUnfollow(Long userId) {
         return userRepository.findById(userId)
-                .filter(user -> !accountStatusValidationService.isBlocked(user))
+                .filter(user -> !accountStatusValidationService.isSanctioned(user))
                 .orElseThrow(() -> new ResourceNotFoundException("User to unfollow not found with ID: " + userId));
     }
 
@@ -119,13 +111,23 @@ public class FollowerValidationService {
      * @param userId ID of the user
      * @param callerIsAdmin whether the authenticated user is an ADMIN
      * @return the user
-     * @throws ResourceNotFoundException if the user does not exist, or is blocked and the caller is not an ADMIN
+     * @throws ResourceNotFoundException if the user does not exist, or is banned or suspended and the caller is not an ADMIN
      */
     public User validateAndGetVisibleUser(Long userId, boolean callerIsAdmin) {
         // One SELECT with userInfo, role and verificationRequest, instead of findById plus the inverse @OneToOne
         return userRepository.findByIdForRequest(userId)
-                .filter(user -> callerIsAdmin || !accountStatusValidationService.isBlocked(user))
+                .filter(user -> callerIsAdmin || !accountStatusValidationService.isSanctioned(user))
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+    }
+
+    /**
+     * Validates that there is no block in either direction between the current user and the user to follow.
+     * @param currentUserId ID of the authenticated user
+     * @param userToFollowId ID of the user to follow
+     * @throws ForbiddenActionException if either of them blocked the other
+     */
+    public void validateNoUserBlock(Long currentUserId, Long userToFollowId) {
+        userBlockValidationService.validateNoBlockBetween(currentUserId, userToFollowId);
     }
 
     /**

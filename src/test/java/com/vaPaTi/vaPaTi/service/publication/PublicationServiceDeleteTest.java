@@ -19,6 +19,7 @@ import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
+import com.vaPaTi.vaPaTi.repository.publication.PublicationLikeRepository;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
@@ -50,6 +51,9 @@ class PublicationServiceDeleteTest {
     @Mock
     private PublicationValidationService publicationValidationService;
 
+    @Mock
+    private PublicationLikeRepository publicationLikeRepository;
+
     private PublicationService publicationService;
 
     private Publication mockPublication;
@@ -57,7 +61,7 @@ class PublicationServiceDeleteTest {
     @BeforeEach
     void setUp() {
         publicationService = new PublicationService(publicationRepository, publicationMapper,
-                authenticatedUserService, publicationValidationService);
+                authenticatedUserService, publicationValidationService, publicationLikeRepository);
 
         LocalDateTime baseDateTime = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
 

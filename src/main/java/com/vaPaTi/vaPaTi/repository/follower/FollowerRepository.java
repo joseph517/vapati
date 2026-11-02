@@ -4,6 +4,7 @@ import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -43,19 +44,26 @@ public interface FollowerRepository extends JpaRepository<Follower, Long> {
     // *Visible* queries are for non-admins: same as the ones above, without banned or currently suspended users
 
     @Query("SELECT f FROM Follower f JOIN FETCH f.follower u JOIN FETCH u.userInfo " +
-            "LEFT JOIN FETCH u.verificationRequest WHERE f.user = :user AND " + UserRepository.NOT_BLOCKED)
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.user = :user AND " + UserRepository.NOT_SANCTIONED)
     List<Follower> findVisibleFollowersByUser(@Param("user") User user, @Param("now") LocalDateTime now);
 
     @Query("SELECT f FROM Follower f JOIN FETCH f.user u JOIN FETCH u.userInfo " +
-            "LEFT JOIN FETCH u.verificationRequest WHERE f.follower = :follower AND " + UserRepository.NOT_BLOCKED)
+            "LEFT JOIN FETCH u.verificationRequest WHERE f.follower = :follower AND " + UserRepository.NOT_SANCTIONED)
     List<Follower> findVisibleFollowingsByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(f) FROM Follower f JOIN f.follower u WHERE f.user = :user AND u.deletedAt IS NULL AND " +
-            UserRepository.NOT_BLOCKED)
+            UserRepository.NOT_SANCTIONED)
     long countVisibleByUser(@Param("user") User user, @Param("now") LocalDateTime now);
 
     @Query("SELECT COUNT(f) FROM Follower f JOIN f.user u WHERE f.follower = :follower AND u.deletedAt IS NULL AND " +
-            UserRepository.NOT_BLOCKED)
+            UserRepository.NOT_SANCTIONED)
     long countVisibleByFollower(@Param("follower") User follower, @Param("now") LocalDateTime now);
+
+    // Bulk delete of the follows in both directions between two users: a derived delete would load the rows first.
+    // Idempotent: returns 0 if they didn't follow each other
+    @Modifying
+    @Query("DELETE FROM Follower f WHERE (f.user.id = :userId AND f.follower.id = :otherUserId) " +
+            "OR (f.user.id = :otherUserId AND f.follower.id = :userId)")
+    int deleteFollowsBetween(@Param("userId") Long userId, @Param("otherUserId") Long otherUserId);
 
 }

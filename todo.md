@@ -108,7 +108,7 @@ Enfoque: el frontend usa Google Identity Services (botón "Sign in with Google")
     - existe usuario con ese email y Google confirma `email_verified` → vincular `googleId` y login;
     - no existe → `{ registrationRequired: true, registrationToken, email, firstName, lastName, picture }`. `registrationToken`: JWT corto (~10 min, `type=google_registration`) firmado con `JwtService`, con `sub` y email de Google.
   - [ ] `POST /auth/google/register {registrationToken, userName, phone, description, categoryIds}`: crea el usuario reutilizando `UserValidationService`, con `emailVerified=true` y sin contraseña. Devuelve `AuthResponse`.
-- [ ] En `/auth/google` repetir lo de `authenticate`: `findByEmailIncludingDeleted`, `validateNotBlocked`, restaurar cuenta si la borró el propio usuario.
+- [ ] En `/auth/google` repetir lo de `authenticate`: `findByEmailIncludingDeleted`, `validateNotSanctioned`, restaurar cuenta si la borró el propio usuario.
 - [ ] (Más adelante) permitir "crear contraseña" desde el perfil para cuentas solo-Google.
 
 ## 4. Notificaciones por email

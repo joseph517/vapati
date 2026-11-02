@@ -8,6 +8,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +16,12 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CampaignAuthorizationService {
 
-    private static final String ADMIN_ROLE = "ADMIN";
     private static final String UNAUTHORIZED_MESSAGE = "You are not authorized to perform this action";
     private static final String CAMPAIGN_NOT_FOUND = "Campaign not found with id: ";
 
     private final CampaignRepository campaignRepository;
     private final UserRepository userRepository;
+    private final RoleValidationService roleValidationService;
 
     public void validateOwnershipOrAdmin(Long campaignId, Long userId) {
         Campaign campaign = campaignRepository.findByIdWithActiveOwner(campaignId)
@@ -32,24 +33,13 @@ public class CampaignAuthorizationService {
 
         boolean isOwner = campaign.getUser().getId().equals(userId);
 
-        if (!isOwner && !hasAdminRole(user)) {
+        if (!isOwner && !roleValidationService.hasAdminRole(user)) {
             // A third party must not be able to tell a CLOSED campaign apart from a missing one
             if (isClosed(campaign)) {
                 throw new ResourceNotFoundException(CAMPAIGN_NOT_FOUND + campaignId);
             }
             throw new ForbiddenActionException(UNAUTHORIZED_MESSAGE);
         }
-    }
-
-    public boolean isAdmin(Long userId) {
-        if (userId == null) {
-            return false;
-        }
-        return userRepository.existsByIdAndRole_Name(userId, ADMIN_ROLE);
-    }
-
-    private boolean hasAdminRole(User user) {
-        return user.getRole() != null && ADMIN_ROLE.equals(user.getRole().getName());
     }
 
     private boolean isClosed(Campaign campaign) {

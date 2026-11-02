@@ -31,7 +31,7 @@ public class ReportController {
     private final SortValidationService sortValidationService;
 
     @PostMapping
-    @Operation(summary = "Create a report", description = "Create a new report for a user, publication, or campaign")
+    @Operation(summary = "Create a report", description = "Create a new report for a user, publication, campaign or comment")
     public ResponseEntity<ReportResponseDTO> createReport(@Valid @RequestBody CreateReportDTO dto) {
         ReportResponseDTO response = reportService.createReport(dto);
         return ResponseEntity.ok(response);

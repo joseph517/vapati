@@ -12,6 +12,7 @@ import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignCategoryRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
+import com.vaPaTi.vaPaTi.repository.comment.CommentRepository;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
@@ -19,6 +20,7 @@ import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -739,9 +741,11 @@ class ReportActionServiceTest {
                     mock(CampaignCategoryRepository.class),
                     campaignStatusHistoryService,
                     mock(CampaignStatusHistoryRepository.class),
-                    mock(EntityManager.class)
+                    mock(EntityManager.class),
+                    mock(RoleValidationService.class)
             );
-            service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService);
+            service = new ReportActionService(userRepository, publicationRepository, campaignRepository, realCampaignService,
+                    mock(CommentRepository.class));
 
             testReport.setActionTaken(ActionTaken.CONTENT_REMOVED);
             testReport.setReportedEntityType(ReportedEntityType.CAMPAIGN);

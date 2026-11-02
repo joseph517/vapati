@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper.donation;
 
 import com.vaPaTi.vaPaTi.dtos.donation.DonationResponseDTO;
+import com.vaPaTi.vaPaTi.dtos.donation.SupportFeedItemDTO;
 import com.vaPaTi.vaPaTi.dtos.donation.SupporterResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.donation.Donation;
@@ -82,6 +83,33 @@ public class DonationMapper {
                 .totalAmount(row.getTotalAmount())
                 .donationsCount(row.getDonationsCount())
                 .lastDonationAt(row.getLastDonationAt())
+                .build();
+    }
+
+    /**
+     * Raw mapping of a donation to a public feed item. It does not decide visibility: the service hides
+     * private texts and non-public campaigns. A soft-deleted donor ({@code donor == null}) is anonymous, and
+     * {@code campaignHidden} always starts as false.
+     */
+    public SupportFeedItemDTO toSupportFeedItemDTO(Donation donation) {
+        if (donation == null) {
+            return null;
+        }
+
+        User donor = donation.getDonor();
+        Campaign campaign = donation.getCampaign();
+
+        return SupportFeedItemDTO.builder()
+                .donationId(donation.getId())
+                .donorUserId(donor != null ? donor.getId() : null)
+                .donorUserName(donor != null && donor.getUserInfo() != null ? donor.getUserInfo().getUserName() : null)
+                .campaignId(donation.getCampaignId())
+                .campaignName(campaign != null ? campaign.getName() : null)
+                .campaignHidden(false)
+                .message(donation.getMessage())
+                .thanksMessage(donation.getThanksMessage())
+                .thankedAt(donation.getThankedAt())
+                .createdAt(donation.getCreatedAt())
                 .build();
     }
 

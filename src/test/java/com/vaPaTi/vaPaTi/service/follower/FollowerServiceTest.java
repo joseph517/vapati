@@ -8,11 +8,13 @@ import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.follower.FollowerMapper;
 import com.vaPaTi.vaPaTi.repository.follower.FollowerRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.follower.FollowerValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -47,6 +49,9 @@ class FollowerServiceTest {
     @Mock
     private AuthenticatedUserService authenticatedUserService;
 
+    @Mock
+    private RoleValidationService roleValidationService;
+
     @InjectMocks
     private FollowerService followerService;
 
@@ -60,6 +65,7 @@ class FollowerServiceTest {
     private static final String SELF_UNFOLLOW_ERROR = "Users cannot unfollow themselves";
     private static final String ALREADY_FOLLOWING_ERROR = "User is already being followed";
     private static final String FOLLOW_RELATION_NOT_FOUND = "Follow relationship not found";
+    private static final String USER_BLOCK_ERROR = "You cannot interact with this user";
 
     private User currentUser;
     private User userToFollow;
@@ -781,14 +787,14 @@ class FollowerServiceTest {
     }
 
     @Nested
-    @DisplayName("Blocked users are hidden from non-admins (spec 45)")
-    class BlockedUsersVisibilityTests {
+    @DisplayName("Sanctioned users are hidden from non-admins (spec 45)")
+    class SanctionedUsersVisibilityTests {
 
         private static final Long ADMIN_ID = 9L;
 
         private void givenCaller(Long callerId, boolean isAdmin) {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(callerId);
-            when(followerValidationService.isAdmin(callerId)).thenReturn(isAdmin);
+            when(roleValidationService.isAdmin(callerId)).thenReturn(isAdmin);
             when(followerValidationService.validateAndGetVisibleUser(OTHER_USER_ID, isAdmin)).thenReturn(userToFollow);
         }
 
@@ -889,10 +895,10 @@ class FollowerServiceTest {
         }
 
         @Test
-        @DisplayName("A blocked user's lists are not found for a non-admin")
-        void getFollowers_WhenUserBlockedAndNotAdmin_ShouldThrowNotFound() {
+        @DisplayName("A sanctioned user's lists are not found for a non-admin")
+        void getFollowers_WhenUserSanctionedAndNotAdmin_ShouldThrowNotFound() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
-            when(followerValidationService.isAdmin(CURRENT_USER_ID)).thenReturn(false);
+            when(roleValidationService.isAdmin(CURRENT_USER_ID)).thenReturn(false);
             when(followerValidationService.validateAndGetVisibleUser(OTHER_USER_ID, false))
                     .thenThrow(new ResourceNotFoundException(USER_NOT_FOUND + OTHER_USER_ID));
 
@@ -907,10 +913,110 @@ class FollowerServiceTest {
         @DisplayName("isFollowing passes whether the caller is an ADMIN to the validation")
         void isFollowing_WhenAdmin_ShouldPassCallerIsAdmin() {
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(ADMIN_ID);
-            when(followerValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
+            when(roleValidationService.isAdmin(ADMIN_ID)).thenReturn(true);
             when(followerValidationService.isFollowing(CURRENT_USER_ID, OTHER_USER_ID, true)).thenReturn(true);
 
             assertThat(followerService.isFollowing(CURRENT_USER_ID, OTHER_USER_ID)).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("followUser() block check tests")
+    class FollowUserBlockTests {
+
+        @Test
+        @DisplayName("Should check the block after the user to follow and before the already-following check")
+        void followUser_ShouldCheckBlockBetweenUserToFollowAndAlreadyFollowing() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidationService.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidationService.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            when(followerRepository.save(any(Follower.class))).thenReturn(followerRelationship);
+            when(followerMapper.toFollowResponseDto(any(Follower.class), anyString())).thenReturn(followResponseDto);
+
+            followerService.followUser(OTHER_USER_ID);
+
+            InOrder inOrder = inOrder(followerValidationService, followerRepository);
+            inOrder.verify(followerValidationService).validateNotSelfFollow(CURRENT_USER_ID, OTHER_USER_ID);
+            inOrder.verify(followerValidationService).validateAndGetCurrentUser(CURRENT_USER_ID);
+            inOrder.verify(followerValidationService).validateAndGetUserToFollow(OTHER_USER_ID);
+            inOrder.verify(followerValidationService).validateNoUserBlock(CURRENT_USER_ID, OTHER_USER_ID);
+            inOrder.verify(followerValidationService).validateNotAlreadyFollowing(userToFollow, currentUser);
+            inOrder.verify(followerRepository).save(any(Follower.class));
+        }
+
+        @Test
+        @DisplayName("Should propagate the 403 of a block without checking already-following nor saving")
+        void followUser_WhenBlocked_ShouldThrowForbiddenAndNotSave() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidationService.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidationService.validateAndGetUserToFollow(OTHER_USER_ID)).thenReturn(userToFollow);
+            doThrow(new ForbiddenActionException(USER_BLOCK_ERROR))
+                    .when(followerValidationService).validateNoUserBlock(CURRENT_USER_ID, OTHER_USER_ID);
+
+            assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
+                    .isExactlyInstanceOf(ForbiddenActionException.class)
+                    .hasMessage(USER_BLOCK_ERROR);
+
+            verify(followerValidationService, never()).validateNotAlreadyFollowing(any(), any());
+            verify(followerRepository, never()).save(any());
+            verifyNoInteractions(followerMapper);
+        }
+
+        @Test
+        @DisplayName("Should answer the 404 of the user to follow without checking the block")
+        void followUser_WhenUserToFollowNotFound_ShouldNotCheckBlock() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            when(followerValidationService.validateAndGetCurrentUser(CURRENT_USER_ID)).thenReturn(currentUser);
+            when(followerValidationService.validateAndGetUserToFollow(OTHER_USER_ID))
+                    .thenThrow(new ResourceNotFoundException(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID));
+
+            assertThatThrownBy(() -> followerService.followUser(OTHER_USER_ID))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage(USER_TO_FOLLOW_NOT_FOUND + OTHER_USER_ID);
+
+            verify(followerValidationService, never()).validateNoUserBlock(any(), any());
+            verify(followerValidationService, never()).validateNotAlreadyFollowing(any(), any());
+            verify(followerRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Should not check the block when the user tries to follow themselves")
+        void followUser_WithSameUserId_ShouldNotCheckBlock() {
+            when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(CURRENT_USER_ID);
+            doThrow(new MessageException(SELF_FOLLOW_ERROR))
+                    .when(followerValidationService).validateNotSelfFollow(CURRENT_USER_ID, CURRENT_USER_ID);
+
+            assertThatThrownBy(() -> followerService.followUser(CURRENT_USER_ID))
+                    .isInstanceOf(MessageException.class)
+                    .hasMessage(SELF_FOLLOW_ERROR);
+
+            verify(followerValidationService, never()).validateNoUserBlock(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("removeFollowsBetween() tests")
+    class RemoveFollowsBetweenTests {
+
+        @Test
+        @DisplayName("Should delegate to the bulk delete in both directions")
+        void removeFollowsBetween_ShouldDelegateToBulkDelete() {
+            when(followerRepository.deleteFollowsBetween(CURRENT_USER_ID, OTHER_USER_ID)).thenReturn(2);
+
+            followerService.removeFollowsBetween(CURRENT_USER_ID, OTHER_USER_ID);
+
+            verify(followerRepository).deleteFollowsBetween(CURRENT_USER_ID, OTHER_USER_ID);
+            verifyNoMoreInteractions(followerRepository);
+            verifyNoInteractions(followerValidationService, authenticatedUserService);
+        }
+
+        @Test
+        @DisplayName("Should not fail when the users don't follow each other")
+        void removeFollowsBetween_WhenNoFollows_ShouldNotFail() {
+            when(followerRepository.deleteFollowsBetween(CURRENT_USER_ID, OTHER_USER_ID)).thenReturn(0);
+
+            assertThatCode(() -> followerService.removeFollowsBetween(CURRENT_USER_ID, OTHER_USER_ID))
+                    .doesNotThrowAnyException();
         }
     }
 }

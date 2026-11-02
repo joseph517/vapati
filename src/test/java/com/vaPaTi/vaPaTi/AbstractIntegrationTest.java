@@ -13,6 +13,6 @@ public abstract class AbstractIntegrationTest {
     @Container
     @ServiceConnection
     static final MSSQLServerContainer<?> MSSQL_CONTAINER =
-            new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-latest")
+            new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-CU27-GDR1-ubuntu-22.04")
                     .acceptLicense();
 }

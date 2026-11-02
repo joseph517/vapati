@@ -6,8 +6,12 @@ import com.vaPaTi.vaPaTi.dtos.user.UserInfoDTO;
 import com.vaPaTi.vaPaTi.entity.bankaccount.BankAccount;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.entity.user.UserInfo;
+import com.vaPaTi.vaPaTi.mapper.bankaccount.BankAccountMapper;
+import com.vaPaTi.vaPaTi.mapper.user.UserInfoMapper;
 import com.vaPaTi.vaPaTi.mapper.user.UserMapper;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +41,12 @@ class UserServiceListUsersTest {
 
     @Mock
     private UserMapper userMapper;
+
+    @Mock
+    private UserSocialLinkRepository userSocialLinkRepository;
+
+    @Mock
+    private UserTagRepository userTagRepository;
 
     @InjectMocks
     private UserService userService;
@@ -365,4 +375,44 @@ class UserServiceListUsersTest {
         }
     }
 
+    @Nested
+    @DisplayName("Without social links and tags")
+    class WithoutLinksAndTagsTests {
+
+        private final User plainUser = User.builder().id(3L).userInfo(UserInfo.builder().firstName("Ana").build()).build();
+        // The real mapper output: the one-argument toUserDTO leaves socialLinks and tags null
+        private final UserDTO plainUserDTO = new UserMapper(new UserInfoMapper(), new BankAccountMapper()).toUserDTO(plainUser);
+
+        @Test
+        @DisplayName("listUsers doesn't query links or tags and leaves them null")
+        void listUsers_ShouldNotLoadLinksOrTags() {
+            when(userRepository.findAllWithDetails()).thenReturn(List.of(plainUser));
+            when(userMapper.toUserDTO(plainUser)).thenReturn(plainUserDTO);
+
+            List<UserDTO> result = userService.listUsers();
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getSocialLinks()).isNull();
+            assertThat(result.get(0).getTags()).isNull();
+            verifyNoInteractions(userSocialLinkRepository, userTagRepository);
+            verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
+        }
+
+        @Test
+        @DisplayName("listUsersWithPagination doesn't query links or tags and leaves them null")
+        void listUsersWithPagination_ShouldNotLoadLinksOrTags() {
+            Pageable pageable = PageRequest.of(0, 2);
+            when(userRepository.findPageOfIds(pageable)).thenReturn(new PageImpl<>(List.of(3L), pageable, 1));
+            when(userRepository.findAllWithDetailsByIdIn(List.of(3L))).thenReturn(List.of(plainUser));
+            when(userMapper.toUserDTO(plainUser)).thenReturn(plainUserDTO);
+
+            Page<UserDTO> result = userService.listUsersWithPagination(pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).getSocialLinks()).isNull();
+            assertThat(result.getContent().get(0).getTags()).isNull();
+            verifyNoInteractions(userSocialLinkRepository, userTagRepository);
+            verify(userMapper, never()).toUserDTO(any(User.class), any(), any());
+        }
+    }
 }

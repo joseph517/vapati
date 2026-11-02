@@ -2,7 +2,8 @@
 # Hot reload for the dev stack (CMD from Dockerfile.dev). Do not run manually.
 #
 # ./src and ./ are mounted read-only (docker-compose.dev.yml). This script:
-#   - starts the app with `spring-boot:run` in its own process group,
+#   - starts the app with `java -cp` (no resident Maven) in its own process group; Maven computes the
+#     classpath in the same invocation that compiles (dependency:build-classpath),
 #   - watches src/main and /workspace/pom.xml with inotifywait,
 #   - when src/main changes, compiles (`-o compile`) and touches target/classes/.reloadtrigger,
 #     which causes DevTools to restart (SPRING_DEVTOOLS_RESTART_TRIGGER_FILE),
@@ -10,7 +11,7 @@
 #   - if anything fails, leaves the previous version running, prints a banner, and creates
 #     /tmp/hot-reload/failed, which the healthcheck uses to mark the container `unhealthy`.
 #
-# See specs/24-hot-reload-dev-sin-watch.md.
+# See docs/arquitectura/06-infraestructura.md § Hot reload.
 
 set -u
 
@@ -25,6 +26,8 @@ STATE_DIR=/tmp/hot-reload
 FAILED=$STATE_DIR/failed
 MVN_OUT=$STATE_DIR/mvn.log
 POM_BACKUP=$STATE_DIR/pom.xml.bak
+CLASSPATH_FILE=$STATE_DIR/classpath.txt
+MAIN_CLASS=com.vaPaTi.vaPaTi.VaPaTiApplication
 EVENTS=modify,close_write,create,delete,moved_to,moved_from
 DEBUG_JVM_ARGS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005'
 
@@ -41,9 +44,11 @@ app_running() {
 
 start_app() {
     log "Starting the app"
-    # setsid: Maven and the child JVM run in their own process group, which can be stopped as a whole.
-    setsid ./mvnw spring-boot:run -Dmaven.test.skip=true \
-        "-Dspring-boot.run.jvmArguments=$DEBUG_JVM_ARGS" &
+    # setsid: the JVM runs in its own process group, which can be stopped as a whole.
+    # target/classes goes first and as a directory, so DevTools restarts on .reloadtrigger.
+    # JAVA_OPTS (Dockerfile.dev) is split into words on purpose.
+    # shellcheck disable=SC2086
+    setsid java ${JAVA_OPTS:-} $DEBUG_JVM_ARGS -cp "$CLASSES_DIR:$(<"$CLASSPATH_FILE")" "$MAIN_CLASS" &
     APP_PID=$!
 }
 
@@ -68,11 +73,16 @@ on_signal() {
 }
 
 # Maven runs in the background with `wait` so SIGTERM is handled without waiting for it to finish.
-# $1 = offline | online. Output is written to $MVN_OUT.
+# $1 = offline | online. $2 = with-classpath (optional): also writes the runtime classpath to $CLASSPATH_FILE.
+# Output is written to $MVN_OUT.
 compile() {
     local args=(-q)
     [[ $1 == offline ]] && args+=(-o)
-    ./mvnw "${args[@]}" compile -Dmaven.test.skip=true >"$MVN_OUT" 2>&1 &
+    args+=(compile)
+    if [[ ${2:-} == with-classpath ]]; then
+        args+=(dependency:build-classpath "-Dmdep.outputFile=$CLASSPATH_FILE" -DincludeScope=runtime)
+    fi
+    ./mvnw "${args[@]}" -Dmaven.test.skip=true >"$MVN_OUT" 2>&1 &
     MVN_PID=$!
     wait "$MVN_PID"
     local rc=$?
@@ -124,7 +134,10 @@ remove_output() {
 }
 
 on_src_change() {
-    if compile offline; then
+    # Without a classpath (the initial compile failed) the app cannot start, so it is computed here.
+    local classpath=
+    [[ -s $CLASSPATH_FILE ]] || classpath=with-classpath
+    if compile offline $classpath; then
         rm -f "$FAILED"
         touch "$CLASSES_DIR/.reloadtrigger"
         log "Compilation OK"
@@ -138,7 +151,7 @@ on_pom_change() {
     log "pom.xml changed, resolving dependencies and compiling"
     cp "$APP_POM" "$POM_BACKUP"
     cp "$WORKSPACE_POM" "$APP_POM"
-    if compile online; then
+    if compile online with-classpath; then
         rm -f "$FAILED"
         log "Compilation OK"
         stop_app
@@ -193,7 +206,8 @@ trap on_signal TERM INT
 
 cd "$APP_DIR" || exit 1
 mkdir -p "$STATE_DIR"
-rm -f "$FAILED" # /tmp survives `docker compose restart`
+# /tmp survives `docker compose restart`; a classpath from a previous run may be stale
+rm -f "$FAILED" "$CLASSPATH_FILE"
 
 # Watchers start before compiling so changes made during startup are not lost.
 # /workspace is watched without -r: only pom.xml matters, and changes under target/ are not seen.
@@ -208,8 +222,8 @@ if ! cmp -s "$WORKSPACE_POM" "$APP_POM"; then
     cp "$WORKSPACE_POM" "$APP_POM"
 fi
 
-# Compiling before starting lets us show the banner on failure; spring-boot:run then has nothing to recompile.
-if compile online; then
+# Compiling before starting lets us show the banner on failure, and computes the classpath for `java -cp`.
+if compile online with-classpath; then
     start_app
 else
     fail "COMPILATION FAILED"

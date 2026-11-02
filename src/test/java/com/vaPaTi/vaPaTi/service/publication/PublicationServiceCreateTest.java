@@ -3,10 +3,13 @@ package com.vaPaTi.vaPaTi.service.publication;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +24,7 @@ import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.publication.PublicationMapper;
+import com.vaPaTi.vaPaTi.repository.publication.PublicationLikeRepository;
 import com.vaPaTi.vaPaTi.repository.publication.PublicationRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.validation.publication.PublicationValidationService;
@@ -52,6 +56,9 @@ class PublicationServiceCreateTest {
     @Mock
     private PublicationValidationService publicationValidationService;
 
+    @Mock
+    private PublicationLikeRepository publicationLikeRepository;
+
     private PublicationService publicationService;
 
     private CreatePublicationDTO createPublicationDTO;
@@ -63,7 +70,7 @@ class PublicationServiceCreateTest {
     @BeforeEach
     void setUp() {
         publicationService = new PublicationService(publicationRepository, publicationMapper,
-                authenticatedUserService, publicationValidationService);
+                authenticatedUserService, publicationValidationService, publicationLikeRepository);
 
         createPublicationDTO = CreatePublicationDTO.builder()
                 .description("Test publication description")
@@ -139,6 +146,26 @@ class PublicationServiceCreateTest {
 
         verifyNoMoreInteractions(authenticatedUserService, publicationValidationService,
                 publicationRepository, publicationMapper);
+    }
+
+    @Test
+    @DisplayName("Should answer with the no-likes mapping without querying the likes")
+    void shouldMapWithoutLikesWhenPublicationIsCreated() {
+        // Given
+        when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(OWNER_ID);
+        when(publicationValidationService.validateAndGetPublishableCampaign(CAMPAIGN_ID, OWNER_ID)).thenReturn(campaign);
+        when(publicationMapper.toEntity(createPublicationDTO, campaign)).thenReturn(mockPublication);
+        when(publicationRepository.save(mockPublication)).thenReturn(savedPublication);
+        when(publicationMapper.toDTO(savedPublication)).thenReturn(expectedResponseDTO);
+
+        // When
+        PublicationResponseDTO result = publicationService.createPublication(CAMPAIGN_ID, createPublicationDTO);
+
+        // Then
+        assertThat(result).isSameAs(expectedResponseDTO);
+        verify(publicationMapper).toDTO(savedPublication);
+        verify(publicationMapper, never()).toDTO(any(), anyLong(), anyBoolean());
+        verifyNoInteractions(publicationLikeRepository);
     }
 
     @Test

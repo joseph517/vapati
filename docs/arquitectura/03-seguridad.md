@@ -37,7 +37,7 @@ sequenceDiagram
     C->>AC: POST /auth/login {email, password}
     AC->>AS: authenticate()
     AS->>DB: DaoAuthenticationProvider: usuario por email (incluye borrados) + BCrypt
-    AS->>AS: validateNotBlocked (403 si ban/suspensión)
+    AS->>AS: validateNotSanctioned (403 si ban/suspensión)
     AS->>DB: si estaba borrado: deletedAt = null
     AS->>J: generateToken + generateRefreshToken
     AS-->>C: 200 {accessToken (1 h), refreshToken (7 días), userInfo}
@@ -48,7 +48,7 @@ sequenceDiagram
     F->>BL: ¿jti revocado? (SELECT en revoked_tokens)
     F->>DB: findByIdForRequest(sub) (no ve borrados)
     F->>J: ¿iat anterior a tokensValidAfter?
-    F->>F: validateNotBlocked → 403 directo si está sancionado
+    F->>F: validateNotSanctioned → 403 directo si está sancionado
     F->>API: SecurityContext con ROLE_<rol> y el JWT como credencial
     API-->>C: 200 / 4xx del dominio
 
@@ -57,7 +57,7 @@ sequenceDiagram
     AC->>AS: refreshToken()
     AS->>J: firma, exp, type = refresh
     AS->>BL: ¿jti revocado?
-    AS->>DB: findByIdForRequest + tokensValidAfter + validateNotBlocked
+    AS->>DB: findByIdForRequest + tokensValidAfter + validateNotSanctioned
     AS->>BL: revokeToken(jti usado)
     AS-->>C: 200 par nuevo (cualquier rechazo → 401 Invalid or expired refresh token)
 
@@ -87,8 +87,9 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 
 1. `PUBLIC_URLS`: públicas para **cualquier método**.
 2. `GET /api/campaigns/my-campaigns`: autenticada.
-3. `PUBLIC_GET_URLS`: públicas **solo con GET**.
-4. Todo lo demás: autenticado (`anyRequest().authenticated()`).
+3. `GET /api/users/me/donation-settings`: autenticada.
+4. `PUBLIC_GET_URLS`: públicas **solo con GET**.
+5. Todo lo demás: autenticado (`anyRequest().authenticated()`).
 
 **`PUBLIC_URLS`**
 
@@ -107,15 +108,18 @@ Las reglas se evalúan en orden y gana la primera que coincide:
 | `/api/campaigns/list` | Listado de campañas. |
 | `/api/campaigns/*` | Detalle de una campaña. |
 | `/api/campaigns/*/publications` | Publicaciones de una campaña. |
+| `/api/publications/*/comments` | Comentarios de una publicación, paginados (`controller/comment/CommentController.java`). |
 | `/api/donations/campaign/*` | Donaciones de una campaña. |
 | `/api/donations/campaign/*/statistics` | Estadísticas de donaciones de una campaña. |
 | `/api/users/*/supporters` | Supporters de un creador (`controller/donation/SupporterController.java`). |
+| `/api/users/*/support-feed` | Feed de apoyos de un creador (`controller/donation/SupporterController.java`). |
+| `/api/users/*/donation-settings` | Ajustes del panel de donación de un usuario (`controller/donation/DonationSettingsController.java`). |
 
-`/api/users/*/supporters` es la única ruta pública bajo `/api/users` además de `/api/users/create`. El patrón termina en el literal `/supporters`, así que `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él). El `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`.
+`/api/users/*/supporters`, `/api/users/*/support-feed` y `/api/users/*/donation-settings` son las únicas rutas públicas bajo `/api/users` además de `/api/users/create`. Los patrones terminan en los literales `/supporters`, `/support-feed` y `/donation-settings`, así que `GET /api/users/{id}` y las rutas de seguidores (`/api/users/{userId}/followers/**`) no coinciden y siguen pidiendo token (`401` sin él). El `*` cubre un solo segmento, lo que además deja fuera rutas como `/api/users/a/b/supporters`.
 
-`/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`.
+`/api/campaigns/my-campaigns` también coincide con `/api/campaigns/*`; por eso tiene su propia regla `authenticated()` **antes** de la lista pública. Si se invirtiera el orden, un visitante sin token llegaría a `CampaignService.getCampaignsByAuthenticatedUser`, que usa `getAuthenticatedUserId()` y fallaría con un `500` en lugar del `401`. Lo mismo pasa con `GET /api/users/me/donation-settings`, que coincide con `/api/users/*/donation-settings`: su regla `authenticated()` va también antes de la lista pública, y sin ella un visitante llegaría a `DonationSettingsService.getMyDonationSettings`, que usa `getAuthenticatedUserId()`. `PUT /api/users/me/donation-settings` no coincide con ningún patrón público (son solo `GET`) y cae en `anyRequest().authenticated()`.
 
-En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. Detalle en [Campañas](dominios/campaign.md) y [Donaciones](dominios/donation.md).
+En los endpoints de `PUBLIC_GET_URLS` el service resuelve a quien llama como opcional (`AuthenticatedUserService.findAuthenticatedUserId`): un visitante ve lo público y un usuario con token ve además sus propias campañas `CLOSED`. En los supporters, el propio creador y un ADMIN ven además los importes (`totalAmount`, `donationsCount`, `lastDonationAt`), que para el resto llegan en `null`. En el feed de apoyos el token no cambia el contenido: es la misma vista pública para todos, y solo decide si un creador sancionado da `404` (resto) o `200` (el propio creador o un ADMIN). En los ajustes del panel de donación pasa lo mismo. En los comentarios de una publicación, un ADMIN ve además los comentarios de autores sancionados; para el resto, y para un visitante, esos comentarios se omiten. Solo el `GET` es público: `POST /api/publications/*/comments` y `DELETE /api/comments/*` piden token. Detalle en [Campañas](dominios/campaign.md), [Donaciones](dominios/donation.md) y [Comentarios](dominios/comment.md).
 
 No hay reglas por rol en `SecurityConfig`: ninguna ruta pide `hasRole` a nivel de URL. Los roles se controlan con `@PreAuthorize` y la propiedad de los recursos en la capa `validation/`.
 
@@ -151,6 +155,8 @@ Los 10 endpoints con `@PreAuthorize`, todos con `hasRole('ADMIN')`:
 El resto de los endpoints autenticados no tiene `@PreAuthorize`: cualquier `USER` o `ADMIN` llega al service, y la regla fina (si la hay) la aplica la capa de validación. Cuáles son esas reglas, endpoint por endpoint, está en cada archivo de [dominios](README.md#dominios).
 
 `hasRole('ADMIN')` compara contra la autoridad `ROLE_ADMIN`, que `CustomUserDetailsService` arma con `"ROLE_" + rol.toUpperCase()` leyendo el rol **de la base**, no del claim `role` del token. Un cambio de rol se aplica en el siguiente request, sin esperar a que venza el token.
+
+Dentro de un service, para saber si quien llama es ADMIN se usa `validation/common/RoleValidationService.java`: `isAdmin(userId)` lee el rol de la base con una sola consulta (`false` para un id `null` y para un usuario borrado) y `hasAdminRole(user)` lo lee de un usuario ya cargado con su rol. Tampoco mira el claim `role` del token. Es la única implementación; ver [Decisiones de diseño](08-decisiones-de-diseno.md#el-rol-admin-se-comprueba-en-un-solo-lugar).
 
 `@Valid` sobre el body se evalúa antes que `@PreAuthorize`: un `USER` que manda un body inválido a un endpoint de ADMIN recibe `400` de validación en lugar de `403`.
 
@@ -237,14 +243,14 @@ Hay dos excepciones a la regla de "el usuario sale del token": las cuentas banca
 Es la única definición de "cuenta sancionada" del proyecto:
 
 - **Baneada:** `User.banned = true`.
-- **Suspendida:** `User.suspendedUntil` en el futuro. Una suspensión vencida no bloquea y no hace falta levantarla.
+- **Suspendida:** `User.suspendedUntil` en el futuro. Una suspensión vencida no es una sanción y no hace falta levantarla.
 
 Tiene dos métodos con el mismo criterio y distinto uso:
 
 | Método | Qué hace | Lo usan |
 |---|---|---|
-| `validateNotBlocked(user)` | Lanza `ForbiddenActionException` con el motivo (`bannedReason`, o `Violation of terms` si es `null`). | Login y refresh (`AuthenticationService`) y el filtro JWT. Le habla al propio titular de la cuenta. |
-| `isBlocked(user)` | Devuelve `boolean`, sin decir qué sanción aplica. | `validation/user/UserValidationService.java`, `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java`, para ocultar al usuario sancionado a terceros con `404`. |
+| `validateNotSanctioned(user)` | Lanza `ForbiddenActionException` con el motivo (`bannedReason`, o `Violation of terms` si es `null`). | Login y refresh (`AuthenticationService`) y el filtro JWT. Le habla al propio titular de la cuenta. |
+| `isSanctioned(user)` | Devuelve `boolean`, sin decir qué sanción aplica. | `validation/user/UserValidationService.java`, `validation/follower/FollowerValidationService.java`, `validation/report/ReportValidationService.java`, `validation/comment/CommentValidationService.java`, para ocultar al usuario sancionado a terceros con `404`. |
 
 Así el titular se entera de su sanción y del motivo, y los demás no pueden distinguir a un usuario sancionado de uno inexistente. Quién banea y suspende está en [Reportes](dominios/report.md).
 
@@ -265,9 +271,25 @@ Como el origen por defecto es solo `http://localhost:3000`, en cualquier otro de
 
 ## OpenAPI
 
-`security/OpenAPIConfig.java` define el título y la versión, y un esquema de seguridad `bearerAuth` (HTTP bearer, formato JWT) aplicado a toda la API. En Swagger UI (`/swagger-ui.html`) se pega el access token una vez en "Authorize" y se manda en todos los requests. Como el requisito es global, Swagger muestra el candado también en los endpoints públicos; mandar el token ahí no cambia nada, salvo para los `PUBLIC_GET_URLS`, que con token muestran además las campañas `CLOSED` propias y, en los supporters, los importes al creador y al ADMIN.
+`security/OpenAPIConfig.java` define el título y la versión, y un esquema de seguridad `bearerAuth` (HTTP bearer, formato JWT) aplicado a toda la API. En Swagger UI (`/swagger-ui.html`) se pega el access token una vez en "Authorize" y se manda en todos los requests. Como el requisito es global, Swagger muestra el candado también en los endpoints públicos; mandar el token ahí no cambia nada, salvo para los `PUBLIC_GET_URLS`, que con token muestran además las campañas `CLOSED` propias y, en los supporters, los importes al creador y al ADMIN. En el feed de apoyos el token no cambia nada del contenido.
 
 Swagger UI y `/v3/api-docs` son públicos en todos los perfiles.
+
+## Contenedores y base de datos
+
+Lo que sigue describe los stacks de Compose (`docker-compose.dev.yml` y `docker-compose.prod.yml`) y las imágenes que construyen `Dockerfile` y `Dockerfile.dev`. El detalle operativo está en [Infraestructura](06-infraestructura.md).
+
+| Medida | Qué hace | Dónde |
+|---|---|---|
+| Login de aplicación con mínimo privilegio | La aplicación conecta como `vapati_app`, no como `sa`. Ese login es `db_owner` **solo** de `ApiVaPaTiJava` y no tiene roles de servidor, así que no puede crear bases ni tocar otras (un `CREATE DATABASE` falla por permisos). Necesita `db_owner` porque `ddl-auto=update` crea y altera tablas al arrancar. | `command` y healthcheck de `sqlserver` en los dos compose, `application-docker.properties` |
+| `sa` solo para administrar | `DB_PASSWORD` solo llega al servicio `sqlserver`: inicializa la base y el login, y se usa en los scripts manuales (`sqlcmd -U sa`). Los servicios de la aplicación no la reciben. | los dos compose |
+| Password sin valor por defecto | `spring.datasource.password=${DB_APP_PASSWORD}` en el perfil `docker`, y `${DB_APP_PASSWORD:?...}` en los compose: sin ella no arranca nada, igual que con `JWT_SECRET`. El perfil sin nombre (`application.properties`, fuera de Docker) sigue con `sa` y un valor por defecto de desarrollo. | `application-docker.properties`, los dos compose |
+| Imagen de producción no root | La etapa `runtime` corre como `app`. El JAR es de `root`, de solo lectura para `app`. | `Dockerfile` |
+| Contenedor de producción endurecido | `read_only: true` con `tmpfs` en `/tmp`, `no-new-privileges:true` y `cap_drop: [ALL]`; límite de memoria de 512M. | `docker-compose.prod.yml` |
+| Contenedor de desarrollo sin privilegios extra | `no-new-privileges:true` y `cap_drop: [ALL]`. Sigue como root (es dueño del volumen `maven-cache-dev`). No monta el socket de Docker. | `docker-compose.dev.yml` |
+| Secretos fuera del contexto de build | `.dockerignore` excluye `.env` y `.env.*`. | `.dockerignore` |
+| `.env` oculto al contenedor de desarrollo | `app-dev` monta la raíz del repo en `/workspace` y encima `/dev/null` sobre `/workspace/.env`. Un `.env.production` en la raíz sigue visible dentro del contenedor. | `docker-compose.dev.yml` |
+| Tags fijados y escaneo | Las imágenes base van por tag exacto y se escanean con Trivy a mano. | [Infraestructura](06-infraestructura.md#tags-fijados-vulnerabilidades-y-restauración) |
 
 ## Configuración
 
@@ -277,5 +299,6 @@ Swagger UI y `/v3/api-docs` son públicos en todos los perfiles.
 | `jwt.expiration` | — | `3600000` (1 hora) |
 | `jwt.refresh-expiration` | — | `604800000` (7 días) |
 | `cors.allowed-origins` | `CORS_ALLOWED_ORIGINS` | Por defecto `http://localhost:3000` |
+| `spring.datasource.password` (perfil `docker`) | `DB_APP_PASSWORD` | Obligatoria, sin valor por defecto. Password del login `vapati_app`. |
 
 Los perfiles y cómo se pasan estas variables en Docker están en [Infraestructura](06-infraestructura.md).

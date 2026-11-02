@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper.publication;
 
 import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.PublicationLikeResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
@@ -23,7 +24,12 @@ public class PublicationMapper {
         return publication;
     }
 
+    // A publication that was just created has no likes
     public PublicationResponseDTO toDTO(Publication publication) {
+        return toDTO(publication, 0L, false);
+    }
+
+    public PublicationResponseDTO toDTO(Publication publication, long likesCount, boolean likedByMe) {
         PublicationResponseDTO dto = new PublicationResponseDTO();
         dto.setId(publication.getId());
         dto.setDescription(publication.getDescription());
@@ -38,7 +44,17 @@ public class PublicationMapper {
         dto.setFirstName(userInfo.getFirstName());
         dto.setLastName(userInfo.getLastName());
         dto.setUserName(userInfo.getUserName());
+        dto.setLikesCount(likesCount);
+        dto.setLikedByMe(likedByMe);
 
         return dto;
+    }
+
+    public PublicationLikeResponseDTO toLikeResponseDTO(Long publicationId, long likesCount, boolean likedByMe) {
+        return PublicationLikeResponseDTO.builder()
+                .publicationId(publicationId)
+                .likesCount(likesCount)
+                .likedByMe(likedByMe)
+                .build();
     }
 }

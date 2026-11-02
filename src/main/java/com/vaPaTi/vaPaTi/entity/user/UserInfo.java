@@ -43,6 +43,15 @@ public class UserInfo {
     @Column(name = "profile_picture")
     private String profilePicture;
 
+    @Column(name = "cover_image_url")
+    private String coverImageUrl;
+
+    @Column(name = "intro_video_url")
+    private String introVideoUrl;
+
+    @Column(name = "website")
+    private String website;
+
     // Default thanks shown to the donor right after donating to any of this user's campaigns
     @Column(name = "auto_thanks_message", length = 280)
     private String autoThanksMessage;

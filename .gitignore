@@ -44,3 +44,6 @@ CLAUDE.md
 .env
 .env.*
 !.env.example
+# harness
+/harness/
+*.pre-harness

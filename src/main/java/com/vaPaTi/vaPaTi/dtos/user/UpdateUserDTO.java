@@ -2,6 +2,7 @@ package com.vaPaTi.vaPaTi.dtos.user;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.annotation.Nullable;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -41,6 +42,23 @@ public class UpdateUserDTO {
     @Nullable
     @Size(max = 255)
     private String profilePicture;
+    @Nullable
+    @Size(max = 255, message = "Cover image must be at most 255 characters")
+    private String coverImageUrl;
+    @Nullable
+    @Size(max = 255, message = "Intro video must be at most 255 characters")
+    private String introVideoUrl;
+    @Nullable
+    @Size(max = 255, message = "Website must be at most 255 characters")
+    private String website;
+
+    // null keeps the current links; a list replaces them all ([] removes them)
+    @Nullable
+    private List<@Valid SocialLinkDTO> socialLinks;
+
+    // null keeps the current tags; a list replaces them all ([] removes them). Normalized and checked in UserProfileValidationService
+    @Nullable
+    private List<String> tags;
 
     // Required only when the request changes the password or the email
     @Nullable

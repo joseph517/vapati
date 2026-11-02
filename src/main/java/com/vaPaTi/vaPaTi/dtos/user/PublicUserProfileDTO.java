@@ -22,4 +22,11 @@ public class PublicUserProfileDTO {
     private String userName;
     private String description;
     private String profilePicture;
+    private String coverImageUrl;
+    private String introVideoUrl;
+    private String website;
+    @Builder.Default
+    private List<SocialLinkDTO> socialLinks = new ArrayList<>();
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
 }

@@ -1,21 +1,6 @@
 # Testing
 
-Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué configuración los rige y cómo correrlos.
-
-## Estado de la suite
-
-En el commit que describe esta documentación, `mvn -B test` corre **1248 tests en 63 clases, sin fallos, errores ni omitidos**. Hay además dos clases de apoyo que no son tests: `AbstractIntegrationTest.java` y `dtos/DtoValidation.java` (rutas relativas a `src/test/java/com/vaPaTi/vaPaTi/`).
-
-| Capa probada | Tests | Tipo |
-|---|---|---|
-| `service/` | 554 | unitarios con Mockito |
-| `validation/` | 467 | unitarios con Mockito |
-| `dtos/` | 132 | Bean Validation sin Spring |
-| `repository/` | 39 | integración con SQL Server real (Testcontainers) |
-| `security/` | 22 | unitarios con Mockito |
-| `mapper/` | 19 | unitarios puros |
-| `exception/` | 14 | unitarios del handler |
-| contexto de Spring | 1 | integración con SQL Server real (Testcontainers) |
+Cómo se prueba VaPaTi: qué tipo de tests hay, cómo están organizados, qué configuración los rige y cómo correrlos. Es el único lugar donde se explica cómo correr los tests: el resto de la documentación enlaza a [Cómo correr los tests](#cómo-correr-los-tests).
 
 ## Estrategia
 
@@ -32,26 +17,27 @@ Como la capa `validation/` concentra las reglas de negocio (ver [Arquitectura](0
 
 ### Tests de DTOs
 
-`dtos/<dominio>/*DtoValidationTest.java` validan las anotaciones de Bean Validation de los DTOs de entrada con un `Validator` de Hibernate Validator creado a mano, sin contexto de Spring. Los helpers de `dtos/DtoValidation.java` (`assertValid`, `assertSingleViolation`, `assertViolationsOn`) comprueban qué campo exacto viola cada restricción.
+`dtos/<dominio>/*DtoValidationTest.java` validan las anotaciones de Bean Validation de los DTOs de entrada con un `Validator` de Hibernate Validator creado a mano, sin contexto de Spring. Los helpers de `dtos/DtoValidation.java` (`assertValid`, `assertSingleViolation`, `assertViolationsOn`) comprueban qué campo exacto viola cada restricción. Por ejemplo, `dtos/comment/CommentDtoValidationTest.java` cubre el `@Size(max = 280)` de `CreateCommentDTO`.
 
 ### Tests de mappers, excepciones y seguridad
 
-- `mapper/<dominio>/*MapperTest.java`: conversiones entidad → DTO, incluidos los campos nulos.
+- `mapper/<dominio>/*MapperTest.java`: conversiones entidad → DTO, incluidos los campos nulos (por ejemplo `mapper/comment/CommentMapperTest.java`).
 - `exception/GlobalExceptionHandlerTest.java`: el status y la forma `{error, message, timestamp}` de cada tipo de excepción que maneja `exception/GlobalExceptionHandler.java`.
 - `security/JwtAuthenticationFilterTest.java` y `security/AuthenticatedUserServiceTest.java`: el filtro JWT y la resolución del usuario autenticado, con el `SecurityContextHolder` y `JwtService` mockeados.
 
 ### Tests de integración con Testcontainers
 
-Dos clases heredan de `AbstractIntegrationTest.java`, que declara un contenedor `mcr.microsoft.com/mssql/server:2022-latest` con `@Testcontainers` + `@Container` y lo conecta a Spring con `@ServiceConnection` (Spring Boot reemplaza la URL, el usuario y la password del datasource por los del contenedor). Activa el perfil `integration`.
+Tres clases heredan de `AbstractIntegrationTest.java`, que declara un contenedor `mcr.microsoft.com/mssql/server:2022-CU27-GDR1-ubuntu-22.04` (el mismo tag que los dos compose; se actualizan juntos, ver [Infraestructura](06-infraestructura.md#actualizar-los-tags-fijados)) con `@Testcontainers` + `@Container` y lo conecta a Spring con `@ServiceConnection` (Spring Boot reemplaza la URL, el usuario y la password del datasource por los del contenedor). Activa el perfil `integration`.
 
 | Clase | Qué levanta | Qué prueba |
 |---|---|---|
 | `VaPaTiApplicationTests.java` | `@SpringBootTest`, el contexto completo | que la aplicación arranca contra SQL Server |
 | `repository/bankaccount/BankAccountRepositoryTest.java` | `@DataJpaTest` con `@AutoConfigureTestDatabase(replace = NONE)` | las queries de `repository/bankaccount/BankAccountRepository.java` contra SQL Server real |
+| `service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` | `@DataJpaTest` con `CampaignService` y `CampaignStatusHistoryService` importados | que `closeAndSoftDelete` cierra, registra la transición y borra la campaña sin que falle el flush (2 tests); un test con mocks no lo detecta, ver [Modelo de datos](04-modelo-de-datos.md#borrado-lógico-soft-delete) |
 
 Con el perfil `integration` (`src/test/resources/application-integration.properties`) Hibernate no genera el esquema (`ddl-auto=none`): lo crea `src/test/resources/schema.sql`, un script escrito a mano que borra y recrea todas las tablas, siembra roles y categorías y crea índices. Después corre también el `data.sql` de `src/main/resources/`. Como `schema.sql` no se deriva de las entidades, una columna nueva en `entity/` hay que agregarla también ahí para que estos tests la vean.
 
-El contenedor es un campo `static` de la clase base, así que cada clase de integración arranca y destruye su propio SQL Server (unos 8 segundos cada uno). Testcontainers usa el contenedor `Ryuk` para limpiar los contenedores si la JVM muere. Estos tests necesitan acceso a un daemon de Docker; el resto de la suite no.
+El contenedor es un campo `static` de la clase base, así que cada clase de integración arranca y destruye su propio SQL Server (unos 8 segundos cada uno). Estos contenedores son independientes del stack de Compose: el login `vapati_app` y el `max server memory` de los compose no se aplican en los tests. Testcontainers usa el contenedor `Ryuk` para limpiar los contenedores si la JVM muere. Estos tests necesitan acceso a un daemon de Docker; el resto de la suite no.
 
 ### Lo que no tiene tests
 
@@ -65,17 +51,17 @@ Todas las clases de `service/` y de `validation/` tienen al menos una clase de t
 
 ## Organización
 
-Los tests espejan los paquetes de `src/main/java/com/vaPaTi/vaPaTi/`: un test vive en el mismo `<capa>/<dominio>/` que la clase que prueba. Las validaciones se prueban en `validation/<dominio>/`, no dentro de `service/`.
+Los tests espejan los paquetes de `src/main/java/com/vaPaTi/vaPaTi/`: un test vive en el mismo `<capa>/<dominio>/` que la clase que prueba. Las validaciones se prueban en `validation/<dominio>/`, no dentro de `service/`. Dos clases de `src/test/java/com/vaPaTi/vaPaTi/` son de apoyo y no son tests: `AbstractIntegrationTest.java`, con el contenedor de SQL Server de los tests de integración, y `dtos/DtoValidation.java`.
 
 ```mermaid
 flowchart LR
     subgraph main["src/main/java/com/vaPaTi/vaPaTi"]
         S1[service/user/UserService.java]
-        V1[validation/user/UserValidationService.java]
+        V1[validation/user/UserAccountValidationService.java<br/>UserCategoryValidationService.java<br/>UserProfileValidationService.java<br/>UserValidationService.java]
     end
     subgraph test["src/test/java/com/vaPaTi/vaPaTi"]
         T1[service/user/UserServiceCreateUserTest.java<br/>UserServiceDeleteUserTest.java<br/>UserServiceGetUserByIdTest.java<br/>UserServiceListUsersTest.java<br/>UserServiceUpdateUserTest.java]
-        T2[validation/user/UserValidationServiceCategoryTest.java<br/>UserValidationServiceUserCreationTest.java<br/>UserValidationServiceUserRetrievalTest.java<br/>UserValidationServiceUserUpdateTest.java]
+        T2[validation/user/UserAccountValidationServiceCreationTest.java<br/>UserAccountValidationServiceUpdateTest.java<br/>UserCategoryValidationServiceTest.java<br/>UserProfileValidationService*Test.java<br/>UserValidationService*Test.java]
     end
     S1 -.-> T1
     V1 -.-> T2
@@ -88,11 +74,24 @@ Los dominios con más lógica **dividen los tests por operación** en varios arc
 | `service/user/UserService.java` | `service/user/UserServiceCreateUserTest.java`<br>`service/user/UserServiceDeleteUserTest.java`<br>`service/user/UserServiceGetUserByIdTest.java`<br>`service/user/UserServiceListUsersTest.java`<br>`service/user/UserServiceUpdateUserTest.java` |
 | `service/bankaccount/BankAccountService.java` | `service/bankaccount/BankAccountServiceTest.java` (alta)<br>`service/bankaccount/BankAccountServiceDeleteTest.java`<br>`service/bankaccount/BankAccountServiceListTest.java`<br>`service/bankaccount/BankAccountServiceUpdateTest.java` |
 | `service/publication/PublicationService.java` | `service/publication/PublicationServiceCreateTest.java`<br>`service/publication/PublicationServiceDeleteTest.java`<br>`service/publication/PublicationServiceGetByCampaignTest.java` |
-| `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java` |
+| `service/publication/PublicationLikeService.java` | `service/publication/PublicationLikeServiceLikeTest.java`<br>`service/publication/PublicationLikeServiceUnlikeTest.java` |
+| `service/comment/CommentService.java` | `service/comment/CommentServiceCreateTest.java`<br>`service/comment/CommentServiceListTest.java`<br>`service/comment/CommentServiceDeleteTest.java` |
+| `service/campaign/CampaignService.java` | `service/campaign/CampaignServiceTest.java`<br>`service/campaign/CampaignServiceStatusHistoryTest.java`<br>`service/campaign/CampaignServiceCloseAndSoftDeleteIntegrationTest.java` (integración) |
 | `service/auth/AuthenticationService.java` | `service/auth/AuthenticationServiceTest.java` (login y logout)<br>`service/auth/RefreshTokenServiceTest.java` (refresh) |
-| `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceCategoryTest.java`<br>`validation/user/UserValidationServiceUserCreationTest.java`<br>`validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceUserUpdateTest.java` |
+| `validation/user/UserAccountValidationService.java` | `validation/user/UserAccountValidationServiceCreationTest.java`<br>`validation/user/UserAccountValidationServiceUpdateTest.java` |
+| `validation/user/UserCategoryValidationService.java` | `validation/user/UserCategoryValidationServiceTest.java` |
+| `validation/user/UserProfileValidationService.java` | `validation/user/UserProfileValidationServiceAutoThanksTest.java`<br>`validation/user/UserProfileValidationServiceFieldsTest.java` (URLs de perfil)<br>`validation/user/UserProfileValidationServiceSocialLinksTest.java`<br>`validation/user/UserProfileValidationServiceTagsTest.java` |
+| `validation/user/UserValidationService.java` | `validation/user/UserValidationServiceUserRetrievalTest.java`<br>`validation/user/UserValidationServiceTimestampTest.java` |
+| `validation/common/UrlValidationService.java` | `validation/common/UrlValidationServiceTest.java` |
+| `entity/user/` (`SocialPlatform`, `UserSocialLink`, `UserTag`) | `entity/user/SocialPlatformTest.java` (dominios por plataforma)<br>`entity/user/UserProfileEntitiesEqualityTest.java` (`equals` por clave natural) |
+| `mapper/user/UserMapper.java` | `mapper/user/UserMapperTest.java`<br>`mapper/user/UserMapperProfileTest.java` (URLs, enlaces y etiquetas de los DTOs) |
+| `dtos/user/UpdateUserDTO.java`, `UserDTO.java` | `dtos/user/UpdateUserDtoProfileValidationTest.java` (`@Size` de las URLs y `@Valid` de los enlaces)<br>`dtos/user/UserDtoJsonTest.java` (las claves `socialLinks` y `tags` solo aparecen si no son `null`) |
 | `validation/bankaccount/BankAccountValidationService.java` | `validation/bankaccount/BankAccountValidationServiceAccountValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceEntityBuildingTest.java`<br>`validation/bankaccount/BankAccountValidationServiceInputValidationTest.java`<br>`validation/bankaccount/BankAccountValidationServiceUserVerificationTest.java` |
-| `validation/publication/PublicationValidationService.java` | `validation/publication/PublicationValidationServiceCreateTest.java`<br>`validation/publication/PublicationValidationServiceDeleteTest.java`<br>`validation/publication/PublicationValidationServiceReadTest.java` |
+| `validation/publication/PublicationValidationService.java` | `validation/publication/PublicationValidationServiceCreateTest.java`<br>`validation/publication/PublicationValidationServiceDeleteTest.java`<br>`validation/publication/PublicationValidationServiceReadTest.java`<br>`validation/publication/PublicationValidationServiceVisibleTest.java` |
+| `validation/comment/CommentValidationService.java` | `validation/comment/CommentValidationServiceTextTest.java`<br>`validation/comment/CommentValidationServiceVisibleTest.java`<br>`validation/comment/CommentValidationServiceDeleteTest.java` |
+| `validation/common/SortValidationService.java` | `validation/common/SortValidationServiceUnsortedTest.java` (el overload sin orden) |
+| `validation/report/ReportValidationService.java` | `validation/report/ReportValidationServiceCommentTest.java` (reportes de comentarios; el resto de las reglas está en los otros archivos de ese paquete) |
+| `service/report/ReportActionService.java` | `service/report/ReportActionServiceCommentTest.java` (`CONTENT_REMOVED` sobre un comentario; el resto en `ReportActionServiceTest.java`) |
 
 Al agregar tests a un dominio que ya está dividido, se sigue el mismo criterio: un archivo nuevo por operación.
 
@@ -109,7 +108,7 @@ En `pom.xml`, `maven-surefire-plugin` 3.1.2:
 | `argLine` | `@{argLine} -Xmx2048m -XX:MaxMetaspaceSize=512m` | `@{argLine}` conserva el agente de JaCoCo que agrega `prepare-agent`. |
 | `systemPropertyVariables.api.version` | `${docker.remote.api.version}` (`1.56` en `pom.xml`) | Versión de la API de Docker que usa el cliente de Testcontainers. Tiene que ser una que soporte el daemon; en CI se pisa con la del runner (`-Ddocker.remote.api.version=...`). |
 
-Testcontainers está fijado en la versión `1.21.2` (propiedad `testcontainers.version` y BOM en `dependencyManagement`), más nueva que la que trae Spring Boot 3.2.5.
+Testcontainers está fijado en la versión `1.21.2` (propiedad `testcontainers.version` y BOM en `dependencyManagement`), fijada a mano en `pom.xml` en lugar de la que gestiona Spring Boot (3.5.16).
 
 ### Cobertura (JaCoCo)
 
@@ -128,20 +127,20 @@ Testcontainers está fijado en la versión `1.21.2` (propiedad `testcontainers.v
 
 ### Con `./mvnw` (JDK 21 instalado)
 
-El wrapper descarga Maven solo; hace falta un JDK 21. Los dos tests de integración necesitan además un daemon de Docker accesible.
+El wrapper descarga Maven solo; hace falta un JDK 21. Los tests de integración (las tres clases de arriba) necesitan además un daemon de Docker accesible.
 
 ```bash
 # Toda la suite (incluye Testcontainers)
 ./mvnw test
 
 # Solo los unitarios, sin Docker
-./mvnw test -Dtest='!BankAccountRepositoryTest,!VaPaTiApplicationTests,!*$*'
+./mvnw test -Dtest='!BankAccountRepositoryTest,!VaPaTiApplicationTests,!CampaignServiceCloseAndSoftDeleteIntegrationTest,!*$*'
 
 # Una clase (incluye sus clases @Nested)
 ./mvnw test -Dtest=CategoryServiceTest
 
 # Un método de una clase sin @Nested
-./mvnw test -Dtest='BankAccountServiceDeleteTest#*'
+./mvnw test -Dtest='BankAccountServiceDeleteTest#deleteBankAccount_WhenAccountExistsAndIsActive_ShouldMarkAsDeleted'
 
 # Un método dentro de una clase @Nested: Clase$Anidada#metodo, entre comillas simples
 ./mvnw test -Dtest='DonationServiceTest$CreateDonationTests#createDonation_WithValidData_ShouldCreateDonation'
@@ -177,11 +176,11 @@ docker --context default run --rm \
 - Testcontainers crea y destruye sus propios contenedores: no toca el stack de desarrollo (`db_vapati_dev`, `app_vapati_dev`) ni el volumen `sql_data_apivapati_java`.
 - Escribe en el `target/` del repo como lo haría `./mvnw`.
 
-El contenedor `app_vapati_dev` del stack de desarrollo **no** corre tests: arranca la aplicación con `-Dmaven.test.skip=true`.
+El contenedor `app_vapati_dev` del stack de desarrollo **no** corre tests: compila con `-Dmaven.test.skip=true` y arranca la aplicación con `java -cp`. Tampoco monta el socket de Docker.
 
 ### En CI
 
-El job `Tests` de `.github/workflows/docker-publish.yml` corre la suite completa en cada PR hacia `main` y antes de cada publicación de imagen, pasando la versión de API del daemon del runner (ver [Infraestructura](06-infraestructura.md#ci-y-publicación-githubworkflowsdocker-publishyml)):
+El job `Tests` de `.github/workflows/docker-publish.yml` corre la suite completa en cada PR hacia `main` y antes de cada publicación de imagen, pasando la versión de API del daemon del runner en lugar de la fijada en `pom.xml` (el porqué está en [Configuración de Surefire](#configuración-de-surefire); el job, en [Infraestructura](06-infraestructura.md#ci-y-publicación-githubworkflowsdocker-publishyml)):
 
 ```bash
 ./mvnw -B test -Ddocker.remote.api.version="$(docker version --format '{{.Server.APIVersion}}')"
@@ -192,4 +191,3 @@ El job `Tests` de `.github/workflows/docker-publish.yml` corre la suite completa
 - [Arquitectura](02-arquitectura.md): las capas que espejan los tests.
 - [Errores y validación](05-errores-y-validacion.md): los mensajes que verifican los tests de validación.
 - [Infraestructura](06-infraestructura.md): Docker, perfiles y CI.
-- [Deuda técnica](deuda-tecnica.md): configuraciones de test sin uso y huecos de cobertura.

@@ -1,6 +1,7 @@
 package com.vaPaTi.vaPaTi.mapper.publication;
 
 import com.vaPaTi.vaPaTi.dtos.publication.CreatePublicationDTO;
+import com.vaPaTi.vaPaTi.dtos.publication.PublicationLikeResponseDTO;
 import com.vaPaTi.vaPaTi.dtos.publication.PublicationResponseDTO;
 import com.vaPaTi.vaPaTi.entity.campaign.Campaign;
 import com.vaPaTi.vaPaTi.entity.publication.Publication;
@@ -83,6 +84,72 @@ class PublicationMapperTest {
 
         // Then
         assertThat(dto.getCampaignId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("Should copy likesCount and likedByMe and map the rest like toDTO(publication)")
+    void toDTO_WithLikes_ShouldCopyLikeDataAndRestOfFields() {
+        // Given
+        Publication publication = Publication.builder()
+                .id(10L).description("Progress update").user(owner).campaign(null).campaignId(2L)
+                .build();
+
+        // When
+        PublicationResponseDTO dto = publicationMapper.toDTO(publication, 5L, true);
+
+        // Then
+        assertThat(dto.getLikesCount()).isEqualTo(5L);
+        assertThat(dto.getLikedByMe()).isTrue();
+        assertThat(dto.getId()).isEqualTo(10L);
+        assertThat(dto.getDescription()).isEqualTo("Progress update");
+        assertThat(dto.getCampaignId()).isEqualTo(2L);
+        assertThat(dto.getUserId()).isEqualTo(1L);
+        assertThat(dto.getFirstName()).isEqualTo("Ana");
+        assertThat(dto.getLastName()).isEqualTo("Owner");
+        assertThat(dto.getUserName()).isEqualTo("campaign_owner");
+    }
+
+    @Test
+    @DisplayName("Should take campaignId from the campaign in the overload when the read-only column isn't loaded")
+    void toDTO_WithLikes_RightAfterSave_ShouldTakeCampaignIdFromCampaign() {
+        // Given
+        Publication publication = Publication.builder()
+                .id(10L).user(owner).campaign(campaign).campaignId(null)
+                .build();
+
+        // When
+        PublicationResponseDTO dto = publicationMapper.toDTO(publication, 1L, false);
+
+        // Then
+        assertThat(dto.getCampaignId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("Should return zero likes and likedByMe false for a publication without like data")
+    void toDTO_WithoutLikeData_ShouldReturnZeroLikesAndNotLiked() {
+        // Given
+        Publication publication = Publication.builder()
+                .id(10L).description("Progress update").user(owner).campaign(campaign).campaignId(2L)
+                .build();
+
+        // When
+        PublicationResponseDTO dto = publicationMapper.toDTO(publication);
+
+        // Then
+        assertThat(dto.getLikesCount()).isZero();
+        assertThat(dto.getLikedByMe()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should copy the three values to the like response")
+    void toLikeResponseDTO_ShouldCopyAllValues() {
+        // When
+        PublicationLikeResponseDTO dto = publicationMapper.toLikeResponseDTO(10L, 7L, true);
+
+        // Then
+        assertThat(dto.getPublicationId()).isEqualTo(10L);
+        assertThat(dto.getLikesCount()).isEqualTo(7L);
+        assertThat(dto.getLikedByMe()).isTrue();
     }
 
     @Test

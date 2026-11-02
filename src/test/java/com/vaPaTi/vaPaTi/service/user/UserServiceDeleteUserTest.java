@@ -11,11 +11,17 @@ import com.vaPaTi.vaPaTi.repository.campaign.CampaignRepository;
 import com.vaPaTi.vaPaTi.repository.campaign.CampaignStatusHistoryRepository;
 import com.vaPaTi.vaPaTi.repository.user.RoleRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserSocialLinkRepository;
+import com.vaPaTi.vaPaTi.repository.user.UserTagRepository;
 import com.vaPaTi.vaPaTi.security.AuthenticatedUserService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignService;
 import com.vaPaTi.vaPaTi.service.campaign.CampaignStatusHistoryService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserAccountValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserCategoryValidationService;
+import com.vaPaTi.vaPaTi.validation.user.UserProfileValidationService;
 import com.vaPaTi.vaPaTi.validation.user.UserValidationService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +60,16 @@ class UserServiceDeleteUserTest {
     private AuthenticatedUserService authenticatedUserService;
     @Mock
     private CampaignService campaignService;
+    @Mock
+    private UserCategoryValidationService userCategoryValidationService;
+    @Mock
+    private UserAccountValidationService userAccountValidationService;
+    @Mock
+    private UserProfileValidationService userProfileValidationService;
+    @Mock
+    private UserSocialLinkRepository userSocialLinkRepository;
+    @Mock
+    private UserTagRepository userTagRepository;
 
     @InjectMocks
     private UserService userService;
@@ -312,10 +328,13 @@ class UserServiceDeleteUserTest {
                     mock(CampaignCategoryRepository.class),
                     campaignStatusHistoryService,
                     mock(CampaignStatusHistoryRepository.class),
-                    mock(EntityManager.class)
+                    mock(EntityManager.class),
+                    mock(RoleValidationService.class)
             );
             service = new UserService(userRepository, userValidationService, userMapper, roleRepository,
-                    authenticatedUserService, realCampaignService);
+                    authenticatedUserService, realCampaignService, userCategoryValidationService,
+                    userAccountValidationService, userProfileValidationService, mock(RoleValidationService.class),
+                    userSocialLinkRepository, userTagRepository);
 
             when(authenticatedUserService.getAuthenticatedUserId()).thenReturn(authenticatedUserId);
             when(userRepository.findById(authenticatedUserId)).thenReturn(Optional.of(activeUser));

@@ -17,8 +17,9 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // A user not blocked: same rule as AccountStatusValidationService.isBlocked. :now comes from the JVM, not the database
-    String NOT_BLOCKED = "(u.banned IS NULL OR u.banned = false) AND (u.suspendedUntil IS NULL OR u.suspendedUntil <= :now) ";
+    // A user not sanctioned (banned or currently suspended): same rule as AccountStatusValidationService.isSanctioned.
+    // :now comes from the JVM, not the database
+    String NOT_SANCTIONED = "(u.banned IS NULL OR u.banned = false) AND (u.suspendedUntil IS NULL OR u.suspendedUntil <= :now) ";
 
     @NotNull Optional<User> findById(@NotNull Long id);
 

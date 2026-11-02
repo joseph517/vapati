@@ -18,9 +18,9 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### La ruta no decide el dominio del código
 
-- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` está en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia.
-- **Por qué:** ningún controller inyecta el service de otro dominio. Los supporters son donaciones agregadas, así que el controller, el service (`SupporterService`) y la regla de orden van en donation, y la ruta queda donde la busca el cliente, bajo el usuario.
-- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`. Spec: `specs/50-supporters-de-un-creador.md`.
+- **Qué:** una ruta puede colgar de otro recurso y vivir en el dominio dueño de los datos. `GET /api/users/{userId}/supporters` y `GET /api/users/{userId}/support-feed` están en `controller/donation/SupporterController.java`, con `@RequestMapping("/api/users/{userId}")`, igual que los seguidores en `controller/follower/FollowerController.java`. `UserController` no cambia. `controller/donation/DonationSettingsController.java` atiende `/api/users/me/donation-settings` y `/api/users/{userId}/donation-settings`: los ajustes del panel son datos del dominio `donation`. Los comentarios siguen el mismo criterio: `controller/comment/CommentController.java` atiende `/api/publications/{publicationId}/comments` desde el dominio `comment`, y `PublicationController` no cambia.
+- **Por qué:** ningún controller inyecta el service de otro dominio. Los supporters son donaciones agregadas, así que el controller, el service (`SupporterService`) y la regla de orden van en donation, y la ruta queda donde la busca el cliente, bajo el usuario. Los comentarios tienen sus propias reglas, su tabla y su borrado, y `publication` no importa nada de `comment`: si lo hiciera (por ejemplo para contarlos en `PublicationResponseDTO`), los dos dominios dependerían uno del otro.
+- **Dónde:** `controller/donation/SupporterController.java`, `service/donation/SupporterService.java`, `controller/donation/DonationSettingsController.java`, `controller/comment/CommentController.java`. Specs: `harness/specs/implementados/50-supporters-de-un-creador.md`, `harness/specs/implementados/52-feed-de-apoyos-en-el-perfil.md` y `harness/specs/54-comentarios-en-publicaciones.md`.
 
 ## Identidad y autorización
 
@@ -29,13 +29,19 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Qué:** los services obtienen el usuario con `AuthenticatedUserService.getAuthenticatedUserId()`, y en rutas públicas con `findAuthenticatedUserId()`, que devuelve vacío para un anónimo.
 - **Por qué:** nadie puede actuar en nombre de otro. El autor de una campaña, una publicación, una donación, un seguimiento o un reporte es siempre quien llama.
 - **Dónde:** `security/AuthenticatedUserService.java`.
-- **Excepciones hoy:** las cuentas bancarias y las solicitudes de verificación toman el usuario del body o de la ruta. Ver [deuda técnica](deuda-tecnica.md).
+- **Excepciones hoy:** las cuentas bancarias y las solicitudes de verificación toman el usuario del body o de la ruta.
 
 ### El estado de la cuenta y el rol se releen de la base en cada request
 
 - **Qué:** el filtro JWT carga al usuario en cada request. Si está baneado o suspendido responde `403`, y arma las autoridades (`ROLE_<rol>`) con el rol guardado. Los services que deciden "¿es admin?" también consultan la base.
 - **Por qué:** una sanción corta todas las sesiones al instante sin revocar tokens, y vuelve a habilitarlas sola cuando vence. Un cambio de rol se aplica sin esperar a que expire el token. El claim `role` del JWT no se usa para autorizar.
 - **Dónde:** `security/JwtAuthenticationFilter.java`, `service/auth/CustomUserDetailsService.java`, `validation/auth/AccountStatusValidationService.java`.
+
+### El rol ADMIN se comprueba en un solo lugar
+
+- **Qué:** `RoleValidationService.isAdmin(userId)` lee el rol de la base para un `userId` con una sola consulta (`existsByIdAndRole_Name`), y `hasAdminRole(user)` lo lee sobre un usuario ya cargado con su rol, sin consulta extra.
+- **Por qué:** antes había cuatro copias de la comprobación, y dominios que dependían de `campaign` solo para saber el rol. Leerlo de la base evita un claim viejo en el token.
+- **Dónde:** `validation/common/RoleValidationService.java`.
 
 ### JWT stateless con revocación por lista negra
 
@@ -51,9 +57,9 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** un tercero no puede distinguir "no existe" de "existe pero está oculto", así que no se entera de la sanción ni del cierre. El código lo dice en sus comentarios ("hidden like a missing one", "the sanction is not revealed").
 - **Dónde:** `validation/campaign/CampaignValidationService.java`, `validation/user/UserValidationService.java`, `validation/follower/FollowerValidationService.java`.
 
-### Un criterio de "bloqueado", escrito dos veces
+### Un criterio de "sancionado", escrito dos veces
 
-- **Qué:** bloqueado = `banned` o `suspendedUntil` posterior a ahora. En Java es `AccountStatusValidationService.isBlocked`. En JPQL, la constante `UserRepository.NOT_BLOCKED`, que recibe `:now` desde la JVM.
+- **Qué:** sancionado = `banned` o `suspendedUntil` posterior a ahora. En Java es `AccountStatusValidationService.isSanctioned`. En JPQL, la constante `UserRepository.NOT_SANCTIONED`, que recibe `:now` desde la JVM. "Sancionado" es el término del proyecto para baneado o con suspensión vigente; "bloqueo" queda para el bloqueo entre usuarios.
 - **Por qué:** los listados filtran en la base y las validaciones puntuales en memoria, con la misma regla. Pasar la hora desde la JVM evita depender del reloj del servidor de base de datos.
 - **Dónde:** `validation/auth/AccountStatusValidationService.java`, `repository/user/UserRepository.java`.
 
@@ -61,12 +67,12 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 - **Qué:** las lecturas tienen una versión completa (ADMIN) y una `*VisibleTo` o `*Visible*` (resto), y el service elige con un booleano.
 - **Por qué:** el ADMIN modera, así que ve lo oculto en las lecturas. En las escrituras no tiene excepción (no puede seguir a un usuario sancionado).
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/follower/FollowerRepository.java`.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/follower/FollowerRepository.java`, `repository/comment/CommentRepository.java` (`findAllByPublicationId` y `findVisibleByPublicationId`).
 
 ### Ocultar un campo en lugar de cerrar el endpoint
 
 - **Qué:** el listado de donaciones de una campaña es público, pero `transactionId`, el mensaje privado y la respuesta privada del dueño solo los ven el dueño, un ADMIN o el propio donante. Para el resto, un mensaje privado se ve como una donación sin mensaje (`message: null`, `messagePrivate: false`), y una respuesta privada como una donación sin respuesta (`thanksMessage: null`, `thanksPrivate: false`, `thankedAt: null`), para no revelar que hay algo oculto.
-- **Excepciones por diseño:** `GET /api/donations/received` no oculta nada: lo llama el receptor, que ve el `transactionId`, el mensaje privado y la respuesta privada de todo lo que recibió, así que no usa `canSeePrivateDonationData`. Las donaciones directas no tienen ninguna lectura pública ni de terceros, por eso no hay nada que ocultar en otra ruta.
+- **Excepciones por diseño:** `GET /api/donations/received` no oculta nada: lo llama el receptor, que ve el `transactionId`, el mensaje privado y la respuesta privada de todo lo que recibió, así que no usa `canSeePrivateDonationData`. Las donaciones directas se leen sueltas en el feed de apoyos del receptor, que no usa `canSeePrivateDonationData`: es una vista pública única (ver [Feed de apoyos: la misma vista para todos](#feed-de-apoyos-la-misma-vista-para-todos)).
 - **Dónde:** `service/donation/DonationService.java` (`canSeePrivateDonationData`, `getDonationsReceived`). Lo decide el service y no el mapper, porque el mapper no conoce a quien llama.
 
 ### Supporters: la identidad es pública, los importes no
@@ -75,15 +81,34 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Por qué:** sigue a Ko-fi, cuyo perfil público muestra los primeros supporters sin importes. Ordenar por fecha revelaría quién donó más recientemente, que es el dato oculto; por eso se restringe. El orden por `totalAmount` sí revela quién donó más, y se aceptó como riesgo, como en Ko-fi. Ocultar campos y no cerrar la ruta es el mismo criterio que el `transactionId` y el mensaje privado, y como cada fila es un agregado sin mensajes no aplica `canSeePrivateDonationData`.
 - **Donantes inactivos, sin código nuevo:** un donante borrado sale anónimo (`donorUserId` y `donorUserName` en `null`) para todos, también para el ADMIN, como en `DonationMapper.toDTO`. Un donante baneado o suspendido sale normal, como en el listado de donaciones de una campaña. Sus importes siguen sumando: el ranking es un historial.
 - **Creador:** mismas reglas que el perfil (`404 User not found` si no existe, está borrado o, para la vista pública, sancionado). Es la primera ruta anónima que distingue un id de usuario existente de uno inexistente; no revela sanciones.
-- **Dónde:** `service/donation/SupporterService.java`, `validation/donation/DonationValidationService.java` (`validateSupporterSort`), `mapper/donation/DonationMapper.java` (`toSupporterDTO`). Detalle en [Donation](dominios/donation.md#supporters-de-un-creador). Spec: `specs/50-supporters-de-un-creador.md`.
+- **Dónde:** `service/donation/SupporterService.java`, `validation/donation/DonationValidationService.java` (`validateSupporterSort`), `mapper/donation/DonationMapper.java` (`toSupporterDTO`). Detalle en [Donation](dominios/donation.md#supporters-de-un-creador). Spec: `harness/specs/implementados/50-supporters-de-un-creador.md`.
+
+### Feed de apoyos: la misma vista para todos
+
+- **Qué:** `GET /api/users/{userId}/support-feed` es público, también sin token, y devuelve la misma vista a todos, incluidos el creador y el ADMIN: una fila por donación `COMPLETED` recibida, sin importes, con el mensaje y la respuesta privados en `null` (sin flag) y con las campañas no públicas (borradas, `CLOSED` o sin `goal`) anonimizadas con `campaignHidden=true`. El orden es fijo, `createdAt` y `id` descendentes. La identidad del donante es pública, como en los supporters.
+- **Por qué:** lo privado y el detalle completo ya están en `GET /api/donations/received`, que ve el receptor. Una sola vista pública hace que el contenido no dependa de quien llama. Un DTO propio (`SupportFeedItemDTO`) impide que un campo nuevo de `DonationResponseDTO` se filtre a una ruta pública. La campaña se oculta con la misma regla de `CLOSED` que `findByIdVisibleTo` aplica a quien no es dueño ni ADMIN, así el feed no muestra una campaña que el público no puede abrir.
+- **Dónde:** `service/donation/SupporterService.java` (`getSupportFeed`, `hideNonPublicData`), `validation/campaign/CampaignValidationService.java` (`isPublicCampaign`), `validation/donation/DonationValidationService.java` (`isCampaignPublic`). Detalle en [Donation](dominios/donation.md#feed-de-apoyos-de-un-creador). Spec: `harness/specs/52-feed-de-apoyos-en-el-perfil.md`.
+
+### Likes: contador sin vista de ADMIN
+
+- **Qué:** `likesCount` deja afuera los likes de usuarios borrados, baneados o con suspensión vigente, para todos, también para el ADMIN. Las filas se conservan y vuelven a contar si la cuenta se restaura o la sanción termina.
+- **Por qué:** no hay par de queries completa/`*VisibleTo` como pide [Queries en pares](#queries-en-pares-la-del-admin-y-la-del-resto): no hay una lista de quién dio like, solo un número, y una vista de ADMIN no agregaría nada. Es la regla de lectura de los usuarios bloqueados (`UserRepository.NOT_BLOCKED` junto con `u.deletedAt IS NULL`).
+- **Dónde:** `repository/publication/PublicationLikeRepository.java`. Detalle en [Publication](dominios/publication.md).
+
+### Comentarios: visibles con su publicación, y los borra también el dueño
+
+- **Qué:** un comentario se ve si su autor está activo (o sancionado, si quien llama es ADMIN) y su publicación es visible para quien llama. Lo borran su autor, el autor de la publicación o un ADMIN, y primero se mira la visibilidad y después el permiso: lo que quien llama no ve responde el `404` del comentario, y un comentario visible que no puede borrar responde `403`. Todo lo oculto responde el mismo `404 Comment not found with ID: <id>`, nunca el de la publicación.
+- **Por qué:** el comentario se escribe en el espacio del creador, así que el creador puede limpiarlo aunque no lo haya escrito; y el ADMIN modera, como en las lecturas de [Queries en pares](#queries-en-pares-la-del-admin-y-la-del-resto). El listado sí tiene vista de ADMIN (a diferencia de los likes), porque es una lista de personas y no un número. Responder el `404` de la publicación revelaría que el comentario existe.
+- **Dónde:** `validation/comment/CommentValidationService.java`, `repository/comment/CommentRepository.java`. Detalle en [Comment](dominios/comment.md).
 
 ## Datos
 
 ### Borrado lógico, con relaciones tolerantes
 
-- **Qué:** `User`, `Campaign`, `Publication` y `VerificationRequest` se borran con `@SQLDelete` + `@SQLRestriction("deleted_at IS NULL")`. Las relaciones que apuntan a ellas desde registros históricos (donaciones, reportes, publicaciones) usan `@ManyToOne` opcional + `@NotFound(IGNORE)` + `updatable = false`, y una copia de solo lectura de la FK (`campaignId`, `donorUserId`, `recipientUserId`).
+- **Qué:** `User`, `Campaign`, `Publication`, `Comment` y `VerificationRequest` se borran con `@SQLDelete` + `@SQLRestriction("deleted_at IS NULL")`. Las relaciones que apuntan a ellas desde registros históricos (donaciones, reportes, publicaciones, comentarios) usan `@ManyToOne` opcional + `@NotFound(IGNORE)` + `updatable = false`, y una copia de solo lectura de la FK (`campaignId`, `donorUserId`, `recipientUserId`, `publicationId`). `Comment.user` sigue ese patrón; `Comment.publication` es LAZY, sin `@NotFound`, y solo se navega cuando la publicación ya resultó visible.
 - **Por qué:** lo borrado desaparece de toda consulta, pero una donación o un reporte no desaparecen porque se borró su campaña o su autor: la relación queda en `null` y la FK no se pisa en un `UPDATE`. La FK de solo lectura permite filtrar sin hacer join a una tabla con restricción.
-- **Dónde:** `entity/donation/Donation.java`, `entity/publication/Publication.java`, `entity/report/Report.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md).
+- **Dónde:** `entity/donation/Donation.java`, `entity/publication/Publication.java`, `entity/comment/Comment.java`, `entity/report/Report.java`. Detalle en [Modelo de datos](04-modelo-de-datos.md).
+- **Costo:** con Hibernate 6.6, borrar con `repository.delete` una entidad con `@SQLDelete` la deja removida para el contexto de persistencia, y cualquier entidad administrada de la misma transacción que la referencie hace fallar el flush. `CampaignService.closeAndSoftDelete` lo resuelve desacoplando (`detach`) la fila de historial que acaba de escribir. Detalle en [Modelo de datos](04-modelo-de-datos.md#borrado-lógico-soft-delete) y [Recomendaciones de arquitectura](recomendaciones-de-arquitectura.md).
 
 ### Agregados que atraviesan el borrado: SQL nativo con el orden escrito
 
@@ -109,14 +134,30 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 ### La base como red contra carreras
 
-- **Qué:** restricciones únicas (seguidor+seguido, `jti` revocado, reportante+entidad, número de cuenta, `transactionId`). `DataIntegrityViolationException` se traduce a `409`.
-- **Por qué:** la validación previa en Java no alcanza con requests simultáneos, y la restricción da la última palabra.
-- **Dónde:** las entidades, `exception/GlobalExceptionHandler.java`.
+- **Qué:** restricciones únicas (seguidor+seguido, `jti` revocado, reportante+entidad, número de cuenta, `transactionId`, publicación+usuario en `publication_like`). Por defecto, `DataIntegrityViolationException` se traduce a `409`. Hay dos excepciones idempotentes que absorben la violación y siguen: el logout (`AuthenticationService.revokeIgnoringDuplicates`: si otro logout revocó el mismo `jti`, ya está revocado) y el like (`PublicationLikeService.likePublication`: si otro request dio el mismo like, el estado final es el mismo y responde `200`).
+- **Por qué:** la validación previa en Java no alcanza con requests simultáneos, y la restricción da la última palabra. Los dos métodos idempotentes no son `@Transactional` a propósito: el rollback de la violación queda confinado al `save` o al insert que falla (y, con open-in-view activo, el contexto de persistencia del request se limpia), así el método puede seguir y responder `200`. Dentro de una transacción externa esa violación la marcaría rollback-only y terminaría en `409`. Quien copie el patrón dentro de un método `@Transactional` obtiene el `409` sin aviso.
+- **Dónde:** las entidades, `exception/GlobalExceptionHandler.java`, `service/auth/AuthenticationService.java`, `service/publication/PublicationLikeService.java`.
 
 ### Consultas sin N+1
 
 - **Qué:** los listados traen las relaciones con `JOIN FETCH`, incluido el `@OneToOne` inverso `User.verificationRequest`, que Hibernate cargaría aparte aunque fuera `LAZY`. Las categorías de un listado de campañas se cargan en bloques de 1000 ids, porque SQL Server acepta hasta 2100 parámetros.
-- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `service/campaign/CampaignService.java`.
+- **El listado de publicaciones:** suma dos consultas fijas por `campaignId` (una sola para un anónimo): el conteo de likes agrupado por publicación y los ids que quien llama marcó. Ninguna usa `IN :ids`, así que no crecen con el listado ni tocan el límite de parámetros.
+- **El listado de comentarios:** trae el autor, su `userInfo` y su `verificationRequest` con `JOIN FETCH`, todos a uno, así que Hibernate pagina en SQL. Cada página son dos consultas fijas (la página y el conteo), más las de visibilidad.
+- **El perfil de un usuario:** los enlaces y las etiquetas se cargan con dos consultas por `user_id` (`findByUserId`), fuera del grafo de `findByIdWithFullDetails`, que ya trae dos colecciones (categorías y cuentas bancarias); traer una tercera obligaría a un producto cartesiano. Se leen recién después de decidir la visibilidad. Los listados de usuarios no las traen.
+- **El 1 a 1 sin lado inverso:** `DonationSettings.user` es LAZY y `User` no tiene el campo de vuelta. Un `@OneToOne` inverso lo carga Hibernate con otra consulta por usuario aunque sea LAZY (como `User.verificationRequest`), y ninguna lectura de usuarios necesita el panel. Se lee con `DonationSettingsRepository.findByUserId`, solo donde hace falta.
+- **Dónde:** `repository/campaign/CampaignRepository.java`, `repository/user/UserRepository.java`, `repository/user/UserSocialLinkRepository.java`, `repository/user/UserTagRepository.java`, `service/campaign/CampaignService.java`, `repository/publication/PublicationLikeRepository.java`, `service/publication/PublicationService.java`, `repository/comment/CommentRepository.java`, `repository/donation/DonationSettingsRepository.java`.
+
+### Perfil con URLs externas y una sola regla de URL
+
+- **Qué:** la portada, el video de presentación, el sitio web, la foto y los enlaces a redes se guardan como URLs externas, sin subir archivos. Todas pasan por `UrlValidationService.normalizeOptionalUrl` (`http` o `https` con host, 255 como máximo, en blanco guarda `null`). Las reglas de dominio van encima: `SocialPlatform` dice a qué dominios puede apuntar cada enlace, y `VIDEO_HOSTS` en `UserProfileValidationService` es la lista exacta de hosts del video (YouTube y Vimeo).
+- **Por qué:** no hay almacenamiento propio, así que una URL es todo lo que hace falta guardar. Y un embed arbitrario es un riesgo: el front incrusta el video, por eso la lista de hosts es exacta y no admite subdominios.
+- **Dónde:** `validation/common/UrlValidationService.java`, `validation/user/UserProfileValidationService.java`, `entity/user/SocialPlatform.java`.
+
+### Colecciones reemplazadas por diferencia
+
+- **Qué:** `socialLinks` y `tags` del usuario se reemplazan enteras, pero no con `clear()` más `add()`: `UserProfileValidationService` valida todo primero y después quita lo que sobra, actualiza lo que sigue y agrega lo nuevo. `UserSocialLink` y `UserTag` calculan `equals` y `hashCode` solo con su clave natural (`platform`, `tag`).
+- **Por qué:** Hibernate hace los `INSERT` antes de los `DELETE` de los huérfanos al hacer flush, así que volver a agregar una plataforma o etiqueta que ya existía chocaría con la `UNIQUE (user_id, platform)` o `(user_id, tag)`. La clave natural en `equals` permite además cambiar la `url` de un enlace sin romper el `HashSet`.
+- **Dónde:** `validation/user/UserProfileValidationService.java` (`replaceSocialLinks`, `replaceTags`), `entity/user/UserSocialLink.java`, `entity/user/UserTag.java`.
 
 ## Errores
 
@@ -124,6 +165,44 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 
 - **Qué:** las reglas lanzan excepciones de `exception/`, todas subclases de `MessageException`, y `GlobalExceptionHandler` decide el status y arma `{error, message, timestamp}`.
 - **Dónde:** detalle en [Errores y validación](05-errores-y-validacion.md).
+
+## Infraestructura
+
+### Dos Dockerfiles, con el mismo `JAVA_VERSION`
+
+- **Qué:** `Dockerfile` construye la imagen de producción (lo publica CI) y `Dockerfile.dev` la del stack de desarrollo con hot reload. Los dos declaran `ARG JAVA_VERSION` con el mismo valor.
+- **Por qué:** los dos están en uso y tienen responsabilidades distintas: uno compila el JAR y lo copia a una imagen mínima; el otro solo trae JDK y herramientas, porque el código se monta. Unificarlos en un multi-etapa con `target` se descartó. El mismo `JAVA_VERSION` hace que lo que se desarrolla compile y corra con el mismo update de Java que producción. El costo es repetir el valor, que cubre el procedimiento de actualización.
+- **Dónde:** `Dockerfile`, `Dockerfile.dev`. Procedimiento en [Infraestructura](06-infraestructura.md#actualizar-los-tags-fijados). Spec: `specs/59-optimizacion-y-seguridad-docker.md`.
+
+### El perfil `dev` separado de `docker`
+
+- **Qué:** `docker` es la base de los dos stacks (datasource, Hikari, Tomcat, JWT, CORS). Lo propio del desarrollo (SQL formateado, DevTools, logs en `DEBUG`) está en el perfil `dev`, que solo activa el stack de desarrollo (`docker,dev`).
+- **Por qué:** antes los dos stacks compartían un perfil con SQL y `DEBUG` encendidos, y producción los heredaba. Las alternativas descartadas fueron pasar esos ajustes por variables de entorno del compose o dejarlo como estaba.
+- **Dónde:** `src/main/resources/application-docker.properties`, `src/main/resources/application-dev.properties`.
+
+### La aplicación conecta con un login de mínimo privilegio
+
+- **Qué:** `vapati_app`, con `db_owner` solo sobre `ApiVaPaTiJava`, en lugar de `sa`. Lo crea el propio `command` del servicio `sqlserver` en cada arranque (si existe, solo actualiza la password), y el healthcheck de la base entra con ese login. `sa` queda para inicializar y para los scripts manuales.
+- **Por qué:** una inyección o un fallo de la aplicación ya no llega a otras bases ni a la configuración del servidor. Es automático e idempotente porque el servidor de producción solo tiene el compose y el `.env`: no hay dónde montar un script. `db_owner` y no menos, porque `ddl-auto=update` crea y altera tablas. `application.properties` (corrida local fuera de Docker) sigue con `sa`, porque fuera de Compose nadie crea el login.
+- **Dónde:** `docker-compose.dev.yml`, `docker-compose.prod.yml`, `application-docker.properties`. Detalle en [Seguridad](03-seguridad.md#contenedores-y-base-de-datos).
+
+### Alpine, usuario no root y tags exactos
+
+- **Qué:** todas las etapas sobre `eclipse-temurin:<versión>-{jdk,jre}-alpine`, con Maven a través del wrapper (sin la imagen `maven:`). La imagen de producción corre como `app`, con sistema de archivos de solo lectura, `no-new-privileges` y sin capacidades. Las imágenes base van por tag exacto, sin digest.
+- **Por qué:** la base Ubuntu y la imagen `maven:` aportaban casi todas las vulnerabilidades del sistema operativo (el escaneo de `runtime` pasó de 56 a 3 excepciones, ver [Infraestructura](06-infraestructura.md#escanear-con-trivy)), y la versión de Maven queda definida en un solo lugar. Un digest exige editarlo a mano en cada actualización y no tiene Dependabot en este repo; un tag flotante cambia la imagen sin que nadie lo decida. El desarrollo sigue como root, con `no-new-privileges` y sin capacidades, porque el volumen `maven-cache-dev` es de root.
+- **Dónde:** `Dockerfile`, `Dockerfile.dev`, los dos compose.
+
+### SQL Server con `max server memory`
+
+- **Qué:** `sp_configure 'max server memory (MB)', 512` en el `command` de `sqlserver`, más `MSSQL_MEMORY_LIMIT_MB=1024`, en los dos compose.
+- **Por qué:** sin tope, el buffer pool crece hasta ocupar la memoria disponible. Cada palanca acota una parte distinta del proceso, así que van las dos. No se usa `mem_limit` en el contenedor de la base ni `MSSQL_PID=Express`: SQL Server en Linux no arranca con un límite menor a 2 GB.
+- **Dónde:** `docker-compose.dev.yml`, `docker-compose.prod.yml`.
+
+### El hot reload lanza `java -cp`, no `spring-boot:run`
+
+- **Qué:** `scripts/dev-hot-reload.sh` calcula el classpath con Maven (`dependency:build-classpath`, en la misma invocación que compila) y arranca la JVM directo con `java -cp`.
+- **Por qué:** `spring-boot:run` dejaba una JVM de Maven viva además de la de la aplicación (unos 185 MB de RSS). Con `java -cp` hay una sola JVM, con el debug JDWP y DevTools igual que antes, porque `target/classes` sigue en el classpath como directorio.
+- **Dónde:** `scripts/dev-hot-reload.sh`. Detalle en [Infraestructura](06-infraestructura.md#hot-reload-en-desarrollo).
 
 ## Producto
 
@@ -147,16 +226,22 @@ Las decisiones que atraviesan varios dominios. Cada una dice qué se hace, por q
 - **Costo:** `ddl-auto=update` no puede volver nullable a `campaign_id` ni exigir `NOT NULL` en `recipient_user_id` sobre filas existentes, así que hace falta el script manual `scripts/migrate-donation-recipient.sql`, que se corre con la app detenida (ver [Modelo de datos](04-modelo-de-datos.md#migración-manual-de-donation)).
 - **Dónde:** `entity/donation/Donation.java`, `validation/donation/DonationValidationService.java`, `service/donation/DonationService.java`, `repository/donation/DonationRepository.java`, `scripts/migrate-donation-recipient.sql`. Detalle en [Donation](dominios/donation.md). Spec: `specs/51-donacion-directa-al-creador.md`.
 
+### Panel de donación: fila perezosa y mínimo solo en directas
+
+- **Qué:** el panel de un creador (`DonationSettings`) no existe hasta que guarda por primera vez: sin fila valen los valores por defecto (`SIMPLE`, `DONATE`, sin unidad, sin mínimo, sin sugeridos) y leer nunca la crea. El `PUT /api/users/me/donation-settings` es un upsert de reemplazo completo, sin `DELETE`. El mínimo efectivo (`minimumAmount` en `SIMPLE`; en `UNIT`, el mayor de `unitAmount` y `minimumAmount`) se calcula en un solo lugar, `DonationSettings.getEffectiveMinimumAmount`, y sale en la respuesta como `effectiveMinimumAmount`. Solo lo exigen las donaciones directas (`400 Amount must be at least <min>`); las campañas tienen su propia meta y no cambian. En `UNIT` el importe es libre mientras llegue al mínimo: no se exigen múltiplos de la unidad ni se guarda la cantidad.
+- **Por qué:** crear la fila de forma perezosa evita un backfill de los usuarios existentes y no acopla el alta de usuario con `donation`. Así lo hace Ko-fi. Un solo lugar para el mínimo deja que el front no repita la regla y que el `PUT`, la donación y el mapper no puedan discrepar. La regla vive en la entidad y no en `validation/` porque el mapper también la usa. El chequeo del mínimo va después de los del receptor y de la autodonación, para no revelar la configuración de un creador sancionado.
+- **Dónde:** `entity/donation/DonationSettings.java`, `service/donation/DonationSettingsService.java`, `validation/donation/DonationSettingsValidationService.java`, `validation/donation/DonationValidationService.java` (`validateDirectDonationMinimum`), `mapper/donation/DonationSettingsMapper.java`, `controller/donation/DonationSettingsController.java`. Detalle en [Donation](dominios/donation.md#ajustes-del-panel-de-donación).
+
 ### Una regla de texto obligatorio compartida
 
-- **Qué:** el mensaje del donante, la respuesta del receptor y el mensaje predeterminado se validan con el mismo `TextValidationService.normalizeRequiredText`: `trim`, blanco → `400 <campo> cannot be blank`, más de 280 → `400 <campo> must be at most 280 characters`.
-- **Por qué:** la usan dos dominios (`donation` y `user`), y lo compartido va en `validation/common/`. Así no hay tres copias de la misma regla.
+- **Qué:** el mensaje del donante, la respuesta del receptor, el mensaje predeterminado, el texto de un comentario y el nombre de la unidad del panel de donación (`Unit name`, 30) se validan con el mismo `TextValidationService.normalizeRequiredText`: `trim`, blanco → `400 <campo> cannot be blank`, más del máximo del campo → `400 <campo> must be at most <máximo> characters` (280, salvo `Unit name`).
+- **Por qué:** la usan tres dominios (`donation`, `user` y `comment`), y lo compartido va en `validation/common/`. Así no hay tres copias de la misma regla.
 - **Dónde:** `validation/common/TextValidationService.java`.
 
 ### Moderación solo por reportes
 
-- **Qué:** un ADMIN no borra publicaciones ni sanciona usuarios desde sus dominios: lo hace resolviendo un reporte con una acción (`CONTENT_REMOVED`, `USER_SUSPENDED`, `USER_BANNED`). Las campañas son la excepción, porque un ADMIN puede editarlas y borrarlas directamente.
-- **Dónde:** `service/report/ReportActionService.java`, `validation/campaign/CampaignAuthorizationService.java`.
+- **Qué:** un ADMIN no borra publicaciones ni sanciona usuarios desde sus dominios: lo hace resolviendo un reporte con una acción (`CONTENT_REMOVED`, `USER_SUSPENDED`, `USER_BANNED`). Hay tres excepciones, donde un ADMIN actúa directamente: las campañas, que puede editar y borrar; la respuesta a una donación, que puede borrar (`DonationValidationService.validateIsRecipientOrAdmin`); y los comentarios, que puede borrar (`CommentValidationService.validateAndGetDeletableComment`). Las publicaciones y las sanciones siguen pasando solo por reportes.
+- **Dónde:** `service/report/ReportActionService.java`, `validation/campaign/CampaignAuthorizationService.java`, `validation/donation/DonationValidationService.java`, `validation/comment/CommentValidationService.java`.
 
 ### Secreto JWT obligatorio y validado al arrancar
 

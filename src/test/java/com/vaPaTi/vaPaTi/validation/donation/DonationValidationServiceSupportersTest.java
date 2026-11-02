@@ -3,8 +3,8 @@ package com.vaPaTi.vaPaTi.validation.donation;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.repository.donation.DonationRepository;
 import com.vaPaTi.vaPaTi.repository.user.UserRepository;
-import com.vaPaTi.vaPaTi.validation.campaign.CampaignAuthorizationService;
 import com.vaPaTi.vaPaTi.validation.campaign.CampaignValidationService;
+import com.vaPaTi.vaPaTi.validation.common.RoleValidationService;
 import com.vaPaTi.vaPaTi.validation.common.TextValidationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,7 +36,7 @@ class DonationValidationServiceSupportersTest {
     private DonationRepository donationRepository;
 
     @Mock
-    private CampaignAuthorizationService campaignAuthorizationService;
+    private RoleValidationService roleValidationService;
 
     @InjectMocks
     private DonationValidationService donationValidationService;

@@ -89,7 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // Banned or suspended accounts are cut with 403, with the same message as the login
                 try {
-                    accountStatusValidationService.validateNotBlocked(requestUser.user());
+                    accountStatusValidationService.validateNotSanctioned(requestUser.user());
                 } catch (ForbiddenActionException e) {
                     writeForbidden(request, response, e.getMessage());
                     return;

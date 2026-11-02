@@ -1,37 +1,24 @@
-# Dockerfile for Development with Hot Reload
-# Source code is not copied: docker-compose.dev.yml bind-mounts ./src read-only, and
-# scripts/dev-hot-reload.sh compiles it and restarts the app when it changes.
-FROM maven:3.9-eclipse-temurin-21
+# Development image with hot reload (docker-compose.dev.yml). Source is mounted, not copied.
+# Java version (same value as Dockerfile). How to update it: docs/arquitectura/06-infraestructura.md
+ARG JAVA_VERSION=21.0.12.1_1
+FROM eclipse-temurin:${JAVA_VERSION}-jdk-alpine
 
-# inotify-tools provides inotifywait, used by the hot reload watcher
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends inotify-tools \
-    && rm -rf /var/lib/apt/lists/*
+# bash runs the watcher script; inotify-tools provides inotifywait; curl is used by the healthcheck
+RUN apk add --no-cache bash inotify-tools curl
 
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml for dependency caching
+# Maven wrapper and pom.xml for dependency caching
 COPY .mvn .mvn
-COPY mvnw .
-COPY mvnw.cmd .
-COPY pom.xml .
-
-RUN chmod +x mvnw mvnw.cmd
-
-# Download dependencies (cached layer)
-RUN ./mvnw dependency:go-offline -B
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
 
 COPY scripts/dev-hot-reload.sh /usr/local/bin/dev-hot-reload.sh
 RUN chmod +x /usr/local/bin/dev-hot-reload.sh
 
-# Expose application port and LiveReload port
-EXPOSE 8080
-EXPOSE 35729
+EXPOSE 8080 35729
+ENV SPRING_PROFILES_ACTIVE=docker,dev
+ENV MAVEN_OPTS="-XX:+UseSerialGC -Xmx256m -XX:TieredStopAtLevel=1"
+ENV JAVA_OPTS="-XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xss512k -XX:MaxRAMPercentage=50"
 
-# Set environment variables for development
-ENV SPRING_PROFILES_ACTIVE=docker
-ENV MAVEN_OPTS="-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
-
-# Starts the app (spring-boot:run with the debug agent on port 5005), watches src/main and pom.xml,
-# recompiles on change and triggers the DevTools restart
 CMD ["/usr/local/bin/dev-hot-reload.sh"]

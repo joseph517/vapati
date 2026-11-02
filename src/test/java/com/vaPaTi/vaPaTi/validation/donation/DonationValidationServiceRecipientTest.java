@@ -61,7 +61,7 @@ class DonationValidationServiceRecipientTest {
             assertThat(result).isSameAs(recipient);
             InOrder inOrder = inOrder(userValidationService);
             inOrder.verify(userValidationService).getUserById(RECIPIENT_ID);
-            inOrder.verify(userValidationService).validateProfileNotBlocked(recipient);
+            inOrder.verify(userValidationService).validateProfileNotSanctioned(recipient);
         }
 
         @Test
@@ -74,23 +74,23 @@ class DonationValidationServiceRecipientTest {
             assertThatThrownBy(() -> donationValidationService.validateAndGetRecipient(RECIPIENT_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User not found");
-            verify(userValidationService, never()).validateProfileNotBlocked(any());
+            verify(userValidationService, never()).validateProfileNotSanctioned(any());
         }
 
         @Test
         @DisplayName("Should propagate User not found from the sanction check before reading the role")
-        void validateAndGetRecipient_WhenBlocked_ShouldPropagateBeforeRoleCheck() {
+        void validateAndGetRecipient_WhenSanctioned_ShouldPropagateBeforeRoleCheck() {
             // Given
-            User blockedRecipient = mock(User.class);
-            when(userValidationService.getUserById(RECIPIENT_ID)).thenReturn(blockedRecipient);
+            User sanctionedRecipient = mock(User.class);
+            when(userValidationService.getUserById(RECIPIENT_ID)).thenReturn(sanctionedRecipient);
             doThrow(new ResourceNotFoundException("User not found"))
-                    .when(userValidationService).validateProfileNotBlocked(blockedRecipient);
+                    .when(userValidationService).validateProfileNotSanctioned(sanctionedRecipient);
 
             // When & Then
             assertThatThrownBy(() -> donationValidationService.validateAndGetRecipient(RECIPIENT_ID))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessage("User not found");
-            verify(blockedRecipient, never()).getRole();
+            verify(sanctionedRecipient, never()).getRole();
         }
 
         @Test
@@ -104,7 +104,7 @@ class DonationValidationServiceRecipientTest {
             assertThatThrownBy(() -> donationValidationService.validateAndGetRecipient(RECIPIENT_ID))
                     .isInstanceOf(MessageException.class)
                     .hasMessage("Cannot donate to an admin");
-            verify(userValidationService).validateProfileNotBlocked(recipient);
+            verify(userValidationService).validateProfileNotSanctioned(recipient);
         }
     }
 
