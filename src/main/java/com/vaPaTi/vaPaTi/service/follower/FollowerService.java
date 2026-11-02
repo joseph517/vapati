@@ -6,6 +6,7 @@ import com.vaPaTi.vaPaTi.dtos.follower.UnfollowResponseDTO;
 import com.vaPaTi.vaPaTi.entity.follower.Follower;
 import com.vaPaTi.vaPaTi.entity.user.User;
 import com.vaPaTi.vaPaTi.exception.ConflictException;
+import com.vaPaTi.vaPaTi.exception.ForbiddenActionException;
 import com.vaPaTi.vaPaTi.exception.MessageException;
 import com.vaPaTi.vaPaTi.exception.ResourceNotFoundException;
 import com.vaPaTi.vaPaTi.mapper.follower.FollowerMapper;
@@ -33,11 +34,12 @@ public class FollowerService {
     /**
      * Follows a user by creating a new follower relationship.
      *
-     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), (banned or suspended users are not found either). It then checks if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDTO with the result.
+     * This method first validates that the current user is not trying to follow themselves, and that both users exist (deleted users are not found), (banned or suspended users are not found either). It then checks that there is no block in either direction between both users, and if the current user is already following the user to follow, and if so, throws a ConflictException. If not, it creates a new follower relationship and returns a FollowResponseDTO with the result.
      *
      * @param userToFollowId the ID of the user to follow
      * @return a FollowResponseDTO with the result of the follow operation
      * @throws MessageException if the current user is trying to follow themselves
+     * @throws ForbiddenActionException if either user blocked the other
      * @throws ConflictException if the current user is already following the user to follow
      * @throws ResourceNotFoundException if the current user or the user to follow is not found, or the user to follow is banned or suspended
      */
@@ -48,6 +50,8 @@ public class FollowerService {
         followerValidationService.validateNotSelfFollow(userId, userToFollowId);
         User currentUser = followerValidationService.validateAndGetCurrentUser(userId);
         User userToFollow = followerValidationService.validateAndGetUserToFollow(userToFollowId);
+        // After the 404, so a sanctioned user with a block still answers 404 and the sanction isn't revealed
+        followerValidationService.validateNoUserBlock(userId, userToFollowId);
         followerValidationService.validateNotAlreadyFollowing(userToFollow, currentUser);
 
         // Create new follower relationship
@@ -88,6 +92,17 @@ public class FollowerService {
                 userToUnfollowId,
                 "Successfully unfollowed " + userToUnfollow.getUserInfo().getUserName()
         );
+    }
+
+    /**
+     * Removes the follows in both directions between two users, without loading them. Called by UserBlockService
+     * inside its transaction when a user blocks another one.
+     * @param userId ID of one of the users
+     * @param otherUserId ID of the other user
+     */
+    @Transactional
+    public void removeFollowsBetween(Long userId, Long otherUserId) {
+        followerRepository.deleteFollowsBetween(userId, otherUserId);
     }
 
     /**

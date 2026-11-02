@@ -33,6 +33,9 @@ public class CommentService {
         Long callerId = authenticatedUserService.getAuthenticatedUserId();
         // Visibility goes before the text: a hidden publication answers 404 even with a blank text
         Publication publication = publicationValidationService.validateAndGetVisiblePublication(publicationId, callerId);
+        // The block goes after the visibility, so a hidden publication reveals nothing, and before the text,
+        // because it is an access permission and not a content check
+        commentValidationService.validateNoBlockWithPublicationAuthor(publication, callerId);
         String text = commentValidationService.validateAndNormalizeText(dto.getText());
 
         // getReferenceById returns a proxy: no SELECT of the caller just to link it, the token already proved it exists
